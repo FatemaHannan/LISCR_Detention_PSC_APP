@@ -174,6 +174,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser})
     )
   ];
 
+  console.log('allVessels count:', allVessels.length, 'xlsxVessels count:', xlsxVessels.length);
   const filtered = allVessels.filter(v => {
     const vMonth = getMonth(v.detentionDate);
     if (month !== "All" && vMonth !== month) return false;
@@ -349,6 +350,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser})
       <button onClick={() => xlsxRef.current?.click()} style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer",fontSize:"12px",fontWeight:500}}>
         ↑ Import Excel
       </button>
+      {xlsxVessels.length > 0 && <span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)",alignSelf:"center"}}>{xlsxVessels.length} vessels imported</span>}
       <input ref={xlsxRef} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={handleXlsxImport} />
       <select value={month} onChange={e=>setMonth(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none",fontFamily:"var(--mono)"}}>
           {MONTHS.map(m=><option key={m}>{m}</option>)}
