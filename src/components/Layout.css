@@ -1,0 +1,65 @@
+.layout { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-mid);
+  border-right: 0.5px solid var(--border-dim);
+  display: flex; flex-direction: column;
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+.layout--collapsed .sidebar { width: 56px; }
+
+.sidebar-header {
+  padding: 14px 14px 12px;
+  border-bottom: 0.5px solid var(--border-dim);
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 58px;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.logo-mark {
+  width: 28px; height: 28px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 9px; font-weight: 500;
+  color: var(--accent); letter-spacing: 0.05em; flex-shrink: 0;
+}
+.logo-title { font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.logo-sub { font-size: 9px; font-family: var(--mono); color: var(--text-muted); letter-spacing: 0.05em; }
+
+.collapse-btn {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 16px; padding: 2px 4px; line-height: 1;
+  flex-shrink: 0; transition: color 0.15s;
+}
+.collapse-btn:hover { color: var(--accent); }
+
+.nav { padding: 10px 0; flex: 1; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; font-size: 13px; color: var(--text-muted);
+  text-decoration: none; transition: all 0.15s;
+  border-left: 2px solid transparent; white-space: nowrap;
+}
+.nav-item:hover { color: var(--text-secondary); background: var(--accent-dim2); }
+.nav-item--active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); }
+.nav-icon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
+.nav-label { font-size: 12px; }
+
+.sidebar-footer {
+  padding: 12px 14px;
+  border-top: 0.5px solid var(--border-dim);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sm-label { font-size: 9px; font-family: var(--mono); letter-spacing: 0.07em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
+.sm-value { font-family: var(--mono); font-size: 18px; font-weight: 300; }
+.sm-value.red { color: var(--red); }
+.sm-value.amber { color: var(--amber); }
+.sm-value.accent { color: var(--accent); }
+
+.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
