@@ -1,25 +1,16 @@
 import React, { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import { upsertVessel } from "../lib/db";
+import { supabase } from "../lib/supabase";
 
 export default function CaseImport({ onImported }) {
   const [results, setResults] = useState(null);
   const [importing, setImporting] = useState(false);
-  const fileRef = useRef(null);
-
-  function parseDate(val) {
-    if (!val) return "";
-    if (val instanceof Date) return val.toISOString().slice(0,10);
-    const s = String(val).trim();
-    const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m1) return m1[3]+"-"+m1[1].padStart(2,"0")+"-"+m1[2].padStart(2,"0");
-    if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0,10);
-    return s;
-  }
+  const inputRef = useRef(null);
 
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
+    console.log("File selected:", file.name, file.size);
     setImporting(true);
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -27,53 +18,63 @@ export default function CaseImport({ onImported }) {
         const wb = XLSX.read(evt.target.result, {type:"binary", cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+        console.log("Rows parsed:", rows.length);
 
-        let created = 0, updated = 0, skipped = 0;
-        const imported = [];
-
-        const upsertPromises = [];
+        const vessels = [];
         rows.forEach(r => {
           const name = String(r["Vessel Name"]||"").trim();
-          const imo = String(r["IMO Number"]||"").replace(/[^0-9]/g,"");
-          if (!name && !imo) { skipped++; return; }
+          const imo = String(r["IMO Number"]||"").replace(/[^0-9]/g,"").trim();
+          if (!name || !imo) return;
+          const rawDate = r["Inspection Date"];
+          let detentionDate = "";
+          if (rawDate instanceof Date) detentionDate = rawDate.toISOString().slice(0,10);
+          else if (typeof rawDate === "string") detentionDate = rawDate.slice(0,10);
+          else detentionDate = String(rawDate||"").slice(0,10);
 
-          const detentionDate = parseDate(r["Inspection Date"]||r["Date"]||"");
-          const port = String(r["Port"]||"").split(",")[0].trim();
-          const mou = String(r["MOU"]||"").trim();
-          const defs = parseInt(String(r["Number Of Deficiencies"]||0))||0;
-          const detained = String(r["Detained"]||"").toLowerCase() === "yes";
-          const company = String(r["PSC Vessel Owner"]||"").trim();
-          const carStatus = String(r["CAR Status"]||"Not Received").trim();
-          const caseStatus = String(r["PSC Report Status"]||"New").trim();
-
-          const existing = null; // Will be checked by upsert onConflict
-          
-          const vessel = {
-            id: existing?.id || Date.now() + Math.random(),
-            name, imo, company, port, mou,
-            detentionDate, defs, detained,
-            carStatus, caseStatus,
-            status:"active", flags:[],
-            documents:0, openTasks:0, detainable:0,
-            ro:"—", type:"—", gt:0,
-            caseOwner:"Case Owner A", taskOwners:[],
-            addedDate: new Date().toISOString().slice(0,10),
-          };
-
-          const action = existing ? "updated" : "created";
-          if (action === "created") created++; else updated++;
-          upsertPromises.push(upsertVessel(vessel));
-          imported.push({...vessel, action});
+          vessels.push({
+            name, imo,
+            company: String(r["PSC Vessel Owner"]||"").trim(),
+            port: String(r["Port"]||"").split(",")[0].trim(),
+            mou: String(r["MOU"]||"").trim(),
+            detention_date: detentionDate,
+            defs: parseInt(String(r["Number Of Deficiencies"]||0))||0,
+            detained: String(r["Detained"]||"").toLowerCase() === "yes",
+            car_status: String(r["CAR Status"]||"Not Received").trim(),
+            case_status: String(r["Case Action Status"]||r["PSC Report Status"]||"New").trim(),
+            flag: String(r["Flag"]||"Liberia").trim(),
+            ro: "—", type: "—", gt: 0, status: "active",
+            flags: [], documents: 0, open_tasks: 0, detainable: 0,
+            case_owner: String(r["PSC Vessel Owner"]||"").trim() || "Case Owner A", task_owners: [],
+            added_date: new Date().toISOString().slice(0,10),
+          });
         });
 
-        await Promise.all(upsertPromises);
-        const linkedTasks = 0;
+        console.log("Vessels to save:", vessels.length, vessels.map(v=>v.name));
 
-        setResults({ created, updated, skipped, total: imported.length, linkedTasks, imported });
-        if (onImported) onImported(imported);
-        setImporting(false);
+        if (vessels.length === 0) {
+          alert("No vessels found in file.");
+          setImporting(false);
+          return;
+        }
+
+        supabase.from("vessels")
+          .upsert(vessels, {onConflict:"imo,detention_date"})
+          .select()
+          .then(({data, error}) => {
+            console.log("Supabase result:", {data, error});
+            if (error) {
+              alert("Save error: " + error.message);
+              setImporting(false);
+              return;
+            }
+            setResults({ total: vessels.length, vessels });
+            setImporting(false);
+            if (onImported) onImported(data||vessels);
+          });
+
       } catch(err) {
-        alert("Import error: " + err.message);
+        console.error("Parse error:", err);
+        alert("Error: " + err.message);
         setImporting(false);
       }
     };
@@ -82,53 +83,47 @@ export default function CaseImport({ onImported }) {
   }
 
   return (
-    <div>
-      <input ref={fileRef} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={handleFile} />
-      <button onClick={() => fileRef.current?.click()} disabled={importing}
-        style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer",fontSize:"12px",fontWeight:500}}>
+    <div style={{display:"inline-flex",alignItems:"center",gap:"8px"}}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xlsm,.xls"
+        style={{display:"none"}}
+        onChange={handleFile}
+      />
+      <button
+        onClick={() => inputRef.current && inputRef.current.click()}
+        disabled={importing}
+        style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:"var(--green2)",cursor:importing?"not-allowed":"pointer",fontSize:"12px",fontWeight:500}}>
         {importing ? "Importing..." : "↑ Import Excel"}
       </button>
+      {results && <span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>{results.total} vessels imported to database</span>}
 
-      {results && (
-        <div style={{marginTop:"12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"12px"}}>
-            {[
-              {l:"New cases",v:results.created,c:"var(--green2)"},
-              {l:"Updated",v:results.updated,c:"var(--blue)"},
-              {l:"Tasks linked",v:results.linkedTasks,c:"var(--amber2)"},
-              {l:"Skipped",v:results.skipped,c:"var(--text3)"},
-            ].map(m => (
-              <div key={m.l} style={{background:"var(--bg3)",borderRadius:"8px",padding:"10px",border:"1px solid var(--border)"}}>
-                <div style={{fontSize:"9px",color:m.c,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
-                <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v}</div>
-              </div>
-            ))}
+      {results && results.vessels.length > 0 && (
+        <div style={{position:"absolute",top:"60px",right:"16px",background:"var(--bg2)",border:"1px solid var(--green)",borderRadius:"10px",padding:"13px",zIndex:100,minWidth:"500px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+            <div style={{fontSize:"12px",fontWeight:600,color:"var(--green2)"}}>{results.total} vessels saved to Supabase</div>
+            <button onClick={() => setResults(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"16px"}}>×</button>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
             <thead><tr>
-              {["Vessel","IMO","Port","MoU","Date","Defs","Action"].map(h => (
-                <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>
+              {["Vessel","IMO","Port","MoU","Date","Defs"].map(h => (
+                <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontFamily:"var(--mono)"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {results.imported.slice(0,10).map((v,i) => (
+              {results.vessels.map((v,i) => (
                 <tr key={i}>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text)",fontWeight:500}}>{v.name}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px"}}>{v.imo}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{v.port}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{v.mou}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px"}}>{v.detentionDate}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:v.defs>=10?"var(--red2)":v.defs>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",textAlign:"center"}}>{v.defs}</td>
-                  <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}>
-                    <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",fontFamily:"var(--mono)",fontWeight:600,background:v.action==="created"?"var(--green-bg)":"var(--blue-bg)",color:v.action==="created"?"var(--green2)":"var(--blue)"}}>
-                      {v.action==="created"?"NEW":"UPDATED"}
-                    </span>
-                  </td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:"var(--text)",fontWeight:500}}>{v.name}</td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px"}}>{v.imo}</td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{v.port}</td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{v.mou}</td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px"}}>{v.detention_date}</td>
+                  <td style={{padding:"6px 8px",borderBottom:"1px solid var(--border)",color:v.defs>=10?"var(--red2)":v.defs>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",textAlign:"center"}}>{v.defs}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {results.imported.length > 10 && <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px",fontFamily:"var(--mono)"}}>...and {results.imported.length-10} more vessels</div>}
         </div>
       )}
     </div>

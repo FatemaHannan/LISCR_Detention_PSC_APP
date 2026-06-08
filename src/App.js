@@ -13,7 +13,8 @@ import PatternDetection from "./pages/PatternDetection";
 import VesselManager from "./pages/VesselManager";
 import { MASTER_PROMPT } from "./lib/masterPrompt";
 import UploadAnalyze from "./pages/UploadAnalyze";
-import { METRICS } from "./data/masterData";
+import { METRICS, VESSELS, TASKS } from "./data/masterData";
+import { getVessels, getTasks } from "./lib/db";
 import "./App.css";
 
 const NAV = [
@@ -106,6 +107,13 @@ export default function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [fleetVessels, setFleetVessels] = useState(VESSELS);
+  const [fleetTasks, setFleetTasks] = useState(TASKS);
+
+  React.useEffect(() => {
+    getVessels().then(v => setFleetVessels([...VESSELS, ...v.filter(dv => !VESSELS.find(s => s.imo === dv.imo && s.detentionDate === dv.detentionDate))]));
+    getTasks().then(t => setFleetTasks([...TASKS, ...t.filter(dt => !TASKS.find(s => s.id === dt.id))]));
+  }, []);
   const [processing, setProcessing] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -213,7 +221,7 @@ export default function App() {
 
           {page === "home" && (
             <div className="pg active">
-              <div className="al al-r"><i className="ti ti-alert-triangle"></i><div><strong>5 tasks overdue.</strong> ROTTERDAM PEARL V (69 days), ROSTRUM STOIC (25 days), CONTSHIP CUB, ANDREAS K, EC FATMA.</div></div>
+              <div className="al al-r"><i className="ti ti-alert-triangle"></i><div><strong>{fleetTasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()).length} tasks overdue.</strong> Review PDAIP for details.</div></div>
               <div className="al al-a"><i className="ti ti-alert-circle"></i><div><strong>51% of all PDAIP tasks assigned to one coordinator</strong> (69/136) — single point of failure. 7-8 immediately delegatable.</div></div>
               <div className="two">
                 <div className="card">
@@ -349,10 +357,10 @@ export default function App() {
           {page === "fleet" && (
             <div className="pg active">
               <div className="mg4">
-                <div className="met"><div className="m-l">Total YTD</div><div className="m-v">107</div><div className="m-s">Jan-Jun 2026</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>Tokyo MOU</div><div className="m-v" style={{color:"var(--amber2)"}}>51</div><div className="m-s">48% of total</div></div>
-                <div className="met"><div className="m-l">Paris MOU</div><div className="m-v">25</div><div className="m-s">23% of total</div></div>
-                <div className="met"><div className="m-l">AMSA</div><div className="m-v">14</div><div className="m-s">13% of total</div></div>
+                <div className="met"><div className="m-l">Total vessels</div><div className="m-v">{fleetVessels.length}</div><div className="m-s">Jan-Jun 2026</div></div>
+                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Detained</div><div className="m-v" style={{color:"var(--red2)"}}>{fleetVessels.filter(v=>v.detained).length}</div><div className="m-s">currently detained</div></div>
+                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>Open tasks</div><div className="m-v" style={{color:"var(--amber2)"}}>{fleetTasks.filter(t=>t.status!=="Executed").length}</div><div className="m-s">PDAIP tasks open</div></div>
+                <div className="met"><div className="m-l">Tokyo MOU</div><div className="m-v">{fleetVessels.filter(v=>v.mou==="Tokyo MOU").length}</div><div className="m-s">{Math.round(fleetVessels.filter(v=>v.mou==="Tokyo MOU").length/Math.max(fleetVessels.length,1)*100)}% of total</div></div>
               </div>
               <div className="two">
                 <div className="card">
