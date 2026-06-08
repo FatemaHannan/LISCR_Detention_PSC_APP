@@ -1,27 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import store from "../store/dataStore";
+import PdaipImport from "./PdaipImport";
 
-const TASKS_DATA = [
-  { v:"OCEAN GALAXY", imo:"9852705", t:"Submit external Flag State audit (MLC Title 4 + ISM 7/8/12) to Maritime NZ before departure", assignee:"rs.technical", due:"2026-06-01", status:"To Do", priority:"Critical", type:"Rectification", flags:["WHISTLEBLOWER","RO SURVEY GAP"] },
-  { v:"OCEAN GALAXY", imo:"9852705", t:"Investigate fraudulent Official Log Book entry (def 8, code 11134). Notify DPA + Flag State.", assignee:"psc.affairs", due:"2026-06-01", status:"To Do", priority:"Critical", type:"Investigation", flags:["FRAUDULENT RECORD"] },
-  { v:"OCEAN GALAXY", imo:"9852705", t:"Whistleblower protocol — senior approval before any HMM contact. Do not disclose source.", assignee:"fleet.performance", due:"2026-06-01", status:"To Do", priority:"Urgent", type:"Administrative", flags:["WHISTLEBLOWER"] },
-  { v:"OCEAN GALAXY", imo:"9852705", t:"KR RO oversight: formal letter — which records reviewed on 2 May 2026?", assignee:"rs.technical", due:"2026-06-08", status:"To Do", priority:"High", type:"RO Oversight", flags:["RO SURVEY GAP"] },
-  { v:"OCEAN GALAXY", imo:"9852705", t:"HMM company outreach: 5 dets/24 mo, HRS, Seoul RO engagement, fleet-wide SMS review.", assignee:"mlc.lead", due:"2026-06-15", status:"To Do", priority:"High", type:"Administrative", flags:[] },
-  { v:"SOPOT", imo:"9727522", t:"Appeal submitted — awaiting USCG investigation report on alleged garbage pollution.", assignee:"fleet.performance", due:"2026-06-22", status:"Executed", priority:"Medium", type:"Administrative", flags:[], actions:"Waiting for USCG investigation report" },
-  { v:"MORNING CLOUD", imo:"9532197", t:"Conduct inspector oversight — physical boarding required at next port.", assignee:"inspection.lead", due:"2026-06-22", status:"To Do", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"SVR MERCURY", imo:"8822600", t:"Vessel cancellation — letter sent 01 June 2026.", assignee:"fleet.performance", due:"2026-06-15", status:"Executed", priority:"Medium", type:"Administrative", flags:[], actions:"Cancellation letter sent 01 June 2026" },
-  { v:"SVR MERCURY", imo:"8822600", t:"Coordinate NOC, COM, Doc Audit closure in Waypoint.", assignee:"admin", due:"2026-06-23", status:"To Do", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"AMI", imo:"9303833", t:"Remind company of EPL limitations (POL-16 MA). Brief DO, Vetter, Operations.", assignee:"rs.technical", due:"2026-06-22", status:"To Do", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"AMI", imo:"9303833", t:"Prepare company summary, schedule meeting, board vessel on every call.", assignee:"fleet.performance", due:"2026-06-15", status:"To Do", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"SEALAND LOS ANGELES", imo:"9383235", t:"RO oversight review with DNV — prior March inspection was remote. Next must be physical.", assignee:"rs.technical", due:"2026-06-22", status:"To Do", priority:"Medium", type:"RO Oversight", flags:[] },
-  { v:"MARIELENA", imo:"9376359", t:"Investigate with Claas.", assignee:"rs.technical", due:"2026-06-22", status:"To Do", priority:"Medium", type:"Investigation", flags:[] },
-  { v:"WANTAI", imo:"9168207", t:"Investigate corrosion findings.", assignee:"rs.technical", due:"2026-06-22", status:"To Do", priority:"Medium", type:"Investigation", flags:[] },
-  { v:"CONTSHIP CUB", imo:"9683477", t:"Company outreach — remind coordinators to follow PSC procedures.", assignee:"fleet.performance", due:"2026-06-03", status:"In Progress", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"ANDREAS K", imo:"9491226", t:"Vessel cancellation and deletion — 2 detentions in 10 weeks.", assignee:"fleet.performance", due:"2026-06-23", status:"In Progress", priority:"High", type:"Administrative", flags:["REPEAT DETAINEE"] },
-  { v:"ANDREAS K", imo:"9491226", t:"RO oversight — review DOC audit after second detention.", assignee:"psc.affairs", due:"2026-06-23", status:"In Progress", priority:"High", type:"RO Oversight", flags:["REPEAT DETAINEE"], actions:"Reviewed — no outcome documented" },
-  { v:"EVELPIS", imo:"9548158", t:"Streamline casualty investigation process.", assignee:"fleet.performance", due:"2026-06-03", status:"Executed", priority:"Medium", type:"Administrative", flags:[] },
-  { v:"PACIFIC BLESSING", imo:"9848089", t:"Review fleet and track vessels going to Australia for proactive monitoring.", assignee:"fleet.performance", due:"2026-06-03", status:"Executed", priority:"Medium", type:"Administrative", flags:[], actions:"Fleet checked, Vetting team informed." },
-  { v:"ILIANA", imo:"9490715", t:"Inactivate Romania inspection and review inspector concerns.", assignee:"fleet.performance", due:"2026-06-03", status:"Executed", priority:"Medium", type:"Administrative", flags:[] },
-];
+const TASKS_DATA = []
 
 const EMPTY = {v:"",imo:"",t:"",assignee:"",due:"",status:"To Do",priority:"Medium",type:"Administrative"};
 const PAGE_SIZE = 10;
@@ -38,6 +19,15 @@ function bdg(s) {
 export default function PdaipPage() {
   const [tab, setTab] = useState("summary");
   const [tasks, setTasks] = useState(TASKS_DATA);
+
+  useEffect(() => {
+    const unsub = store.subscribe(() => {
+      if (store.tasks.length > 0) {
+        setTasks([...TASKS_DATA, ...store.tasks.filter(t => !TASKS_DATA.find(d => d.title === t.title && d.imo === t.imo))]);
+      }
+    });
+    return unsub;
+  }, []);
   const [fv, setFv] = useState("All");
   const [fs, setFs] = useState("All");
   const [selectedVessels, setSelectedVessels] = useState([]);
@@ -131,6 +121,7 @@ export default function PdaipPage() {
               {["All","To Do","In Progress","Executed"].map(s => <option key={s}>{s}</option>)}
             </select>
             <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} tasks</span>
+            <PdaipImport onImported={(tasks) => setTasks(prev => [...prev, ...tasks.filter(t => !prev.find(p => p.title===t.title && p.imo===t.imo))])} />
             <button onClick={() => setShowAdd(true)}
               style={{padding:"6px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"11px",fontWeight:500}}>
               + Add task

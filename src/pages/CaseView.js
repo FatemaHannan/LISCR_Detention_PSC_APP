@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { VESSELS, TASKS, DOC_TYPES } from "../data/masterData";
 import * as XLSX from "xlsx";
+import store from "../store/dataStore";
+import CaseImport from "./CaseImport";
+import { getVessels, upsertVessel, deleteVessel, getTasks, getGaps, upsertGap, deleteGap, getEvpQA, upsertEvpQA, logAction } from "../lib/db";
 import EditModal from "../components/EditModal";
 
 const MONTHS = ["All","Jun 2026","May 2026","Apr 2026","Mar 2026","Feb 2026","Jan 2026"];
@@ -127,6 +130,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser})
   const [localData, setLocalData] = useState({});
   const [docUploads, setDocUploads] = useState({});
   const [showNewCase, setShowNewCase] = useState(false);
+  const [dbVessels, setDbVessels] = useState([]);
+  const [dbTasks, setDbTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      const [v, t] = await Promise.all([getVessels(), getTasks()]);
+      setDbVessels(v);
+      setDbTasks(t);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
   const [xlsxVessels, setXlsxVessels] = useState([]);
   const xlsxRef = React.useRef(null);
 
