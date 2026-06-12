@@ -68,6 +68,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [analyzing, setAnalyzing] = useState({});
   const [gapStates, setGapStates] = useState({});
   const [saving, setSaving] = useState(false);
+  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], loading:false});
 
   useEffect(() => {
     loadAll();
@@ -79,6 +80,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setDbVessels(v);
     setDbTasks(t);
     setLoading(false);
+  }
+
+  async function loadIntelligence(imo, company) {
+    setIntel(p => ({...p, loading:true}));
+    const [vRes, cRes, dRes, iRes, mRes, pRes] = await Promise.all([
+      supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
+      supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
+      supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
+      supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(20),
+      supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
+      supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
+    ]);
+    setIntel({vessel:vRes.data?.[0]||null, client:cRes.data?.[0]||null, dpp:dRes.data||[], inspections:iRes.data||[], mlc:mRes.data||[], psc:pRes.data||[], loading:false});
   }
 
   async function refreshVessels() {
@@ -321,6 +335,21 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   return (
     <div style={{padding:"16px"}}>
+      {/* Stats dashboard */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
+        {[
+          {l:"Total Cases",v:filtered.length,c:"var(--text)"},
+          {l:"Detained",v:detained.length,c:"var(--red2)"},
+          {l:"Active/Released",v:active.length,c:"var(--green2)"},
+          {l:"With Flags",v:filtered.filter(v=>v.flags?.length>0).length,c:"var(--amber2)"},
+          {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===("Jun 2026")).length,c:"var(--blue)"},
+        ].map(s=>(
+          <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
+            <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+          </div>
+        ))}
+      </div>
       {/* Filters */}
       <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
         <div style={{display:"flex",gap:"6px",border:"1px solid var(--border)",borderRadius:"6px",overflow:"hidden"}}>
@@ -423,8 +452,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           </div>
 
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px",overflowX:"auto"}}>
-            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"History"},{id:"timeline",l:"Timeline"}].map(t=>(
-              <div key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 14px",fontSize:"11px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
+            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"History"},{id:"intelligence",l:"Intelligence"},{id:"timeline",l:"Timeline"}].map(t=>(
+              <div key={t.id} onClick={()=>{setTab(t.id);if(t.id==="intelligence"&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"11px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
             ))}
           </div>
 
@@ -436,7 +465,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["Case Owner",v.caseOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"11px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
@@ -594,8 +623,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{fontSize:"11px",color:"var(--text2)"}}>Tasks linked by IMO {v.imo}</div>
                 {canDownload&&(
                   <button onClick={()=>{
-                    const rows=[["Vessel","IMO","Task","Task Owner","Case Owner","Priority","Status","Due","Actions"]];
-                    vesselTasks.forEach(t=>rows.push([t.vessel,t.imo,t.title,t.taskOwner,t.caseOwner,t.priority,t.status,t.due,t.actions]));
+                    const rows=[["Vessel","IMO","Task","Task Owner","FSI Case Owner","PSC Case Owner","Priority","Status","Due","Actions"]];
+                    vesselTasks.forEach(t=>rows.push([t.vessel,t.imo,t.title,t.taskOwner,t.fsiCaseOwner||"",t.pscOwner||"",t.priority,t.status,t.due,t.actions]));
                     const blob=new Blob([rows.map(r=>r.map(c=>`"${String(c||"").replace(/"/g,"\"")}"`).join(",")).join("\n")],{type:"text/csv"});
                     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=v.name+"_tasks.csv";a.click();
                   }} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download tasks</button>
@@ -610,7 +639,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",fontSize:"10px"}}>
                     <div><span style={{color:"var(--text3)"}}>Task Owner: </span><span style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{t.taskOwner}</span></div>
-                    <div><span style={{color:"var(--text3)"}}>Case Owner: </span><span style={{color:"var(--text2)"}}>{t.caseOwner}</span></div>
+                    <div><span style={{color:"var(--text3)"}}>FSI: </span><span style={{color:"var(--text2)"}}>{t.fsiCaseOwner||"—"}</span><span style={{color:"var(--text3)",marginLeft:"8px"}}>PSC: </span><span style={{color:"var(--text2)"}}>{t.pscOwner||"—"}</span></div>
                     <div><span style={{color:"var(--text3)"}}>Due: </span><span style={{color:new Date(t.due)<new Date()&&t.status!=="Executed"?"var(--red2)":"var(--text2)",fontFamily:"var(--mono)"}}>{t.due}</span></div>
                   </div>
                   {t.actions&&<div style={{fontSize:"10px",color:"var(--text3)",marginTop:"5px",fontStyle:"italic"}}>Actions: {t.actions}</div>}
@@ -671,6 +700,81 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           {/* TIMELINE TAB */}
+          {tab==="intelligence"&&(
+            <div style={{display:"grid",gap:"12px"}}>
+              {intel.loading&&<div style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>Loading intelligence data...</div>}
+              {!intel.loading&&(<>
+                {/* LISCR Inspection History */}
+                <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>LISCR Inspection History <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.inspections.length} records)</span></div>
+                  {intel.inspections.length>0?(
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","CAR","Last Onboard"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{intel.inspections.map((h,i)=>(
+                        <tr key={i} style={{background:h.was_detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{h.inspection_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{h.port||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.mou||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.inspection_type||h.flag_psc||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:h.num_findings>=10?"var(--red2)":h.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:h.num_findings>=5?600:400}}>{h.num_findings||0}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{h.was_detained?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:<span style={{color:"var(--text3)",fontSize:"10px"}}>No</span>}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.car_status||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.last_onboard||"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  ):<div style={{color:"var(--text3)",fontSize:"11px"}}>No inspection history found. Upload weekly Consolidated Inspection History report.</div>}
+                </div>
+                {/* Vessel Risk Profile */}
+                <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Vessel Risk Profile <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>(Client Vessel Details)</span></div>
+                  {intel.vessel?(
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                      {[["RO",intel.vessel.ro],["Type",intel.vessel.vsl_type],["Age",intel.vessel.age+" yrs"],["FSC Score",intel.vessel.fsc||"—"],["PSC Inspections",intel.vessel.psc_insps||0],["PSC Finding Avg",intel.vessel.psc_finding_avg||"—"],["Detentions",intel.vessel.num_detentions||0],["Det %",(intel.vessel.psc_det_pct*100||0).toFixed(1)+"%"],["Status",intel.vessel.vsl_status||"—"]].map(([l,v])=>(
+                        <div key={l} style={{background:"var(--bg2)",borderRadius:"6px",padding:"8px 10px"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
+                          <div style={{fontSize:"12px",color:"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ):<div style={{color:"var(--text3)",fontSize:"11px"}}>No vessel profile found. Upload weekly Client Vessel Details report.</div>}
+                </div>
+                {/* ISM Client Benchmark */}
+                {intel.client&&(
+                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>ISM Client: <span style={{color:"var(--blue)"}}>{intel.client.ism_client}</span></div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                      {[["Peer Rank",intel.client.peer_rank],["Fleet Size",intel.client.vsls_with_insps+" vsls"],["Detentions",intel.client.num_dets||0],["PSC Det %",(intel.client.psc_det_pct*100||0).toFixed(2)+"%"],["PSC Finding Avg",intel.client.psc_finding_avg||"—"],["FSC Score",intel.client.fsc||"—"]].map(([l,v])=>(
+                        <div key={l} style={{background:"var(--bg2)",borderRadius:"6px",padding:"8px 10px",border:l==="Peer Rank"&&String(v).includes("Bottom")?"1px solid var(--red)":"1px solid transparent"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
+                          <div style={{fontSize:"12px",color:l==="Peer Rank"&&String(v).includes("Bottom")?"var(--red2)":l==="Peer Rank"&&String(v).includes("Top")?"var(--green2)":"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* MLC Complaints */}
+                {intel.mlc.length>0&&(
+                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>MLC Complaints ({intel.mlc.length})</div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["Date","Status","Type","Inspector","Risk"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{intel.mlc.map((m,i)=>(
+                        <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{m.reported_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontSize:"10px",fontWeight:600}}>{m.mlc_status||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{m.inspection_type||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{m.last_onboard||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",fontSize:"10px"}}>{m.risk_level||"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
+              </>)}
+            </div>
+          )}
+
           {tab==="timeline"&&(
             <div style={{position:"relative",paddingLeft:"24px"}}>
               <div style={{position:"absolute",left:"8px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
@@ -709,7 +813,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}} />
                 </div>
               ))}
-              {[["MoU","mou",["Tokyo MOU","Paris MOU","AMSA","USCG","Black Sea MOU"]],["Case owner","caseOwner",["Case Owner A","Case Owner B","Case Owner C","Vadym Shylov","Alfonso Ostia","Orlando Brown"]]].map(([label,key,options])=>(
+              {[["MoU","mou",["Tokyo MOU","Paris MOU","AMSA","USCG","Black Sea MOU"]],["FSI Case Owner","fsiCaseOwner",["Fatema Hannan","Cedric","Giorgio","Ankita","Rod","Chris"]],["PSC Case Owner","pscOwner",["Fatema Hannan","Cedric","Giorgio","Ankita","Rod","Chris"]]].map(([label,key,options])=>(
                 <div key={key}>
                   <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
                   <select value={newCase[key]||""} onChange={e=>setNewCase(p=>({...p,[key]:e.target.value}))}
@@ -727,7 +831,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 await upsertVessel(vessel);
                 await refreshVessels();
                 setShowNewCase(false);
-                setNewCase({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",caseOwner:"Case Owner A"});
+                setNewCase({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",fsiCaseOwner:"",pscOwner:""});
               }} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Create case</button>
             </div>
           </div>
@@ -757,7 +861,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             {key:"name",label:"Vessel name",type:"text"},
             {key:"company",label:"Company",type:"text"},
             {key:"ro",label:"RO / Class",type:"text"},
-            {key:"caseOwner",label:"Case owner",type:"text"},
+            {key:"fsiCaseOwner",label:"FSI Case Owner",type:"text"},{key:"pscOwner",label:"PSC Case Owner",type:"text"},
             {key:"appeal",label:"Appeal",type:"select",options:["NOT recommended","Under consideration","Recommended","Submitted","Rejected"]},
             {key:"carStatus",label:"CAR status",type:"select",options:["Not Received","Received","Complete","Rejected"]},
             {key:"caseStatus",label:"Case status",type:"select",options:["New","Pending Review","Pending CAR","In Progress","Close Case"]},

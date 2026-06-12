@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
+import WeeklyData from "./pages/WeeklyData";
 import CaseView from "./pages/CaseView";
 import MyTasks from "./pages/MyTasks";
 import PdaipPage from "./pages/PdaipPage";
@@ -48,6 +49,7 @@ const NAV = [
   { section:"SYSTEM", items:[
     { id:"vessels", label:"Vessel manager", icon:"ti-ship", badge:null },
     { id:"admin", label:"Admin panel", icon:"ti-shield-lock", badge:null },
+    { id:"weekly", label:"Weekly data", icon:"ti-database-import", badge:null },
   ]},
 ];
 
@@ -353,6 +355,7 @@ export default function App() {
           {page === "patterns" && <PatternDetection learnedPatterns={window._learnedPatterns||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} />}
           {page === "admin" && <AdminPanel />}
+          {page === "weekly" && <WeeklyData currentUser={currentUser} />}
 
           {page === "fleet" && (
             <div className="pg active">
