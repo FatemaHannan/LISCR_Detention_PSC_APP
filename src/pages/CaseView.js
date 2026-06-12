@@ -173,7 +173,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
     const prompts = {
       pscReport: "You are analyzing a PSC Port State Control inspection report for LISCR Liberia flag state. Extract ALL information. Return ONLY valid JSON: {vesselName, imo, port, mou, psco, grossTonnage, company, ro, classificationSociety, inspectionDate, detained, detentionDate, releaseConditions, deficiencies:[{n,code,desc,action,ro,detainable}], flags:[]}. Action codes: 30=detainable, 17=rectify before next port, 50=outstanding may sail.",
-      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Extract ALL information. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], psco, roOverviewRequired, fsiOverviewRequired, vettingNotes, detentionNotes, caseOwner}. Generate evpQA answers for: What happened, When were we last on board, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required.",
+      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], psco, vettingNotes, detentionNotes, finalRecommendations, fsiNotes, caseOwner}. vettingNotes=Vetting Details section. detentionNotes=Detention Notes section. finalRecommendations=Final Recommendations section. fsiNotes=Flag State Inspection notes. Generate evpQA for: What happened, When last onboard, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required.",
       roSurvey: "Analyze this RO Class survey report. Return ONLY valid JSON: {surveyDate, surveyorName, findingsCount, findings:[], certificatesIssued:[], outstandingConditions:[], vesselName, imo}",
       carDocument: "Analyze this Corrective Action Report. Return ONLY valid JSON: {submissionDate, submittedBy, actions:[{defCode,actionTaken}], acceptedByPSC, rejectionReason, vesselName, imo}",
       meetingMinutes: "Analyze these meeting minutes. Return ONLY valid JSON: {meetingDate, actionItems:[{vessel,imo,action,owner,dueDate,status}]}",
@@ -249,6 +249,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         if (parsed.flags?.length) updates.flags = [...new Set([...(sel?.flags||[]),...parsed.flags])];
         if (parsed.appealRecommendation) updates.appeal = parsed.appealRecommendation;
         if (parsed.company && parsed.company !== "Unknown") updates.company = parsed.company;
+        if (parsed.vettingNotes) updates.vettingNotes = parsed.vettingNotes;
+        if (parsed.detentionNotes) updates.detentionNotes = parsed.detentionNotes;
+        if (parsed.finalRecommendations) updates.finalRecommendations = parsed.finalRecommendations;
+        if (parsed.fsiNotes) updates.fsiNotes = parsed.fsiNotes;
+        if (parsed.psco) updates.psco = parsed.psco;
         if (parsed.recommendations?.length) {
           updates.gaps = [...(sel?.gaps||[]),...parsed.recommendations.map(r=>({severity:"High",title:r,desc:r,source:"Detention analysis"}))];
         }
@@ -452,7 +457,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           </div>
 
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px",overflowX:"auto"}}>
-            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"History"},{id:"intelligence",l:"Intelligence"},{id:"timeline",l:"Timeline"}].map(t=>(
+            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"History"},{id:"intelligence",l:"Intelligence"},{id:"timeline",l:"Timeline"},{id:"summary",l:"Summary"}].map(t=>(
               <div key={t.id} onClick={()=>{setTab(t.id);if(t.id==="intelligence"&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"11px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
             ))}
           </div>
@@ -792,6 +797,93 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   {item.note&&<div style={{fontSize:"10px",color:"var(--text3)",fontStyle:"italic"}}>{item.note}</div>}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* SUMMARY TAB */}
+          {tab==="summary"&&(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vetting notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("vetting")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  </div>
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                    {v.vettingNotes||"Upload detention analysis to extract vetting notes automatically."}
+                  </div>
+                </div>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Final recommendations</div>
+                    {canEdit&&<button onClick={()=>setEditModal("recommendations")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  </div>
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                    {v.finalRecommendations||"Upload detention analysis to extract final recommendations automatically."}
+                  </div>
+                </div>
+              </div>
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginTop:"10px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Administrative summary</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                  {[
+                    {l:"Total deficiencies",v2:v.defs||0,c:"var(--text)"},
+                    {l:"Detainable",v2:v.detainable||0,c:"var(--red2)"},
+                    {l:"Open tasks",v2:vesselTasks.filter(t=>t.status!=="Executed").length,c:"var(--amber2)"},
+                    {l:"Documents uploaded",v2:dbDocs.length,c:"var(--blue)"},
+                    {l:"Gaps detected",v2:v.gaps?.length||0,c:"var(--amber2)"},
+                    {l:"EVP Q&A",v2:v.evpQA?.length||0,c:"var(--green2)"},
+                  ].map(m=>(
+                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"8px",padding:"10px",border:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
+                      <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v2}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="timeline"&&(
+            <div style={{position:"relative",paddingLeft:"24px"}}>
+              <div style={{position:"absolute",left:"8px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
+              {[
+                ...(v.history||[]).map(h=>({date:h.date,label:h.port+" — "+h.mou+" — "+h.defs+" defs"+(h.detained?" — DETAINED":""),type:h.detained?"r":"g",note:h.note})),
+                v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings===0?"0 findings":v.roFindings+" findings"),type:"a"},
+                {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies — "+v.detentionDate,type:"r",note:v.release?v.release.slice(0,80):""},
+                dbDocs.length>0&&{date:"Documents",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
+                vesselTasks.length>0&&{date:"PDAIP",label:vesselTasks.length+" tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
+              ].filter(Boolean).map((item,i)=>(
+                <div key={i} style={{position:"relative",marginBottom:"14px",paddingLeft:"16px"}}>
+                  <div style={{position:"absolute",left:"-19px",top:"4px",width:"12px",height:"12px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
+                  <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
+                  <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500,marginBottom:"2px"}}>{item.label}</div>
+                  {item.note&&<div style={{fontSize:"10px",color:"var(--text3)",fontStyle:"italic"}}>{item.note}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab==="summary"&&(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"12px"}}>
+                {[
+                  {l:"Deficiencies",v:v.defs||0,c:"var(--red2)"},
+                  {l:"Detainable",v:v.detainable||0,c:"var(--amber2)"},
+                  {l:"Documents",v:dbDocs.length,c:"var(--blue)"},
+                  {l:"Tasks",v:vesselTasks.length,c:"var(--text)"},
+                  {l:"Executed",v:vesselTasks.filter(t=>t.status==="Executed").length,c:"var(--green2)"},
+                  {l:"Gaps",v:v.gaps?.length||0,c:"var(--amber2)"},
+                ].map(s=>(
+                  <div key={s.l} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+                    <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
+                    <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+              {v.vettingNotes&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Vetting Notes</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.vettingNotes}</div></div>}
+              {v.finalRecommendations&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Final Recommendations</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.finalRecommendations}</div></div>}
+              {v.fsiNotes&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>FSI Notes</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.fsiNotes}</div></div>}
+              {v.detentionNotes&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"12px"}}><div style={{fontSize:"9px",color:"var(--amber2)",textTransform:"uppercase",marginBottom:"6px"}}>Detention Notes</div><div style={{fontSize:"11px",color:"var(--amber2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.detentionNotes}</div></div>}
             </div>
           )}
         </div>

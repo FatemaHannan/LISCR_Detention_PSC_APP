@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 
@@ -92,7 +92,12 @@ const UPLOADS = [
         vessel_type: s("vesseltype","vessel type"), age: n("age"),
       };
     },
-    filter: (r) => !!(r["Vessel"] && (r["IMO#"]||r["IMO"])),
+    filter: (r) => {
+      const keys = Object.keys(r);
+      const vk = keys.find(k => k.toLowerCase().includes("vessel"));
+      const ik = keys.find(k => k.toLowerCase().includes("imo"));
+      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
+    },
   },
   {
     key: "mlc_complaints",
@@ -104,7 +109,7 @@ const UPLOADS = [
       vessel: String(r["Vessel"]||"").trim(),
       imo: String(r["IMO#"]||r["IMO"]||"").replace(/[^0-9]/g,""),
       risk_level: String(r["Risk Level"]||"").trim(),
-      reported_date: r["Reported Date"] ? String(r["Reported Date"]).slice(0,10) : null,
+      reported_date: r["Reported Date"]||null,
       flag_psc: String(r["Flag/PSC"]||"").trim(),
       mlc_status: String(r["MLC Status"]||"").trim(),
       inspection_type: String(r["Inspection Type"]||"").trim(),
@@ -117,7 +122,12 @@ const UPLOADS = [
       vessel_type: String(r["Vessel Type"]||"").trim(),
       age: parseFloat(r["Age"])||0,
     }),
-    filter: (r) => !!(r["Vessel"] && (r["IMO#"]||r["IMO"])),
+    filter: (r) => {
+      const keys = Object.keys(r);
+      const vk = keys.find(k => k.toLowerCase().includes("vessel"));
+      const ik = keys.find(k => k.toLowerCase().includes("imo"));
+      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
+    },
   },
   {
     key: "psc_detention_summary",
@@ -128,7 +138,7 @@ const UPLOADS = [
     map: (r) => ({
       vessel: String(r["Vessel"]||"").trim(),
       imo: String(r["IMO#"]||r["IMO"]||"").replace(/[^0-9]/g,""),
-      inspection_date: r["Inspection Date"] ? String(r["Inspection Date"]).slice(0,10) : null,
+      inspection_date: r["Inspection Date"]||null,
       port: String(r["Port"]||"").trim(), mou: String(r["MOU"]||"").trim(),
       flag_psc: String(r["Flag/PSC"]||"").trim(),
       num_findings: parseInt(r["#Findings"])||0,
@@ -144,7 +154,12 @@ const UPLOADS = [
       ism_client: String(r["ISM Client"]||"").trim(),
       inspection_type: String(r["Inspection Type"]||"").trim(),
     }),
-    filter: (r) => !!(r["Vessel"] && (r["IMO#"]||r["IMO"])),
+    filter: (r) => {
+      const keys = Object.keys(r);
+      const vk = keys.find(k => k.toLowerCase().includes("vessel"));
+      const ik = keys.find(k => k.toLowerCase().includes("imo"));
+      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
+    },
   },
   {
     key: "dpp_case_files",
@@ -177,6 +192,17 @@ const UPLOADS = [
 export default function WeeklyData({ currentUser }) {
   const [status, setStatus] = useState({});
   const [uploading, setUploading] = useState({});
+  const [counts, setCounts] = useState({});
+
+  useEffect(() => {
+    // Load current row counts from Supabase
+    const tables = UPLOADS.map(u => u.table);
+    Promise.all(tables.map(t => supabase.from(t).select('count'))).then(results => {
+      const c = {};
+      results.forEach(({data}, i) => { c[tables[i]] = data?.[0]?.count||0; });
+      setCounts(c);
+    });
+  }, []);
 
   const isAdmin = currentUser?.role === "Super Admin" || currentUser?.role === "Admin";
   if (!isAdmin) return (
@@ -199,7 +225,29 @@ export default function WeeklyData({ currentUser }) {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
         const normalized = rows.map(r => { const c={}; Object.keys(r).forEach(k=>{c[k.trim().replace(/^﻿/,"")]=r[k];}); return c; });
-        const mapped = normalized.filter(cfg.filter).map(cfg.map);
+        // Fix Excel serial dates in all rows
+        function fixDate(v) {
+          if (!v && v !== 0) return null;
+          const s = String(v).trim();
+          if (/^\d{5}$/.test(s)) {
+            const d = new Date((parseInt(s)-25569)*86400*1000);
+            return d.toISOString().slice(0,10);
+          }
+          if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0,10);
+          if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+            const [m,d,y] = s.split("/");
+            return y+"-"+m.padStart(2,"0")+"-"+d.padStart(2,"0");
+          }
+          return null;
+        }
+        const fixedRows = normalized.map(r => {
+          const nr = {...r};
+          ["Reported Date","Inspection Date","reported_date","inspection_date"].forEach(k=>{
+            if(nr[k] !== undefined) nr[k] = fixDate(nr[k]);
+          });
+          return nr;
+        });
+        const mapped = fixedRows.filter(cfg.filter).map(cfg.map);
         if (!mapped.length) {
           setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"No valid rows found. Check file format."}}));
           setUploading(p => ({...p, [cfg.key]: false}));
@@ -215,7 +263,9 @@ export default function WeeklyData({ currentUser }) {
           saved += data.length;
           setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Uploading... ${saved} / ${mapped.length}`}}));
         }
-        setStatus(p => ({...p, [cfg.key]: {state:"done", msg:`${saved} records uploaded.`, count:saved, time:new Date().toLocaleString()}}));
+        const uploadTime = new Date().toLocaleString();
+        setStatus(p => ({...p, [cfg.key]: {state:"done", msg:`${saved} records uploaded.`, count:saved, time:uploadTime}}));
+        setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
       } catch(err) {
         setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Error: "+err.message}}));
@@ -223,6 +273,15 @@ export default function WeeklyData({ currentUser }) {
       }
     };
     reader.readAsBinaryString(file);
+  }
+
+  async function handleExport(cfg) {
+    const {data, error} = await supabase.from(cfg.table).select("*").limit(10000);
+    if (error || !data?.length) { alert("No data to export."); return; }
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, cfg.label.slice(0,31));
+    XLSX.writeFile(wb, cfg.table+"_export_"+new Date().toISOString().slice(0,10)+".xlsx");
   }
 
   return (
@@ -248,11 +307,15 @@ export default function WeeklyData({ currentUser }) {
                   </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
-                  {s?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>{s.count} records · {s.time}</span>}
-                  <input id={"file-"+cfg.key} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={e=>handleFile(cfg,e)} />
-                  <label htmlFor={"file-"+cfg.key} style={{padding:"7px 16px",border:"1px solid "+cfg.color,borderRadius:"6px",background:busy?"var(--bg3)":cfg.bg,color:busy?"var(--text3)":cfg.color,cursor:busy?"default":"pointer",fontSize:"11px",fontWeight:500,whiteSpace:"nowrap"}}>
-                    {busy?"Uploading...":"↑ Upload Excel"}
-                  </label>
+                  <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                    {counts[cfg.table]>0&&<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]} rows in DB</span>}
+                    {s?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>✓ {s.time}</span>}
+                    {counts[cfg.table]>0&&<button onClick={()=>handleExport(cfg)} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>↓ Export</button>}
+                    <input id={"file-"+cfg.key} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={e=>handleFile(cfg,e)} />
+                    <label htmlFor={"file-"+cfg.key} style={{padding:"7px 16px",border:"1px solid "+cfg.color,borderRadius:"6px",background:busy?"var(--bg3)":cfg.bg,color:busy?"var(--text3)":cfg.color,cursor:busy?"default":"pointer",fontSize:"11px",fontWeight:500,whiteSpace:"nowrap"}}>
+                      {busy?"Uploading...":"↑ Upload Excel"}
+                    </label>
+                  </div>
                 </div>
               </div>
               {s&&<div style={{padding:"8px 12px",borderRadius:"6px",fontSize:"11px",background:s.state==="done"?"var(--green-bg)":s.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(s.state==="done"?"var(--green)":s.state==="error"?"var(--red)":"var(--border)"),color:s.state==="done"?"var(--green2)":s.state==="error"?"var(--red2)":"var(--text3)"}}>{s.state==="done"?"✓ ":s.state==="error"?"✗ ":"⟳ "}{s.msg}</div>}

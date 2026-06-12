@@ -40,6 +40,10 @@ function mapVessel(v) {
     deficiencies: tryParse(v.deficiencies),
     gaps: tryParse(v.gaps),
     evpQA: tryParse(v.evp_qa_data),
+    vettingNotes: v.vetting_notes||"",
+    finalRecommendations: v.final_recommendations||"",
+    fsiNotes: v.fsi_notes||"",
+    detentionNotes: v.detention_notes||"",
     history: tryParse(v.history),
   };
 }
@@ -61,6 +65,10 @@ function toRow(vessel) {
     deficiencies: vessel.deficiencies?.length ? JSON.stringify(vessel.deficiencies) : null,
     gaps: vessel.gaps?.length ? JSON.stringify(vessel.gaps) : null,
     evp_qa_data: vessel.evpQA?.length ? JSON.stringify(vessel.evpQA) : null,
+    vetting_notes: vessel.vettingNotes||null,
+    final_recommendations: vessel.finalRecommendations||null,
+    fsi_notes: vessel.fsiNotes||null,
+    detention_notes: vessel.detentionNotes||null,
     history: vessel.history?.length ? JSON.stringify(vessel.history) : null,
     updated_at: new Date().toISOString(),
   };
