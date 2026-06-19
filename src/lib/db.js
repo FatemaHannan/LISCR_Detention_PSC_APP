@@ -109,10 +109,20 @@ export async function upsertTasksBulk(tasks) {
     success: t.success||"", remark: t.remark||"",
   }));
   let saved = [];
-  for (const row of rows) {
-    const { data, error } = await supabase.from("tasks").insert(row).select();
-    if (error) { console.error("upsertTasksBulk row error:", error, row.title); }
-    else if (data?.[0]) { saved.push(data[0]); }
+  const batchSize = 10;
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    const { data, error } = await supabase.from("tasks").insert(batch).select();
+    if (error) {
+      console.error("Batch failed, trying one by one:", error);
+      for (const row of batch) {
+        const { data: d2, error: e2 } = await supabase.from("tasks").insert(row).select();
+        if (e2) { console.error("Row error:", e2.message, row.title); }
+        else if (d2?.[0]) { saved.push(d2[0]); }
+      }
+    } else {
+      saved = saved.concat(data||[]);
+    }
   }
   return saved;
 }
