@@ -3,7 +3,6 @@ import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
 import WeeklyData from "./pages/WeeklyData";
 import CaseView from "./pages/CaseView";
-import MyTasks from "./pages/MyTasks";
 import PdaipPage from "./pages/PdaipPage";
 import AISMonitor from "./pages/AISMonitor";
 import InspectorNetwork from "./pages/InspectorNetwork";
@@ -344,7 +343,6 @@ export default function App() {
             </div>
           )}
 
-          {page === "tasks" && <MyTasks canEdit={canEdit} canDelete={canDelete} />}
           {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <PdaipPage canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} />}
           {page === "ais" && <AISMonitor />}
