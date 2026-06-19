@@ -108,13 +108,11 @@ export async function upsertTasksBulk(tasks) {
     actions: t.actions||"", source: t.source||"PDAIP Import",
     success: t.success||"", remark: t.remark||"",
   }));
-  const batchSize = 50;
   let saved = [];
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize);
-    const { data, error } = await supabase.from("tasks").insert(batch).select();
-    if (error) { console.error("upsertTasksBulk batch error:", error); }
-    else { saved = saved.concat(data||[]); }
+  for (const row of rows) {
+    const { data, error } = await supabase.from("tasks").insert(row).select();
+    if (error) { console.error("upsertTasksBulk row error:", error, row.title); }
+    else if (data?.[0]) { saved.push(data[0]); }
   }
   return saved;
 }
