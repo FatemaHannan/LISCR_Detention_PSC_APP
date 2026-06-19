@@ -373,7 +373,7 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
                       </div>
                     </th>
                   )}
-                  {["Vessel","IMO","Task","Assignee","Assigned To","Due","Priority","Status","Actions"].map(h=>(
+                  {["Vessel","IMO","Task","Assignee","Assigned To","Responsible","Detention Date","Due","Remark","Priority","Status","Actions"].map(h=>(
                     <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"8px 10px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
@@ -401,9 +401,12 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
                       </td>
                       <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px",whiteSpace:"nowrap"}}>{t.taskOwner||"—"}</td>
                       <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px",whiteSpace:"nowrap"}}>{t.assignedTo||"—"}</td>
+                      <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px",whiteSpace:"nowrap"}}>{t.responsible||"—"}</td>
+                      <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px",whiteSpace:"nowrap"}}>{t.detentionDate||"—"}</td>
                       <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:isOverdue?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px",whiteSpace:"nowrap"}}>
                         {t.due||"—"}{isOverdue&&<span style={{fontSize:"8px",marginLeft:"4px",background:"var(--red-bg)",color:"var(--red2)",padding:"1px 4px",borderRadius:"2px"}}>OVERDUE</span>}
                       </td>
+                      <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--amber2)",fontSize:"10px",maxWidth:"150px"}}>{t.remark||"—"}</td>
                       <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)"}}><span className={"badge "+(PRI[t.priority]||"b-gr")} style={{fontSize:"9px"}}>{t.priority}</span></td>
                       <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)"}}>
                         {canEdit?(
@@ -425,7 +428,7 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
                   );
                 })}
                 {filtered.length===0&&!loading&&(
-                  <tr><td colSpan={selectMode?10:9} style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>No tasks. Import PDAIP CSV to get started.</td></tr>
+                  <tr><td colSpan={selectMode?13:12} style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>No tasks. Import PDAIP CSV to get started.</td></tr>
                 )}
               </tbody>
             </table>
