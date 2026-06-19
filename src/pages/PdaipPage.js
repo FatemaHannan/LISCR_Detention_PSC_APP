@@ -17,54 +17,35 @@ function PdaipImport({ onImported }) {
     setImporting(true);
     setResult(null);
     try {
-      const text = await file.text();
-      const lines = text.split("\n");
-      let headerIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes("Title") && lines[i].includes("IMO") && lines[i].includes("Status")) {
-          headerIdx = i; break;
-        }
-      }
-      if (headerIdx === -1) { setResult({error:"Header row not found"}); setImporting(false); return; }
+      // Use SheetJS to parse CSV — handles multiline fields, quotes, special chars
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, {type:"array", raw:false});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:""});
 
-      function parseCSVLine(line) {
-        const result = []; let current = ""; let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          if (line[i] === '"') { inQuotes = !inQuotes; }
-          else if (line[i] === "," && !inQuotes) { result.push(current.trim()); current = ""; }
-          else { current += line[i]; }
-        }
-        result.push(current.trim());
-        return result;
-      }
+      if (!rows || rows.length === 0) { setResult({error:"No data found in file"}); setImporting(false); return; }
 
-      const headers = parseCSVLine(lines[headerIdx]);
       const tasks = [];
-      for (let i = headerIdx + 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const cols = parseCSVLine(line);
-        if (cols.length < 4) continue;
-        const row = {};
-        headers.forEach((h, idx) => { row[h.trim()] = (cols[idx]||"").trim(); });
-        // Skip only if BOTH imo and title are empty
-        if (!row.IMO && !row.Title) continue;
+      for (const row of rows) {
+        const title = (row["Title"]||row["title"]||"").toString().trim();
+        const imo = (row["IMO"]||row["imo"]||"").toString().trim();
+        if (!title && !imo) continue;
         tasks.push({
-          title: row.Title||"",
-          actions: row.ActionsTaken||"",
-          vessel: row.Vessel||"",
-          imo: row.IMO||"",
-          project: row.Project||"",
-          taskOwner: row.Assignee||"",
-          assignedTo: row.AssignedTo||"",
-          responsible: row.Responsible||"",
-          due: row.DueDate||"",
-          detentionDate: row.DetentionDate||"",
-          priority: row.Priority||"Medium",
-          status: row.Status||"To Do",
-          remark: row.Remark||"",
+          title,
+          actions: (row["ActionsTaken"]||"").toString().trim(),
+          vessel: (row["Vessel"]||"").toString().trim(),
+          imo,
+          project: (row["Project"]||"").toString().trim(),
+          taskOwner: (row["Assignee"]||"").toString().trim(),
+          assignedTo: (row["AssignedTo"]||"").toString().trim(),
+          responsible: (row["Responsible"]||"").toString().trim(),
+          due: (row["DueDate"]||"").toString().trim(),
+          detentionDate: (row["DetentionDate"]||"").toString().trim(),
+          priority: (row["Priority"]||"Medium").toString().trim(),
+          status: (row["Status"]||"To Do").toString().trim(),
+          remark: (row["Remark"]||"").toString().trim(),
           source: "PDAIP Import",
-          caseOwner: row.Assignee||"",
+          caseOwner: (row["Assignee"]||"").toString().trim(),
         });
       }
       if (tasks.length === 0) { setResult({error:"No tasks found"}); setImporting(false); return; }
