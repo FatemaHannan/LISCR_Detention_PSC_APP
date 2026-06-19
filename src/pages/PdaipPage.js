@@ -642,47 +642,74 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
         </div>
       )}
 
-      {/* Task detail modal */}
+      {/* Task detail modal - fully editable */}
       {taskDetail&&(
         <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
-          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"600px",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"620px",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Task Detail</div>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Edit Task</div>
               <button onClick={()=>setTaskDetail(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>×</button>
             </div>
-            <div style={{padding:"16px 20px",overflowY:"auto",flex:1}}>
-              <div style={{fontSize:"14px",fontWeight:600,color:"var(--text)",marginBottom:"12px",lineHeight:1.4}}>{taskDetail.title}</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"}}>
-                {[["Vessel",taskDetail.vessel],["IMO",taskDetail.imo],["Detention Date",taskDetail.detentionDate],["Project",taskDetail.project],["Assignee (Owner)",taskDetail.taskOwner],["Assigned To",taskDetail.assignedTo],["Responsible",taskDetail.responsible],["Due Date",taskDetail.due],["Priority",taskDetail.priority],["Status",taskDetail.status]].map(([label,value])=>(
-                  <div key={label} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                    <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{label}</div>
-                    <div style={{fontSize:"11px",color:"var(--text2)"}}>{value||"—"}</div>
-                  </div>
-                ))}
+            <div style={{padding:"16px 20px",overflowY:"auto",flex:1,display:"flex",flexDirection:"column",gap:"10px"}}>
+              {[["Task Title","title"],["Vessel","vessel"],["IMO","imo"],["Assignee (Owner)","taskOwner"],["Assigned To","assignedTo"],["Responsible","responsible"],["Remark","remark"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
+                  <input value={taskDetail[key]||""} onChange={e=>setTaskDetail(p=>({...p,[key]:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+              ))}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Due Date</div>
+                  <input type="date" value={taskDetail.due||""} onChange={e=>setTaskDetail(p=>({...p,due:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Detention Date</div>
+                  <input type="date" value={taskDetail.detentionDate||""} onChange={e=>setTaskDetail(p=>({...p,detentionDate:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Priority</div>
+                  <select value={taskDetail.priority||"Medium"} onChange={e=>setTaskDetail(p=>({...p,priority:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    {["Critical","Urgent","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Status</div>
+                  <select value={taskDetail.status||"To Do"} onChange={e=>setTaskDetail(p=>({...p,status:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    {["To Do","In Progress","Executed","On Hold","Completed"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
               </div>
-              {taskDetail.actions&&(
-                <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px",marginBottom:"8px"}}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>Actions Taken</div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{taskDetail.actions}</div>
-                </div>
-              )}
-              {taskDetail.remark&&(
-                <div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px"}}>
-                  <div style={{fontSize:"9px",color:"var(--amber2)",textTransform:"uppercase",marginBottom:"5px"}}>Remark</div>
-                  <div style={{fontSize:"11px",color:"var(--amber2)",lineHeight:1.6}}>{taskDetail.remark}</div>
-                </div>
-              )}
+              <div>
+                <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Actions Taken</div>
+                <textarea value={taskDetail.actions||""} onChange={e=>setTaskDetail(p=>({...p,actions:e.target.value}))} rows={3}
+                  style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
+              </div>
             </div>
             <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              {canEdit&&(
-                <select value={taskDetail.status} onChange={async e=>{
-                  const s=e.target.value;
-                  if(taskDetail.id){await updateTask(taskDetail.id,{status:s});setTaskDetail({...taskDetail,status:s});await loadTasks();}
-                }} style={{fontSize:"11px",padding:"6px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",outline:"none"}}>
-                  {["To Do","In Progress","Executed","On Hold","Completed"].map(s=><option key={s}>{s}</option>)}
-                </select>
+              {canDelete&&taskDetail.id&&(
+                <button onClick={()=>handleDelete(taskDetail)} style={{padding:"7px 14px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontSize:"12px"}}>Delete task</button>
               )}
-              <button onClick={()=>setTaskDetail(null)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Close</button>
+              <div style={{display:"flex",gap:"8px",marginLeft:"auto"}}>
+                <button onClick={()=>setTaskDetail(null)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+                <button onClick={async()=>{
+                  if(taskDetail.id){
+                    await updateTask(taskDetail.id,{
+                      title:taskDetail.title, vessel:taskDetail.vessel, imo:taskDetail.imo,
+                      task_owner:taskDetail.taskOwner, assigned_to:taskDetail.assignedTo,
+                      responsible:taskDetail.responsible, due:taskDetail.due,
+                      detention_date:taskDetail.detentionDate, priority:taskDetail.priority,
+                      status:taskDetail.status, actions:taskDetail.actions, remark:taskDetail.remark,
+                    });
+                    setTaskDetail(null);
+                    await loadTasks();
+                  }
+                }} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save changes</button>
+              </div>
             </div>
           </div>
         </div>
