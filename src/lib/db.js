@@ -88,6 +88,8 @@ export async function getTasks(imo) {
     id: t.id, vessel: t.vessel, imo: t.imo,
     detentionDate: t.detention_date||"", title: t.title,
     taskOwner: t.task_owner||"", caseOwner: t.case_owner||"",
+    assignedTo: t.assigned_to||"", project: t.project||"",
+    responsible: t.responsible||"",
     due: t.due||"", status: t.status||"To Do", priority: t.priority||"Medium",
     type: t.type||"Administrative", flags: t.flags||[],
     actions: t.actions||"", source: t.source||"", success: t.success||"", remark: t.remark||"",
@@ -97,16 +99,24 @@ export async function getTasks(imo) {
 export async function upsertTasksBulk(tasks) {
   const rows = tasks.map(t => ({
     vessel: t.vessel||"", imo: t.imo||"", detention_date: t.detentionDate||"",
-    title: t.title||"", task_owner: t.taskOwner||t.assignee||"",
-    case_owner: t.caseOwner||"—", due: t.due||"",
+    title: t.title||"", task_owner: t.taskOwner||t.caseOwner||"",
+    assigned_to: t.assignedTo||"", project: t.project||"",
+    responsible: t.responsible||"",
+    case_owner: t.caseOwner||"", due: t.due||"",
     status: t.status||"To Do", priority: t.priority||"Medium",
     type: t.type||"Administrative", flags: t.flags||[],
     actions: t.actions||"", source: t.source||"PDAIP Import",
     success: t.success||"", remark: t.remark||"",
   }));
-  const { data, error } = await supabase.from("tasks").insert(rows).select();
-  if (error) { console.error("upsertTasksBulk:", error); return []; }
-  return data||[];
+  const batchSize = 50;
+  let saved = [];
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    const { data, error } = await supabase.from("tasks").insert(batch).select();
+    if (error) { console.error("upsertTasksBulk batch error:", error); }
+    else { saved = saved.concat(data||[]); }
+  }
+  return saved;
 }
 
 export async function deleteTask(id) {
