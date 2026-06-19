@@ -30,22 +30,23 @@ function PdaipImport({ onImported }) {
         const title = (row["Title"]||row["title"]||"").toString().trim();
         const imo = (row["IMO"]||row["imo"]||"").toString().trim();
         if (!title && !imo) continue;
+        const clean = (v) => (v||"").toString().replace(/[\r\n]+/g," ").trim();
         tasks.push({
-          title,
-          actions: (row["ActionsTaken"]||"").toString().trim(),
-          vessel: (row["Vessel"]||"").toString().trim(),
-          imo,
-          project: (row["Project"]||"").toString().trim(),
-          taskOwner: (row["Assignee"]||"").toString().trim(),
-          assignedTo: (row["AssignedTo"]||"").toString().trim(),
-          responsible: (row["Responsible"]||"").toString().trim(),
-          due: (row["DueDate"]||"").toString().trim(),
-          detentionDate: (row["DetentionDate"]||"").toString().trim(),
-          priority: (row["Priority"]||"Medium").toString().trim(),
-          status: (row["Status"]||"To Do").toString().trim(),
-          remark: (row["Remark"]||"").toString().trim(),
+          title: clean(row["Title"]),
+          actions: clean(row["ActionsTaken"]),
+          vessel: clean(row["Vessel"]),
+          imo: clean(row["IMO"]),
+          project: clean(row["Project"]),
+          taskOwner: clean(row["Assignee"]),
+          assignedTo: clean(row["AssignedTo"]),
+          responsible: clean(row["Responsible"]),
+          due: clean(row["DueDate"]),
+          detentionDate: clean(row["DetentionDate"]),
+          priority: clean(row["Priority"])||"Medium",
+          status: clean(row["Status"])||"To Do",
+          remark: clean(row["Remark"]),
           source: "PDAIP Import",
-          caseOwner: (row["Assignee"]||"").toString().trim(),
+          caseOwner: clean(row["Assignee"]),
         });
       }
       if (tasks.length === 0) { setResult({error:"No tasks found"}); setImporting(false); return; }
