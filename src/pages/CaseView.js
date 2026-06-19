@@ -88,7 +88,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
-      supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(20),
+      supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(30),
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
     ]);
@@ -774,6 +774,60 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         </tr>
                       ))}</tbody>
                     </table>
+                  </div>
+                )}
+                {/* PSC Detention Summary */}
+                {intel.psc&&intel.psc.length>0&&(
+                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Detention Summary <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.psc.length} records)</span></div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{intel.psc.map((p,i)=>(
+                        <tr key={i} style={{background:p.was_detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{p.inspection_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{p.port||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.mou||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.inspection_type||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:p.num_findings>=10?"var(--red2)":p.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:p.num_findings>=5?600:400}}>{p.num_findings||0}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{p.was_detained?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:<span style={{color:"var(--text3)",fontSize:"10px"}}>No</span>}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:p.risk_level==="High"?"var(--red2)":p.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontSize:"10px"}}>{p.risk_level||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.ism_client||"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
+                {/* DPP Case Files */}
+                {intel.dpp&&intel.dpp.length>0&&(
+                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>DPP Case Files <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["MoU Zone","Action Type","Status","Port","Risk Level","DPP Arrival Risk","PARIS Target","TOKYO Target","USCG Target"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                      <tbody>{intel.dpp.map((d,i)=>(
+                        <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{d.mou_zone||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.action_type||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.action_status==="Open"?"var(--amber2)":"var(--green2)",fontSize:"10px",fontWeight:500}}>{d.action_status||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.case_file_port||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.risk_level==="High"?"var(--red2)":d.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontSize:"10px",fontWeight:500}}>{d.risk_level||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.dpp_arrival_risk||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.paris_target_risk||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.tokyo_target_risk||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.uscg_target_risk||"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                    {intel.dpp[0]?.latest_note&&(
+                      <div style={{marginTop:"10px",padding:"10px",background:"var(--bg2)",borderRadius:"6px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
+                        <span style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",fontFamily:"var(--mono)"}}>Latest Case File Note: </span>
+                        {intel.dpp[0].latest_note}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!intel.vessel&&!intel.inspections.length&&!intel.psc.length&&!intel.dpp.length&&!intel.mlc.length&&(
+                  <div style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>
+                    No intelligence data found for this vessel. Upload weekly reports in Weekly Data to populate this tab.
                   </div>
                 )}
               </>)}
