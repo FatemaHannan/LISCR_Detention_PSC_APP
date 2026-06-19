@@ -103,6 +103,8 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
   const [selectMode, setSelectMode] = useState(false);
   const [taskDetail, setTaskDetail] = useState(null);
   const [page, setPage] = useState(1);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTask, setNewTask] = useState({title:"",vessel:"",imo:"",assignedTo:"",responsible:"",taskOwner:"",due:"",detentionDate:"",priority:"Medium",status:"To Do",actions:"",remark:""});
 
   useEffect(() => { loadTasks(); }, []);
 
@@ -111,6 +113,14 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
     const dbTasks = await getTasks();
     setTasks(dbTasks);
     setLoading(false);
+  }
+
+  async function handleAddTask() {
+    if (!newTask.title || !newTask.vessel) return;
+    await upsertTasksBulk([newTask]);
+    setShowAdd(false);
+    setNewTask({title:"",vessel:"",imo:"",assignedTo:"",responsible:"",taskOwner:"",due:"",detentionDate:"",priority:"Medium",status:"To Do",actions:"",remark:""});
+    await loadTasks();
   }
 
   async function handleStatusChange(task, newStatus) {
@@ -307,6 +317,10 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
             <button onClick={()=>{setSelectMode(s=>!s);setSelectedTasks([]);}}
               style={{padding:"6px 12px",border:`1px solid ${selectMode?"var(--amber)":"var(--border)"}`,borderRadius:"6px",background:selectMode?"var(--amber-bg)":"var(--bg3)",color:selectMode?"var(--amber2)":"var(--text3)",cursor:"pointer",fontSize:"11px"}}>
               {selectMode?"✓ Selecting":"Select"}
+            </button>
+            <button onClick={()=>setShowAdd(true)}
+              style={{padding:"6px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"11px",fontWeight:500}}>
+              + Add task
             </button>
             <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} tasks{loading&&" · Loading..."}</span>
           </div>
@@ -568,6 +582,62 @@ export default function PdaipPage({canEdit, canDelete, canDownload}) {
               const vb=tasks.filter(t=>t.vessel===b.key).length;
               return vb-va;
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Add task modal */}
+      {showAdd&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"560px",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Add Task</div>
+              <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>×</button>
+            </div>
+            <div style={{padding:"16px 20px",overflowY:"auto",flex:1,display:"flex",flexDirection:"column",gap:"10px"}}>
+              {[["Task title *","title"],["Vessel name *","vessel"],["IMO","imo"],["Assignee (Owner)","taskOwner"],["Assigned To","assignedTo"],["Responsible","responsible"],["Remark","remark"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
+                  <input value={newTask[key]||""} onChange={e=>setNewTask(p=>({...p,[key]:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+              ))}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Due Date</div>
+                  <input type="date" value={newTask.due||""} onChange={e=>setNewTask(p=>({...p,due:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Detention Date</div>
+                  <input type="date" value={newTask.detentionDate||""} onChange={e=>setNewTask(p=>({...p,detentionDate:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Priority</div>
+                  <select value={newTask.priority||"Medium"} onChange={e=>setNewTask(p=>({...p,priority:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    {["Critical","Urgent","High","Medium","Low"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Status</div>
+                  <select value={newTask.status||"To Do"} onChange={e=>setNewTask(p=>({...p,status:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    {["To Do","In Progress","Executed","On Hold","Completed"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"4px"}}>Actions Taken</div>
+                <textarea value={newTask.actions||""} onChange={e=>setNewTask(p=>({...p,actions:e.target.value}))} rows={3}
+                  style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
+              </div>
+            </div>
+            <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
+              <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+              <button onClick={handleAddTask} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save task</button>
+            </div>
           </div>
         </div>
       )}
