@@ -430,8 +430,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         <div style={{borderTop:"1px solid var(--border)",paddingTop:"16px",marginTop:"4px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
             <div>
-              <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{v.name}</div>
-              <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port} · {v.detentionDate}</div>
+              <div style={{display:"flex",alignItems:"baseline",gap:"10px",marginBottom:"2px"}}>
+                <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>{v.name}</div>
+                {v.detentionDate&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)",borderLeft:"2px solid var(--border2)",paddingLeft:"10px"}}>{v.detentionDate}</div>}
+              </div>
+              <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port}</div>
               <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>Case Owner: <strong style={{color:"var(--text2)"}}>{v.caseOwner}</strong> · Task Owners: <strong style={{color:"var(--text2)"}}>{v.taskOwners?.join(", ")||"—"}</strong></div>
             </div>
             <div style={{display:"flex",gap:"7px",flexWrap:"wrap"}}>
