@@ -295,14 +295,23 @@ export default function WeeklyData({ currentUser }) {
         const {error: delErr} = await supabase.from(cfg.table).delete().neq("id", 0);
         if (delErr) { setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Clear failed: "+delErr.message}})); setUploading(p => ({...p, [cfg.key]: false})); return; }
         let saved = 0;
-        for (let i = 0; i < mapped.length; i += 500) {
-          const {data, error: insErr} = await supabase.from(cfg.table).insert(mapped.slice(i,i+500)).select("id");
-          if (insErr) { setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Insert failed: "+insErr.message}})); setUploading(p => ({...p, [cfg.key]: false})); return; }
-          saved += data.length;
+        let skipped = 0;
+        for (let i = 0; i < mapped.length; i += 10) {
+          const batch = mapped.slice(i, i + 10);
+          const {data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id");
+          if (bErr) {
+            for (const row of batch) {
+              const {error: rErr} = await supabase.from(cfg.table).insert(row);
+              if (rErr) { skipped++; } else { saved++; }
+            }
+          } else {
+            saved += bData.length;
+          }
           setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Uploading... ${saved} / ${mapped.length}`}}));
         }
         const uploadTime = new Date().toLocaleString();
-        setStatus(p => ({...p, [cfg.key]: {state:"done", msg:`${saved} records uploaded.`, count:saved, time:uploadTime}}));
+        const doneMsg = skipped > 0 ? `${saved} records uploaded. ${skipped} rows skipped (missing required fields).` : `${saved} records uploaded.`;
+        setStatus(p => ({...p, [cfg.key]: {state:"done", msg:doneMsg, count:saved, time:uploadTime}}));
         setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
       } catch(err) {
