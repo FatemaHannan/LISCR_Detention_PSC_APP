@@ -88,42 +88,41 @@ const UPLOADS = [
     icon: "ti-clipboard-list", color: "var(--purple)", bg: "var(--purple-bg)",
     table: "inspection_history",
     exportColumns: {
-      vessel: "Vessel", imo: "IMO", inspection_date: "Inspection Date", port: "Port", mou: "MOU",
-      flag_psc: "Flag/PSC", car_status: "CAR Status", num_findings: "Findings",
-      finding_note: "Finding Note", was_detained: "Was Detained", inspection_type: "Inspection Type",
-      last_onboard: "Last Onboard", auditor: "Auditor", ism_client: "ISM Client",
-      risk_level: "Risk Level", ism_points: "ISM Points", psc_det_history: "PSC Det History",
-      vessel_type: "Vessel Type", age: "Age",
+      vessel: "Vessel", imo: "IMO#", inspection_date: "Inspection Date", port: "Port", mou: "MOU",
+      flag_psc: "Flag/PSC", car_status: "CAR Status", num_findings: "#Findings",
+      detainable_flag: "Detainable Flag", finding_note: "Finding Note",
+      was_detained: "Was Detained", inspection_type: "Inspection Type",
+      days_since_last: "Days", last_onboard: "Last Onboard", auditor: "Auditor",
+      ism_client: "ISM Client", risk_level: "Risk Level", target_vessel: "Target Vsl",
+      ism_points: "ISM Points", psc_det_history: "PSC Det History",
+      tonnage_client: "Tonnage Client", vessel_type: "Vessel Type", age: "Age",
     },
-    map: (r) => {
-      const keys = Object.keys(r);
-      const find = (...terms) => { for(const t of terms){ const k = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g,"").includes(t.toLowerCase().replace(/[^a-z0-9]/g,""))); if(k && r[k]!==undefined && r[k]!=="") return r[k]; } return ""; };
-      const s = (...t) => String(find(...t)||"").trim();
-      const n = (...t) => parseFloat(find(...t))||0;
-      const b = (...t) => { const v=find(...t); return v===true||String(v).toLowerCase()==="true"; };
-      const d = (...t) => { const v=find(...t); return v ? String(v).slice(0,10) : null; };
-      return {
-        vessel: s("vessel"), imo: s("imo").replace(/[^0-9]/g,""),
-        inspection_date: d("inspectiondate","inspection date","inspection_date"),
-        port: s("port"), mou: s("mou"), flag_psc: s("flagpsc","flag psc","flag","flag_psc"),
-        car_status: s("carstatus","car status","car_status"), num_findings: n("findings","num_findings"),
-        finding_note: s("findingnote","finding note","finding_note"),
-        was_detained: b("wasdetained","was detained","detained","was_detained"),
-        inspection_type: s("inspectiontype","inspection type","inspection_type"),
-        last_onboard: s("lastonboard","last onboard","last_onboard"),
-        auditor: s("auditor"), ism_client: s("ismclient","ism client","ism_client"),
-        risk_level: s("risklevel","risk level","risk_level"),
-        ism_points: n("ismpoints","ism points","ism_points"),
-        psc_det_history: n("pscdethistory","psc det history","psc_det_history"),
-        vessel_type: s("vesseltype","vessel type","vessel_type"), age: n("age"),
-      };
-    },
-    filter: (r) => {
-      const keys = Object.keys(r);
-      const vk = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("vessel"));
-      const ik = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("imo"));
-      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
-    },
+    map: (r) => ({
+      vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
+      imo: String(r["IMO#"]||r["IMO"]||r["imo"]||"").replace(/[^0-9]/g,""),
+      inspection_date: r["Inspection Date"]||r["inspection_date"]||null,
+      port: String(r["Port"]||r["port"]||"").trim(),
+      mou: String(r["MOU"]||r["mou"]||"").trim(),
+      flag_psc: String(r["Flag/PSC"]||r["flag_psc"]||"").trim(),
+      car_status: String(r["CAR Status"]||r["car_status"]||"").trim(),
+      num_findings: parseInt(r["#Findings"]||r["num_findings"])||0,
+      detainable_flag: String(r["Detainable Flag"]||r["detainable_flag"]||"").trim(),
+      finding_note: String(r["Finding Note"]||r["finding_note"]||"").trim(),
+      was_detained: String(r["Was Detained"]||r["was_detained"]||"").toLowerCase()==="true"||r["was_detained"]===true,
+      inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
+      days_since_last: parseFloat(r["Days"]||r["days_since_last"])||0,
+      last_onboard: String(r["Last Onboard"]||r["last_onboard"]||"").trim(),
+      auditor: String(r["Auditor"]||r["auditor"]||"").trim(),
+      ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
+      risk_level: String(r["Risk Level"]||r["risk_level"]||"").trim(),
+      target_vessel: String(r["Target Vsl"]||r["target_vessel"]||"").trim()==="Yes"||r["target_vessel"]===true,
+      ism_points: parseFloat(r["ISM Points"]||r["ism_points"])||0,
+      psc_det_history: parseFloat(r["PSC Det History"]||r["psc_det_history"])||0,
+      tonnage_client: String(r["Tonnage Client"]||r["tonnage_client"]||"").trim(),
+      vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
+      age: parseFloat(r["Age"]||r["age"])||0,
+    }),
+    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "mlc_complaints",
@@ -136,7 +135,7 @@ const UPLOADS = [
       flag_psc: "Flag/PSC", mlc_status: "MLC Status", inspection_type: "Inspection Type",
       days_since_last: "Days", last_onboard: "Last Onboard", ism_client: "ISM Client",
       psc_det_history: "PSC Det History", target_vessel: "Target Vsl", ism_points: "ISM Points",
-      vessel_type: "Vessel Type", age: "Age",
+      tonnage_client: "Tonnage Client", vessel_type: "Vessel Type", age: "Age",
     },
     map: (r) => ({
       vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
@@ -152,15 +151,11 @@ const UPLOADS = [
       psc_det_history: parseFloat(r["PSC Det History"]||r["psc_det_history"])||0,
       target_vessel: String(r["Target Vsl"]||r["target_vessel"]||"").trim()==="Yes"||r["target_vessel"]===true,
       ism_points: parseFloat(r["ISM Points"]||r["ism_points"])||0,
+      tonnage_client: String(r["Tonnage Client"]||r["tonnage_client"]||"").trim(),
       vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
       age: parseFloat(r["Age"]||r["age"])||0,
     }),
-    filter: (r) => {
-      const keys = Object.keys(r);
-      const vk = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("vessel"));
-      const ik = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("imo"));
-      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
-    },
+    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "psc_detention_summary",
@@ -196,12 +191,7 @@ const UPLOADS = [
       ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
       inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
     }),
-    filter: (r) => {
-      const keys = Object.keys(r);
-      const vk = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("vessel"));
-      const ik = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes("imo"));
-      return !!(vk && ik && r[vk] && String(r[ik]).replace(/[^0-9]/g,"").length > 0);
-    },
+    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "dpp_case_files",
