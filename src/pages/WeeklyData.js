@@ -274,6 +274,7 @@ export default function WeeklyData({ currentUser }) {
   const [status, setStatus] = useState({});
   const [uploading, setUploading] = useState({});
   const [counts, setCounts] = useState({});
+  const [uploadMode, setUploadMode] = useState({}); // "upsert" (default) or "replace"
 
   useEffect(() => {
     const tables = UPLOADS.map(u => u.table);
@@ -296,6 +297,7 @@ export default function WeeklyData({ currentUser }) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
+    const mode = uploadMode[cfg.key] || "upsert";
     setUploading(p => ({...p, [cfg.key]: true}));
     setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:"Reading file..."}}));
 
@@ -322,29 +324,46 @@ export default function WeeklyData({ currentUser }) {
           return;
         }
 
-        // Upsert in batches of 50 — insert new rows, update existing ones (no delete)
+        // Replace mode: delete all then insert. Upsert mode: insert/update by conflict key.
         const conflictKey = cfg.onConflictKey || "id";
         let saved = 0, skipped = 0;
-        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Upserting ${mapped.length} rows...`}}));
+
+        if (mode === "replace") {
+          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Replacing — clearing old data..."}}));
+          await supabase.from(cfg.table).delete().neq("id", 0);
+        }
+
+        const modeLabel = mode === "replace" ? "Inserting" : "Upserting";
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${modeLabel} ${mapped.length} rows...`}}));
+
         for (let idx = 0; idx < mapped.length; idx += 50) {
           const batch = mapped.slice(idx, idx + 50);
-          const {data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id");
+          let bData, bErr;
+          if (mode === "replace") {
+            ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
+          } else {
+            ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
+          }
           if (bErr) {
-            // Fallback: try one by one
             for (const row of batch) {
-              const {error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey, ignoreDuplicates: false}).select("id");
+              let rErr;
+              if (mode === "replace") {
+                ({error: rErr} = await supabase.from(cfg.table).insert([row]).select("id"));
+              } else {
+                ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
+              }
               if (rErr) { skipped++; } else { saved++; }
             }
           } else {
             saved += bData?.length || batch.length;
           }
-          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Upserting... ${Math.min(idx+50, mapped.length)} / ${mapped.length}`}}));
+          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${modeLabel}... ${Math.min(idx+50, mapped.length)} / ${mapped.length}`}}));
         }
 
         const uploadTime = new Date().toLocaleString();
-        const msg = skipped > 0
-          ? `${saved} rows upserted (new + updated). ${skipped} rows skipped.`
-          : `${saved} rows upserted (new + updated).`;
+        const msg = mode === "replace"
+          ? `${saved} rows loaded (full replace).${skipped>0?` ${skipped} skipped.":""}`
+          : `${saved} rows upserted (new + updated).${skipped>0?` ${skipped} skipped.":""}`
         setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
         setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
@@ -403,6 +422,13 @@ export default function WeeklyData({ currentUser }) {
                     {counts[cfg.table]>0&&<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]} rows in DB</span>}
                     {st?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>✓ {st.time}</span>}
                     {counts[cfg.table]>0&&<button onClick={()=>handleExport(cfg)} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>↓ Export</button>}
+                    <div style={{display:"flex",alignItems:"center",gap:"4px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",padding:"2px"}}>
+                      {["upsert","replace"].map(m=>(
+                        <button key={m} onClick={()=>setUploadMode(p=>({...p,[cfg.key]:m}))} style={{padding:"4px 10px",borderRadius:"4px",border:"none",cursor:"pointer",fontSize:"10px",fontWeight:500,background:(uploadMode[cfg.key]||"upsert")===m?"var(--bg)":"transparent",color:(uploadMode[cfg.key]||"upsert")===m?"var(--text)":"var(--text3)",boxShadow:(uploadMode[cfg.key]||"upsert")===m?"0 1px 3px rgba(0,0,0,0.15)":"none"}}>
+                          {m==="upsert"?"+ Weekly Delta":"↺ Full Replace"}
+                        </button>
+                      ))}
+                    </div>
                     <input id={"file-"+cfg.key} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={e=>handleFile(cfg,e)} />
                     <label htmlFor={"file-"+cfg.key} style={{padding:"7px 16px",border:"1px solid "+cfg.color,borderRadius:"6px",background:busy?"var(--bg3)":cfg.bg,color:busy?"var(--text3)":cfg.color,cursor:busy?"default":"pointer",fontSize:"11px",fontWeight:500,whiteSpace:"nowrap"}}>
                       {busy?"Uploading...":"↑ Upload Excel"}
