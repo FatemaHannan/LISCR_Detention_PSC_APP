@@ -361,9 +361,10 @@ export default function WeeklyData({ currentUser }) {
         }
 
         const uploadTime = new Date().toLocaleString();
+        const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
         const msg = mode === "replace"
-          ? `${saved} rows loaded (full replace).${skipped>0?` ${skipped} skipped.":""}`
-          : `${saved} rows upserted (new + updated).${skipped>0?` ${skipped} skipped.":""}`
+          ? saved+" rows loaded (full replace)."+skipNote
+          : saved+" rows upserted (new + updated)."+skipNote;
         setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
         setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
