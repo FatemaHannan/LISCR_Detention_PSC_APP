@@ -340,10 +340,11 @@ export default function WeeklyData({ currentUser }) {
         await supabase.from(cfg.table).delete().neq("id", 0);
       }
 
-      // Send in batches of 200, yield between each to keep UI alive
-      const BATCH = 1000;
-      for (let idx = 0; idx < allMapped.length; idx += BATCH) {
-        const batch = allMapped.slice(idx, idx + BATCH);
+      // Send in parallel groups of 5 batches of 500 rows each
+      const BATCH = 500;
+      const PARALLEL = 5;
+
+      async function sendBatch(batch) {
         let bData, bErr;
         if (mode === "replace") {
           ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
@@ -351,6 +352,8 @@ export default function WeeklyData({ currentUser }) {
           ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
         }
         if (bErr) {
+          // fallback row by row
+          let s = 0, sk = 0;
           for (const row of batch) {
             let rErr;
             if (mode === "replace") {
@@ -358,12 +361,23 @@ export default function WeeklyData({ currentUser }) {
             } else {
               ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
             }
-            if (rErr) skipped++; else saved++;
+            if (rErr) sk++; else s++;
           }
-        } else {
-          saved += bData?.length || batch.length;
+          return {saved: s, skipped: sk};
         }
-        const pct = Math.min(100, Math.round(((idx + BATCH) / totalMapped) * 100));
+        return {saved: bData?.length || batch.length, skipped: 0};
+      }
+
+      const batches = [];
+      for (let idx = 0; idx < allMapped.length; idx += BATCH) {
+        batches.push(allMapped.slice(idx, idx + BATCH));
+      }
+
+      for (let g = 0; g < batches.length; g += PARALLEL) {
+        const group = batches.slice(g, g + PARALLEL);
+        const results = await Promise.all(group.map(b => sendBatch(b)));
+        results.forEach(r => { saved += r.saved; skipped += r.skipped; });
+        const pct = Math.min(100, Math.round(((g + PARALLEL) / batches.length) * 100));
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} / ${totalMapped.toLocaleString()} (${pct}%)`}}));
         await new Promise(resolve => setTimeout(resolve, 0));
       }
