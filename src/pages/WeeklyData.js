@@ -304,85 +304,67 @@ export default function WeeklyData({ currentUser }) {
     try {
       // Use ArrayBuffer for large file support
       const buffer = await file.arrayBuffer();
-      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:"Parsing rows..."}}));
-
-      // Parse in a non-blocking way using setTimeout to keep UI responsive
+      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Parsing file (${(file.size/1024/1024).toFixed(1)} MB)...`}}));
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const wb = XLSX.read(buffer, {type:"array", cellDates:true, dense:true});
+      const wb = XLSX.read(buffer, {type:"array", cellDates:true});
       const ws = wb.Sheets[wb.SheetNames[0]];
 
-      // Get headers from first row
-      const range = XLSX.utils.decode_range(ws["!ref"]);
-      const headers = [];
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const cell = ws["!data"]?.[0]?.[c];
-        headers[c] = cell ? String(cell.v||"").trim().replace(/^\uFEFF/,"") : "";
-      }
+      // Parse all rows (SheetJS v0.18 standard API)
+      const allRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
 
-      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Mapping ${range.e.r} rows...`}}));
+      // Normalize headers
+      const normalized = allRows.map(r => {
+        const c = {};
+        Object.keys(r).forEach(k => { c[k.trim().replace(/^\uFEFF/,"")] = r[k]; });
+        return c;
+      });
+
+      const allMapped = normalized.filter(cfg.filter).map(cfg.map);
+      const totalMapped = allMapped.length;
+
+      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed. Starting upload...`}}));
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      // Stream rows in chunks of 500 — map and send without holding all in memory
+      if (!totalMapped) {
+        setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"No valid rows found. Check file format."}}));
+        setUploading(p => ({...p, [cfg.key]: false}));
+        return;
+      }
+
       const conflictKey = cfg.onConflictKey || "id";
-      let saved = 0, skipped = 0, total = 0;
+      let saved = 0, skipped = 0;
 
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
         await supabase.from(cfg.table).delete().neq("id", 0);
       }
 
-      const CHUNK = 500;
-      const totalRows = range.e.r; // approximate
-
-      for (let rowIdx = range.s.r + 1; rowIdx <= range.e.r; rowIdx += CHUNK) {
-        // Build chunk of raw rows
-        const chunk = [];
-        for (let ri = rowIdx; ri <= Math.min(rowIdx + CHUNK - 1, range.e.r); ri++) {
-          const rawRow = {};
-          for (let c = range.s.c; c <= range.e.c; c++) {
-            const cell = ws["!data"]?.[ri]?.[c];
-            rawRow[headers[c]] = cell ? cell.v : null;
-          }
-          chunk.push(rawRow);
+      // Send in batches of 200, yield between each to keep UI alive
+      const BATCH = 200;
+      for (let idx = 0; idx < allMapped.length; idx += BATCH) {
+        const batch = allMapped.slice(idx, idx + BATCH);
+        let bData, bErr;
+        if (mode === "replace") {
+          ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
+        } else {
+          ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
         }
-
-        // Normalize, filter, map
-        const mapped = chunk
-          .map(r => { const c = {}; Object.keys(r).forEach(k => { c[k] = r[k]; }); return c; })
-          .filter(cfg.filter)
-          .map(cfg.map);
-
-        if (!mapped.length) continue;
-        total += mapped.length;
-
-        // Send in batches of 100
-        for (let idx = 0; idx < mapped.length; idx += 100) {
-          const batch = mapped.slice(idx, idx + 100);
-          let bData, bErr;
-          if (mode === "replace") {
-            ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
-          } else {
-            ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
-          }
-          if (bErr) {
-            for (const row of batch) {
-              let rErr;
-              if (mode === "replace") {
-                ({error: rErr} = await supabase.from(cfg.table).insert([row]));
-              } else {
-                ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
-              }
-              if (rErr) skipped++; else saved++;
+        if (bErr) {
+          for (const row of batch) {
+            let rErr;
+            if (mode === "replace") {
+              ({error: rErr} = await supabase.from(cfg.table).insert([row]));
+            } else {
+              ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
             }
-          } else {
-            saved += bData?.length || batch.length;
+            if (rErr) skipped++; else saved++;
           }
+        } else {
+          saved += bData?.length || batch.length;
         }
-
-        const pct = Math.round((rowIdx / totalRows) * 100);
-        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} rows saved (${pct}%)`}}));
-        // Yield to browser to keep UI alive
+        const pct = Math.min(100, Math.round(((idx + BATCH) / totalMapped) * 100));
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} / ${totalMapped.toLocaleString()} (${pct}%)`}}));
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
