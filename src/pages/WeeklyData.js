@@ -4,6 +4,17 @@ import { supabase } from "../lib/supabase";
 
 // Helper: safe string
 const s = (v) => v == null ? "" : String(v).trim();
+// IMO numbers must be 7-digit integers — guard against Excel float/scientific notation
+const imo = (v) => {
+  if (v == null || v === "") return "";
+  // If it's already a clean integer-like number (e.g. 9260469 stored as float 9260469.0)
+  const num = typeof v === "number" ? Math.round(v) : null;
+  if (num !== null && num > 1000000 && num < 10000000) return String(num);
+  // Otherwise stringify and strip non-digits, take last 7 digits if too long
+  const digits = String(v).replace(/[^0-9]/g, "");
+  if (digits.length > 7) return digits.slice(-7);
+  return digits;
+};
 // Helper: safe number
 const n = (v) => { const x = parseFloat(String(v||"").replace(/[^0-9.-]/g,"")); return isNaN(x) ? 0 : x; };
 // Helper: safe int
@@ -84,7 +95,7 @@ const UPLOADS = [
     filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel"]||r["vessel"]),
-      imo: s(r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      imo: imo(r["IMO"]||r["imo"]),
       vsl_status: s(r["Vsl Status"]||r["vsl_status"]),
       ism_client: s(r["Current ISM Client"]||r["ism_client"]),
       vsl_type: s(r["Vsl Type"]||r["vsl_type"]),
@@ -126,7 +137,7 @@ const UPLOADS = [
     filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel"]||r["vessel"]),
-      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      imo: imo(r["IMO#"]||r["IMO"]||r["imo"]),
       inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
       port: s(r["Port"]||r["port"]),
       mou: s(r["MOU"]||r["mou"]),
@@ -166,7 +177,7 @@ const UPLOADS = [
     filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel"]||r["vessel"]),
-      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      imo: imo(r["IMO#"]||r["IMO"]||r["imo"]),
       risk_level: s(r["Risk Level"]||r["risk_level"]),
       reported_date: d(r["Reported Date"]||r["reported_date"]),
       flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
@@ -200,7 +211,7 @@ const UPLOADS = [
     filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel"]||r["vessel"]),
-      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      imo: imo(r["IMO#"]||r["IMO"]||r["imo"]),
       inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
       port: s(r["Port"]||r["port"]),
       mou: s(r["MOU"]||r["mou"]),
@@ -236,7 +247,7 @@ const UPLOADS = [
     filter: (r) => s(r["Vessel Name"]||r["Vessel"]||r["vessel"]) && s(r["IMO Number"]||r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel Name"]||r["Vessel"]||r["vessel"]),
-      imo: s(r["IMO Number"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      imo: imo(r["IMO Number"]||r["IMO"]||r["imo"]),
       inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
       port: s(r["Port"]||r["port"]),
       mou: s(r["MOU"]||r["mou"]),
