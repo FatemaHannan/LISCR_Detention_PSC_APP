@@ -42,6 +42,7 @@ const d = (v) => {
 const UPLOADS = [
   {
     key: "client_average",
+    onConflictKey: "ism_client",
     label: "Client Average",
     desc: "ISM client benchmarks — peer rank, detention rate, PSC finding average",
     icon: "ti-chart-bar", color: "var(--blue)", bg: "var(--blue-bg)",
@@ -78,6 +79,7 @@ const UPLOADS = [
   },
   {
     key: "client_vessel_details",
+    onConflictKey: "imo",
     label: "Client Vessel Details",
     desc: "Vessel-level risk profiles — IMO, RO, detention history, FSC score",
     icon: "ti-ship", color: "var(--green2)", bg: "var(--green-bg)",
@@ -120,6 +122,7 @@ const UPLOADS = [
   },
   {
     key: "inspection_history",
+    onConflictKey: "imo,inspection_date",
     label: "Consolidated Inspection History",
     desc: "LISCR inspection records — PSC/Flag history, last onboard, CAR status, risk level",
     icon: "ti-clipboard-list", color: "var(--purple)", bg: "var(--purple-bg)",
@@ -163,6 +166,7 @@ const UPLOADS = [
   },
   {
     key: "mlc_complaints",
+    onConflictKey: "imo,reported_date",
     label: "MLC Complaints",
     desc: "MLC compliance issues — unresolved complaints, inspector, risk level",
     icon: "ti-alert-circle", color: "var(--red2)", bg: "var(--red-bg)",
@@ -196,6 +200,7 @@ const UPLOADS = [
   },
   {
     key: "psc_detention_summary",
+    onConflictKey: "imo,inspection_date",
     label: "PSC Detention Summary",
     desc: "Recent PSC detentions — port, MoU, findings, detention status",
     icon: "ti-anchor", color: "var(--amber2)", bg: "var(--amber-bg)",
@@ -232,6 +237,7 @@ const UPLOADS = [
   },
   {
     key: "dpp_case_files",
+    onConflictKey: "imo,inspection_date",
     label: "DPP Case File History",
     desc: "Live arrival risk — port calls, MoU risk scores, vetting status",
     icon: "ti-radar", color: "var(--amber2)", bg: "var(--amber-bg)",
@@ -316,36 +322,29 @@ export default function WeeklyData({ currentUser }) {
           return;
         }
 
-        // Clear old data
-        setStatus(p => ({...p, [cfg.key]: {state:"clearing", msg:`Clearing old data — ${mapped.length} rows to insert...`}}));
-        const {error: delErr} = await supabase.from(cfg.table).delete().neq("id", 0);
-        if (delErr) {
-          setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Clear failed: "+delErr.message}}));
-          setUploading(p => ({...p, [cfg.key]: false}));
-          return;
-        }
-
-        // Insert in batches of 50, row-by-row fallback on batch error
+        // Upsert in batches of 50 — insert new rows, update existing ones (no delete)
+        const conflictKey = cfg.onConflictKey || "id";
         let saved = 0, skipped = 0;
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Upserting ${mapped.length} rows...`}}));
         for (let idx = 0; idx < mapped.length; idx += 50) {
           const batch = mapped.slice(idx, idx + 50);
-          const {data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id");
+          const {data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id");
           if (bErr) {
             // Fallback: try one by one
             for (const row of batch) {
-              const {error: rErr} = await supabase.from(cfg.table).insert([row]).select("id");
+              const {error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey, ignoreDuplicates: false}).select("id");
               if (rErr) { skipped++; } else { saved++; }
             }
           } else {
             saved += bData?.length || batch.length;
           }
-          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Uploading... ${saved} / ${mapped.length}`}}));
+          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Upserting... ${Math.min(idx+50, mapped.length)} / ${mapped.length}`}}));
         }
 
         const uploadTime = new Date().toLocaleString();
         const msg = skipped > 0
-          ? `${saved} records uploaded. ${skipped} rows skipped.`
-          : `${saved} records uploaded.`;
+          ? `${saved} rows upserted (new + updated). ${skipped} rows skipped.`
+          : `${saved} rows upserted (new + updated).`;
         setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
         setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
