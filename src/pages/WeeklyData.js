@@ -299,45 +299,66 @@ export default function WeeklyData({ currentUser }) {
     e.target.value = "";
     const mode = uploadMode[cfg.key] || "upsert";
     setUploading(p => ({...p, [cfg.key]: true}));
-    setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:"Reading file..."}}));
+    setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Reading file (${(file.size/1024/1024).toFixed(1)} MB)...`}}));
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        // Read with cellDates:true so dates come as JS Date objects
-        const wb = XLSX.read(evt.target.result, {type:"binary", cellDates:true});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        // raw:true to preserve Date objects; defval:null for empty cells
-        const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
-        // Normalize headers (trim BOM/whitespace)
-        const normalized = rows.map(r => {
-          const c = {};
-          Object.keys(r).forEach(k => { c[k.trim().replace(/^\uFEFF/,"")] = r[k]; });
-          return c;
-        });
+    try {
+      // Use ArrayBuffer for large file support
+      const buffer = await file.arrayBuffer();
+      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:"Parsing rows..."}}));
 
-        const mapped = normalized.filter(cfg.filter).map(cfg.map);
+      // Parse in a non-blocking way using setTimeout to keep UI responsive
+      await new Promise(resolve => setTimeout(resolve, 50));
 
-        if (!mapped.length) {
-          setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"No valid rows found. Check file format."}}));
-          setUploading(p => ({...p, [cfg.key]: false}));
-          return;
+      const wb = XLSX.read(buffer, {type:"array", cellDates:true, dense:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+
+      // Get headers from first row
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      const headers = [];
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = ws["!data"]?.[0]?.[c];
+        headers[c] = cell ? String(cell.v||"").trim().replace(/^\uFEFF/,"") : "";
+      }
+
+      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Mapping ${range.e.r} rows...`}}));
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Stream rows in chunks of 500 — map and send without holding all in memory
+      const conflictKey = cfg.onConflictKey || "id";
+      let saved = 0, skipped = 0, total = 0;
+
+      if (mode === "replace") {
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
+        await supabase.from(cfg.table).delete().neq("id", 0);
+      }
+
+      const CHUNK = 500;
+      const totalRows = range.e.r; // approximate
+
+      for (let rowIdx = range.s.r + 1; rowIdx <= range.e.r; rowIdx += CHUNK) {
+        // Build chunk of raw rows
+        const chunk = [];
+        for (let ri = rowIdx; ri <= Math.min(rowIdx + CHUNK - 1, range.e.r); ri++) {
+          const rawRow = {};
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cell = ws["!data"]?.[ri]?.[c];
+            rawRow[headers[c]] = cell ? cell.v : null;
+          }
+          chunk.push(rawRow);
         }
 
-        // Replace mode: delete all then insert. Upsert mode: insert/update by conflict key.
-        const conflictKey = cfg.onConflictKey || "id";
-        let saved = 0, skipped = 0;
+        // Normalize, filter, map
+        const mapped = chunk
+          .map(r => { const c = {}; Object.keys(r).forEach(k => { c[k] = r[k]; }); return c; })
+          .filter(cfg.filter)
+          .map(cfg.map);
 
-        if (mode === "replace") {
-          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Replacing — clearing old data..."}}));
-          await supabase.from(cfg.table).delete().neq("id", 0);
-        }
+        if (!mapped.length) continue;
+        total += mapped.length;
 
-        const modeLabel = mode === "replace" ? "Inserting" : "Upserting";
-        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${modeLabel} ${mapped.length} rows...`}}));
-
-        for (let idx = 0; idx < mapped.length; idx += 50) {
-          const batch = mapped.slice(idx, idx + 50);
+        // Send in batches of 100
+        for (let idx = 0; idx < mapped.length; idx += 100) {
+          const batch = mapped.slice(idx, idx + 100);
           let bData, bErr;
           if (mode === "replace") {
             ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
@@ -348,33 +369,36 @@ export default function WeeklyData({ currentUser }) {
             for (const row of batch) {
               let rErr;
               if (mode === "replace") {
-                ({error: rErr} = await supabase.from(cfg.table).insert([row]).select("id"));
+                ({error: rErr} = await supabase.from(cfg.table).insert([row]));
               } else {
-                ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
+                ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
               }
-              if (rErr) { skipped++; } else { saved++; }
+              if (rErr) skipped++; else saved++;
             }
           } else {
             saved += bData?.length || batch.length;
           }
-          setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${modeLabel}... ${Math.min(idx+50, mapped.length)} / ${mapped.length}`}}));
         }
 
-        const uploadTime = new Date().toLocaleString();
-        const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
-        const msg = mode === "replace"
-          ? saved+" rows loaded (full replace)."+skipNote
-          : saved+" rows upserted (new + updated)."+skipNote;
-        setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
-        setCounts(p => ({...p, [cfg.table]: saved}));
-        setUploading(p => ({...p, [cfg.key]: false}));
-
-      } catch(err) {
-        setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Error: "+err.message}}));
-        setUploading(p => ({...p, [cfg.key]: false}));
+        const pct = Math.round((rowIdx / totalRows) * 100);
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} rows saved (${pct}%)`}}));
+        // Yield to browser to keep UI alive
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
-    };
-    reader.readAsBinaryString(file);
+
+      const uploadTime = new Date().toLocaleString();
+      const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
+      const msg = mode === "replace"
+        ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote
+        : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote;
+      setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
+      setCounts(p => ({...p, [cfg.table]: saved}));
+      setUploading(p => ({...p, [cfg.key]: false}));
+
+    } catch(err) {
+      setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Error: "+err.message}}));
+      setUploading(p => ({...p, [cfg.key]: false}));
+    }
   }
 
   async function handleExport(cfg) {
