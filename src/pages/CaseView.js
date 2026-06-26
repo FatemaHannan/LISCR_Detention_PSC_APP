@@ -826,29 +826,37 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* DPP Case Files */}
                 {intel.dpp&&intel.dpp.length>0&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>DPP Case Files <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["MoU Zone","Action Type","Status","Port","Risk Level","DPP Arrival Risk","PARIS Target","TOKYO Target","USCG Target"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                      <tbody>{intel.dpp.map((d,i)=>(
-                        <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{d.mou_zone||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.action_type||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.action_status==="Open"?"var(--amber2)":"var(--green2)",fontSize:"10px",fontWeight:500}}>{d.action_status||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.case_file_port||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.risk_level==="High"?"var(--red2)":d.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontSize:"10px",fontWeight:500}}>{d.risk_level||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.dpp_arrival_risk||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.paris_target_risk||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.tokyo_target_risk||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{d.uscg_target_risk||"—"}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table>
-                    {intel.dpp[0]?.latest_note&&(
-                      <div style={{marginTop:"10px",padding:"10px",background:"var(--bg2)",borderRadius:"6px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
-                        <span style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",fontFamily:"var(--mono)"}}>Latest Case File Note: </span>
-                        {intel.dpp[0].latest_note}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+                      <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)"}}>DPP Case Files <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
+                      <div style={{display:"flex",gap:"8px"}}>
+                        {intel.dpp.some(d=>d.action_status==="Pending Review")&&<span style={{background:"rgba(245,158,11,0.1)",color:"var(--amber2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>⚠ Pending Review</span>}
+                        {intel.dpp.some(d=>d.action_status==="Requested")&&<span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>CAR Requested</span>}
                       </div>
-                    )}
+                    </div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px",minWidth:"900px"}}>
+                        <thead><tr>{["Detention Date","Port","MoU","Findings","Detained","PSC Owner","Report Status","Inspection Type","CAR Status","Action Type","Action Status","Flag"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                        <tbody>{intel.dpp.map((d,i)=>{
+                          const statusColor = d.action_status==="Pending Review"?"var(--amber2)":d.action_status==="Close Case"?"var(--green2)":d.action_status==="Requested"?"var(--blue)":"var(--text2)";
+                          return (
+                            <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.detention_date||d.inspection_date||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",whiteSpace:"nowrap",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis"}} title={d.port||""}>{d.port||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.mou||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",fontFamily:"var(--mono)",color:d.num_findings>=20?"var(--red2)":d.num_findings>=10?"var(--amber2)":"var(--text2)",fontWeight:d.num_findings>=10?600:400}}>{d.num_findings||0}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{d.was_detained==="Yes"||d.was_detained===true?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.psc_vessel_owner||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.report_status||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.inspection_type||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.car_status==="Not Received"?"var(--red2)":d.car_status==="Complete"?"var(--green2)":"var(--amber2)",fontWeight:500,whiteSpace:"nowrap"}}>{d.car_status||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.action_type||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:statusColor,fontWeight:500,whiteSpace:"nowrap"}}>{d.action_status||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)"}}>{d.flag||"—"}</td>
+                            </tr>
+                          );
+                        })}</tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
                 {!intel.vessel&&!intel.inspections.length&&!intel.psc.length&&!intel.dpp.length&&!intel.mlc.length&&(

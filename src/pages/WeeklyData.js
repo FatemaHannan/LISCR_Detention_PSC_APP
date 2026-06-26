@@ -255,7 +255,7 @@ const UPLOADS = [
       vessel: s(r["Vessel Name"]||r["Vessel"]||r["vessel"]),
       imo: imo(r["IMO Number"]||r["IMO"]||r["imo"]),
       inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
-      detention_date: d(r["Detention Date"]||r["detention_date"]||r["Inspection Date"]||r["inspection_date"]),
+      detention_date: d(r["Inspection Date"]||r["Detention Date"]||r["detention_date"]),
       port: s(r["Port"]||r["port"]),
       mou: s(r["MOU"]||r["mou"]),
       num_findings: i(r["Number Of Deficiencies"]||r["num_findings"]),
