@@ -711,23 +711,49 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               {!intel.loading&&(<>
                 {/* LISCR Inspection History */}
                 <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>LISCR Inspection History <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.inspections.length} records)</span></div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)"}}>LISCR Inspection History <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.inspections.length} records — Consolidated Inspection History)</span></div>
+                    {intel.inspections.length>0&&(
+                      <div style={{display:"flex",gap:"8px"}}>
+                        <span style={{background:"rgba(239,68,68,0.1)",color:"var(--red2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>{intel.inspections.filter(h=>String(h.was_detained).toLowerCase()==="true"||h.was_detained===true).length} Detained</span>
+                        <span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>{intel.inspections.filter(h=>String(h.target_vessel).toLowerCase()==="true"||h.target_vessel===true||String(h.target_vessel).toLowerCase()==="yes").length} Target Vsl</span>
+                      </div>
+                    )}
+                  </div>
                   {intel.inspections.length>0?(
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","CAR","Last Onboard"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-                      <tbody>{intel.inspections.map((h,i)=>(
-                        <tr key={i} style={{background:h.was_detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{h.inspection_date||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{h.port||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.mou||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.inspection_type||h.flag_psc||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:h.num_findings>=10?"var(--red2)":h.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:h.num_findings>=5?600:400}}>{h.num_findings||0}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{h.was_detained?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:<span style={{color:"var(--text3)",fontSize:"10px"}}>No</span>}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.car_status||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.last_onboard||"—"}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px",minWidth:"1000px"}}>
+                        <thead>
+                          <tr>{["Date","Port","MoU","Flag/PSC","Type","Findings","Detainable","Detained","Risk","CAR Status","Days Since Last","Last Onboard","Auditor","Finding Note"].map(h=>(
+                            <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                          ))}</tr>
+                        </thead>
+                        <tbody>{intel.inspections.map((h,i)=>{
+                          const detained = String(h.was_detained).toLowerCase()==="true"||h.was_detained===true||String(h.was_detained).toLowerCase()==="yes";
+                          const detainable = String(h.detainable_flag).toLowerCase()==="true"||h.detainable_flag===true||String(h.detainable_flag).toLowerCase()==="yes";
+                          const riskColor = h.risk_level==="High"?"var(--red2)":h.risk_level==="Medium"?"var(--amber2)":h.risk_level==="Low"?"var(--green2)":"var(--text3)";
+                          const riskBg = h.risk_level==="High"?"rgba(239,68,68,0.1)":h.risk_level==="Medium"?"rgba(245,158,11,0.1)":h.risk_level==="Low"?"rgba(34,197,94,0.1)":"transparent";
+                          return (
+                            <tr key={i} style={{background:detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.inspection_date||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",whiteSpace:"nowrap"}}>{h.port||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.mou||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.flag_psc||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.inspection_type||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:h.num_findings>=10?"var(--red2)":h.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:h.num_findings>=5?600:400}}>{h.num_findings||0}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"11px"}}>✓</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{detained?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}>{h.risk_level?<span style={{background:riskBg,color:riskColor,padding:"1px 6px",borderRadius:"3px",fontWeight:600,fontSize:"9px"}}>{h.risk_level}</span>:"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.car_status||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",fontFamily:"var(--mono)",color:h.days_since_last>365?"var(--red2)":h.days_since_last>180?"var(--amber2)":"var(--text2)"}}>{h.days_since_last||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.last_onboard||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.auditor||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={h.finding_note||""}>{h.finding_note||"—"}</td>
+                            </tr>
+                          );
+                        })}</tbody>
+                      </table>
+                    </div>
                   ):<div style={{color:"var(--text3)",fontSize:"11px"}}>No inspection history found. Upload weekly Consolidated Inspection History report.</div>}
                 </div>
                 {/* Vessel Risk Profile */}
