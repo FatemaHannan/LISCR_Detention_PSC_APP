@@ -328,14 +328,14 @@ export default function WeeklyData({ currentUser }) {
   async function handleExport(cfg) {
     const {data, error} = await supabase.from(cfg.table).select("*").limit(10000);
     if (error || !data?.length) { alert("No data to export."); return; }
-    // Rename Supabase snake_case columns back to original Excel headers so re-upload works
+    // Strip internal Supabase-only columns, rename snake_case back to original Excel headers
+    const SKIP = new Set(["id","created_at","uploaded_at","reg_date","created","cf_eta"]);
     const colMap = cfg.exportColumns || {};
     const renamed = data.map(row => {
       const out = {};
-      Object.keys(row).forEach(k => {
-        if (k === "id" || k === "created_at") return; // skip internal fields
-        const label = colMap[k] || k;
-        out[label] = row[k];
+      Object.keys(colMap).forEach(k => {
+        if (SKIP.has(k)) return;
+        if (row[k] !== undefined) out[colMap[k]] = row[k];
       });
       return out;
     });
