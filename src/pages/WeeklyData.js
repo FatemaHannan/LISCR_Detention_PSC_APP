@@ -341,7 +341,7 @@ export default function WeeklyData({ currentUser }) {
       }
 
       // Send in batches of 200, yield between each to keep UI alive
-      const BATCH = 200;
+      const BATCH = 1000;
       for (let idx = 0; idx < allMapped.length; idx += BATCH) {
         const batch = allMapped.slice(idx, idx + BATCH);
         let bData, bErr;
