@@ -2,6 +2,32 @@ import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 
+// Helper: safe string
+const s = (v) => v == null ? "" : String(v).trim();
+// Helper: safe number
+const n = (v) => { const x = parseFloat(String(v||"").replace(/[^0-9.-]/g,"")); return isNaN(x) ? 0 : x; };
+// Helper: safe int
+const i = (v) => { const x = parseInt(String(v||"")); return isNaN(x) ? 0 : x; };
+// Helper: safe date — handles JS Date objects, ISO strings, m/d/yyyy, serial numbers
+const d = (v) => {
+  if (!v && v !== 0) return null;
+  if (v instanceof Date) return v.toISOString().slice(0,10);
+  const str = String(v).trim();
+  if (!str || str === "Invalid Date") return null;
+  if (/^\d{5}$/.test(str)) {
+    return new Date((parseInt(str)-25569)*86400*1000).toISOString().slice(0,10);
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0,10);
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+    const [mo,dy,yr] = str.split("/");
+    return yr+"-"+mo.padStart(2,"0")+"-"+dy.padStart(2,"0");
+  }
+  // Try JS date parse as last resort
+  const parsed = new Date(str);
+  if (!isNaN(parsed)) return parsed.toISOString().slice(0,10);
+  return null;
+};
+
 const UPLOADS = [
   {
     key: "client_average",
@@ -10,34 +36,34 @@ const UPLOADS = [
     icon: "ti-chart-bar", color: "var(--blue)", bg: "var(--blue-bg)",
     table: "client_average",
     exportColumns: {
-      ism_client: "ISM Client", vessel_type: "Vessel Type", vsls_with_insps: "VSLs with INSPs",
-      pct_fleet: "% Fleet", pct_fleet_det: "% Fleet Det", insps: "INSPs", peer_rank: "Peer Rank",
-      average_age: "Average Age", fsc: "FSC", flag_finding_avg: "Flag Finding Av.",
-      psc_finding_avg: "PSC Finding Av.", num_dets: "# DETs", psc_det_pct: "PSC Det %",
-      mlc_compl: "MLC COMPL", vsl_casualty: "VSL Casualty", tech_disp: "Tech Disp",
-      manning_disp: "Manning Disp", insp_perf: "INSP PERF",
+      ism_client:"ISM Client", vessel_type:"Vessel Type", vsls_with_insps:"VSLs with INSPs",
+      pct_fleet:"% Fleet", pct_fleet_det:"% Fleet Det", insps:"INSPs", peer_rank:"Peer Rank",
+      average_age:"Average Age", fsc:"FSC", flag_finding_avg:"Flag Finding Av.",
+      psc_finding_avg:"PSC Finding Av.", num_dets:"# DETs", psc_det_pct:"PSC Det %",
+      mlc_compl:"MLC COMPL", vsl_casualty:"VSL Casualty", tech_disp:"Tech Disp",
+      manning_disp:"Manning Disp", insp_perf:"INSP PERF",
     },
+    filter: (r) => s(r["ISM Client"]||r["ism_client"]),
     map: (r) => ({
-      ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
-      vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
-      vsls_with_insps: parseInt(r["VSLs with INSPs"]||r["vsls_with_insps"])||0,
-      pct_fleet: parseFloat(r["% Fleet"]||r["pct_fleet"])||0,
-      pct_fleet_det: parseFloat(r["% Fleet Det"]||r["pct_fleet_det"])||0,
-      insps: parseInt(r["INSPs"]||r["insps"])||0,
-      peer_rank: String(r["Peer Rank"]||r["peer_rank"]||"").trim(),
-      average_age: parseFloat(r["Average Age"]||r["average_age"])||0,
-      fsc: parseFloat(r["FSC"]||r["fsc"])||0,
-      flag_finding_avg: parseFloat(r["Flag Finding Av."]||r["flag_finding_avg"])||0,
-      psc_finding_avg: parseFloat(r["PSC Finding Av."]||r["psc_finding_avg"])||0,
-      num_dets: parseInt(r["# DETs"]||r["num_dets"])||0,
-      psc_det_pct: parseFloat(r["PSC Det %"]||r["psc_det_pct"])||0,
-      mlc_compl: parseFloat(r["MLC COMPL"]||r["mlc_compl"])||0,
-      vsl_casualty: parseFloat(r["VSL Casualty"]||r["vsl_casualty"])||0,
-      tech_disp: parseFloat(r["Tech Disp"]||r["tech_disp"])||0,
-      manning_disp: parseFloat(r["Manning Disp"]||r["manning_disp"])||0,
-      insp_perf: parseFloat(r["INSP PERF"]||r["insp_perf"])||0,
+      ism_client: s(r["ISM Client"]||r["ism_client"]),
+      vessel_type: s(r["Vessel Type"]||r["vessel_type"]),
+      vsls_with_insps: i(r["VSLs with INSPs"]||r["vsls_with_insps"]),
+      pct_fleet: n(r["% Fleet"]||r["pct_fleet"]),
+      pct_fleet_det: n(r["% Fleet Det"]||r["pct_fleet_det"]),
+      insps: i(r["INSPs"]||r["insps"]),
+      peer_rank: s(r["Peer Rank"]||r["peer_rank"]),
+      average_age: n(r["Average Age"]||r["average_age"]),
+      fsc: n(r["FSC"]||r["fsc"]),
+      flag_finding_avg: n(r["Flag Finding Av."]||r["flag_finding_avg"]),
+      psc_finding_avg: n(r["PSC Finding Av."]||r["psc_finding_avg"]),
+      num_dets: i(r["# DETs"]||r["num_dets"]),
+      psc_det_pct: n(r["PSC Det %"]||r["psc_det_pct"]),
+      mlc_compl: n(r["MLC COMPL"]||r["mlc_compl"]),
+      vsl_casualty: n(r["VSL Casualty"]||r["vsl_casualty"]),
+      tech_disp: n(r["Tech Disp"]||r["tech_disp"]),
+      manning_disp: n(r["Manning Disp"]||r["manning_disp"]),
+      insp_perf: n(r["INSP PERF"]||r["insp_perf"]),
     }),
-    filter: (r) => r["ISM Client"] || r["ism_client"],
   },
   {
     key: "client_vessel_details",
@@ -46,40 +72,40 @@ const UPLOADS = [
     icon: "ti-ship", color: "var(--green2)", bg: "var(--green-bg)",
     table: "client_vessel_details",
     exportColumns: {
-      vessel: "Vessel", imo: "IMO", vsl_status: "Vsl Status", ism_client: "Current ISM Client",
-      vsl_type: "Vsl Type", ro: "RO", age: "Age", fsc: "FSC", flag_insps: "#FLAG INSPs",
-      flag_finding_avg: "Flag Finding Av.", psc_insps: "#PSC INSPs", psc_finding_avg: "PSC Finding Av.",
-      num_detentions: "# Detentions", psc_det_pct: "PSC Det %", avg_insp_findings: "Average of INSP Findings",
-      tech_disp_365: "Tech DISP 365", vsl_insp_perf: "VSL INSP PERF", us_trading: "US Trading",
-      vsl_casualty: "VSL Casualty", mlc_compl: "MLC COMPL",
-      ism_additional_nondet_365: "ISM Additional Non-Detention Last 365",
-      flag_control_or_det_365: "Flag Control or Det Last 365",
+      vessel:"Vessel", imo:"IMO", vsl_status:"Vsl Status", ism_client:"Current ISM Client",
+      vsl_type:"Vsl Type", ro:"RO", age:"Age", fsc:"FSC", flag_insps:"#FLAG INSPs",
+      flag_finding_avg:"Flag Finding Av.", psc_insps:"#PSC INSPs", psc_finding_avg:"PSC Finding Av.",
+      num_detentions:"# Detentions", psc_det_pct:"PSC Det %", avg_insp_findings:"Average of INSP Findings",
+      tech_disp_365:"Tech DISP 365", vsl_insp_perf:"VSL INSP PERF", us_trading:"US Trading",
+      vsl_casualty:"VSL Casualty", mlc_compl:"MLC COMPL",
+      ism_additional_nondet_365:"ISM Additional Non-Detention Last 365",
+      flag_control_or_det_365:"Flag Control or Det Last 365",
     },
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
-      imo: String(r["IMO"]||r["imo"]||"").replace(/[^0-9]/g,""),
-      vsl_status: String(r["Vsl Status"]||r["vsl_status"]||"").trim(),
-      ism_client: String(r["Current ISM Client"]||r["ism_client"]||"").trim(),
-      vsl_type: String(r["Vsl Type"]||r["vsl_type"]||"").trim(),
-      ro: String(r["RO"]||r["ro"]||"").trim(),
-      age: parseFloat(r["Age"]||r["age"])||0,
-      fsc: parseFloat(r["FSC"]||r["fsc"])||0,
-      flag_insps: parseInt(r["#FLAG INSPs"]||r["flag_insps"])||0,
-      flag_finding_avg: parseFloat(r["Flag Finding Av."]||r["flag_finding_avg"])||0,
-      psc_insps: parseInt(r["#PSC INSPs"]||r["psc_insps"])||0,
-      psc_finding_avg: parseFloat(r["PSC Finding Av."]||r["psc_finding_avg"])||0,
-      num_detentions: parseInt(r["# Detentions"]||r["num_detentions"])||0,
-      psc_det_pct: parseFloat(r["PSC Det %"]||r["psc_det_pct"])||0,
-      avg_insp_findings: parseFloat(r["Average of INSP Findings"]||r["avg_insp_findings"])||0,
-      tech_disp_365: parseFloat(r["Tech DISP 365"]||r["tech_disp_365"])||0,
-      vsl_insp_perf: parseFloat(r["VSL INSP PERF"]||r["vsl_insp_perf"])||0,
-      us_trading: String(r["US Trading"]||r["us_trading"]||"").trim(),
-      vsl_casualty: parseFloat(r["VSL Casualty"]||r["vsl_casualty"])||0,
-      mlc_compl: parseFloat(r["MLC COMPL"]||r["mlc_compl"])||0,
-      ism_additional_nondet_365: parseFloat(r["ISM Additional Non-Detention Last 365"]||r["ism_additional_nondet_365"])||0,
-      flag_control_or_det_365: parseFloat(r["Flag Control or Det Last 365"]||r["flag_control_or_det_365"])||0,
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: s(r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      vsl_status: s(r["Vsl Status"]||r["vsl_status"]),
+      ism_client: s(r["Current ISM Client"]||r["ism_client"]),
+      vsl_type: s(r["Vsl Type"]||r["vsl_type"]),
+      ro: s(r["RO"]||r["ro"]),
+      age: n(r["Age"]||r["age"]),
+      fsc: n(r["FSC"]||r["fsc"]),
+      flag_insps: i(r["#FLAG INSPs"]||r["flag_insps"]),
+      flag_finding_avg: n(r["Flag Finding Av."]||r["flag_finding_avg"]),
+      psc_insps: i(r["#PSC INSPs"]||r["psc_insps"]),
+      psc_finding_avg: n(r["PSC Finding Av."]||r["psc_finding_avg"]),
+      num_detentions: i(r["# Detentions"]||r["num_detentions"]),
+      psc_det_pct: n(r["PSC Det %"]||r["psc_det_pct"]),
+      avg_insp_findings: n(r["Average of INSP Findings"]||r["avg_insp_findings"]),
+      tech_disp_365: n(r["Tech DISP 365"]||r["tech_disp_365"]),
+      vsl_insp_perf: n(r["VSL INSP PERF"]||r["vsl_insp_perf"]),
+      us_trading: s(r["US Trading"]||r["us_trading"]),
+      vsl_casualty: n(r["VSL Casualty"]||r["vsl_casualty"]),
+      mlc_compl: n(r["MLC COMPL"]||r["mlc_compl"]),
+      ism_additional_nondet_365: n(r["ISM Additional Non-Detention Last 365"]||r["ism_additional_nondet_365"]),
+      flag_control_or_det_365: n(r["Flag Control or Det Last 365"]||r["flag_control_or_det_365"]),
     }),
-    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO"]||r["imo"]),
   },
   {
     key: "inspection_history",
@@ -88,41 +114,41 @@ const UPLOADS = [
     icon: "ti-clipboard-list", color: "var(--purple)", bg: "var(--purple-bg)",
     table: "inspection_history",
     exportColumns: {
-      vessel: "Vessel", imo: "IMO#", inspection_date: "Inspection Date", port: "Port", mou: "MOU",
-      flag_psc: "Flag/PSC", car_status: "CAR Status", num_findings: "#Findings",
-      detainable_flag: "Detainable Flag", finding_note: "Finding Note",
-      was_detained: "Was Detained", inspection_type: "Inspection Type",
-      days_since_last: "Days", last_onboard: "Last Onboard", auditor: "Auditor",
-      ism_client: "ISM Client", risk_level: "Risk Level", target_vessel: "Target Vsl",
-      ism_points: "ISM Points", psc_det_history: "PSC Det History",
-      tonnage_client: "Tonnage Client", vessel_type: "Vessel Type", age: "Age",
+      vessel:"Vessel", imo:"IMO#", inspection_date:"Inspection Date", port:"Port", mou:"MOU",
+      flag_psc:"Flag/PSC", car_status:"CAR Status", num_findings:"#Findings",
+      detainable_flag:"Detainable Flag", finding_note:"Finding Note",
+      was_detained:"Was Detained", inspection_type:"Inspection Type",
+      days_since_last:"Days", last_onboard:"Last Onboard", auditor:"Auditor",
+      ism_client:"ISM Client", risk_level:"Risk Level", target_vessel:"Target Vsl",
+      ism_points:"ISM Points", psc_det_history:"PSC Det History",
+      tonnage_client:"Tonnage Client", vessel_type:"Vessel Type", age:"Age",
     },
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
-      imo: String(r["IMO#"]||r["IMO"]||r["imo"]||"").replace(/[^0-9]/g,""),
-      inspection_date: r["Inspection Date"]||r["inspection_date"]||null,
-      port: String(r["Port"]||r["port"]||"").trim(),
-      mou: String(r["MOU"]||r["mou"]||"").trim(),
-      flag_psc: String(r["Flag/PSC"]||r["flag_psc"]||"").trim(),
-      car_status: String(r["CAR Status"]||r["car_status"]||"").trim(),
-      num_findings: parseInt(r["#Findings"]||r["num_findings"])||0,
-      detainable_flag: String(r["Detainable Flag"]||r["detainable_flag"]||"").trim(),
-      finding_note: String(r["Finding Note"]||r["finding_note"]||"").trim(),
-      was_detained: String(r["Was Detained"]||r["was_detained"]||"").trim(),
-      inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
-      days_since_last: parseFloat(r["Days"]||r["days_since_last"])||0,
-      last_onboard: String(r["Last Onboard"]||r["last_onboard"]||"").trim(),
-      auditor: String(r["Auditor"]||r["auditor"]||"").trim(),
-      ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
-      risk_level: String(r["Risk Level"]||r["risk_level"]||"").trim(),
-      target_vessel: String(r["Target Vsl"]||r["target_vessel"]||"").trim(),
-      ism_points: parseFloat(r["ISM Points"]||r["ism_points"])||0,
-      psc_det_history: parseFloat(r["PSC Det History"]||r["psc_det_history"])||0,
-      tonnage_client: String(r["Tonnage Client"]||r["tonnage_client"]||"").trim(),
-      vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
-      age: parseFloat(r["Age"]||r["age"])||0,
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
+      port: s(r["Port"]||r["port"]),
+      mou: s(r["MOU"]||r["mou"]),
+      flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
+      car_status: s(r["CAR Status"]||r["car_status"]),
+      num_findings: i(r["#Findings"]||r["num_findings"]),
+      detainable_flag: s(r["Detainable Flag"]||r["detainable_flag"]),
+      finding_note: s(r["Finding Note"]||r["finding_note"]),
+      was_detained: s(r["Was Detained"]||r["was_detained"]),
+      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
+      days_since_last: n(r["Days"]||r["days_since_last"]),
+      last_onboard: s(r["Last Onboard"]||r["last_onboard"]),
+      auditor: s(r["Auditor"]||r["auditor"]),
+      ism_client: s(r["ISM Client"]||r["ism_client"]),
+      risk_level: s(r["Risk Level"]||r["risk_level"]),
+      target_vessel: s(r["Target Vsl"]||r["target_vessel"]),
+      ism_points: n(r["ISM Points"]||r["ism_points"]),
+      psc_det_history: n(r["PSC Det History"]||r["psc_det_history"]),
+      tonnage_client: s(r["Tonnage Client"]||r["tonnage_client"]),
+      vessel_type: s(r["Vessel Type"]||r["vessel_type"]),
+      age: n(r["Age"]||r["age"]),
     }),
-    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "mlc_complaints",
@@ -131,31 +157,31 @@ const UPLOADS = [
     icon: "ti-alert-circle", color: "var(--red2)", bg: "var(--red-bg)",
     table: "mlc_complaints",
     exportColumns: {
-      vessel: "Vessel", imo: "IMO#", risk_level: "Risk Level", reported_date: "Reported Date",
-      flag_psc: "Flag/PSC", mlc_status: "MLC Status", inspection_type: "Inspection Type",
-      days_since_last: "Days", last_onboard: "Last Onboard", ism_client: "ISM Client",
-      psc_det_history: "PSC Det History", target_vessel: "Target Vsl", ism_points: "ISM Points",
-      tonnage_client: "Tonnage Client", vessel_type: "Vessel Type", age: "Age",
+      vessel:"Vessel", imo:"IMO#", risk_level:"Risk Level", reported_date:"Reported Date",
+      flag_psc:"Flag/PSC", mlc_status:"MLC Status", inspection_type:"Inspection Type",
+      days_since_last:"Days", last_onboard:"Last Onboard", ism_client:"ISM Client",
+      psc_det_history:"PSC Det History", target_vessel:"Target Vsl", ism_points:"ISM Points",
+      tonnage_client:"Tonnage Client", vessel_type:"Vessel Type", age:"Age",
     },
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
-      imo: String(r["IMO#"]||r["IMO"]||r["imo"]||"").replace(/[^0-9]/g,""),
-      risk_level: String(r["Risk Level"]||r["risk_level"]||"").trim(),
-      reported_date: r["Reported Date"]||r["reported_date"]||null,
-      flag_psc: String(r["Flag/PSC"]||r["flag_psc"]||"").trim(),
-      mlc_status: String(r["MLC Status"]||r["mlc_status"]||"").trim(),
-      inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
-      days_since_last: parseFloat(r["Days"]||r["days_since_last"])||0,
-      last_onboard: String(r["Last Onboard"]||r["last_onboard"]||"").trim(),
-      ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
-      psc_det_history: parseFloat(r["PSC Det History"]||r["psc_det_history"])||0,
-      target_vessel: String(r["Target Vsl"]||r["target_vessel"]||"").trim(),
-      ism_points: parseFloat(r["ISM Points"]||r["ism_points"])||0,
-      tonnage_client: String(r["Tonnage Client"]||r["tonnage_client"]||"").trim(),
-      vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
-      age: parseFloat(r["Age"]||r["age"])||0,
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      risk_level: s(r["Risk Level"]||r["risk_level"]),
+      reported_date: d(r["Reported Date"]||r["reported_date"]),
+      flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
+      mlc_status: s(r["MLC Status"]||r["mlc_status"]),
+      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
+      days_since_last: n(r["Days"]||r["days_since_last"]),
+      last_onboard: s(r["Last Onboard"]||r["last_onboard"]),
+      ism_client: s(r["ISM Client"]||r["ism_client"]),
+      psc_det_history: n(r["PSC Det History"]||r["psc_det_history"]),
+      target_vessel: s(r["Target Vsl"]||r["target_vessel"]),
+      ism_points: n(r["ISM Points"]||r["ism_points"]),
+      tonnage_client: s(r["Tonnage Client"]||r["tonnage_client"]),
+      vessel_type: s(r["Vessel Type"]||r["vessel_type"]),
+      age: n(r["Age"]||r["age"]),
     }),
-    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "psc_detention_summary",
@@ -164,34 +190,34 @@ const UPLOADS = [
     icon: "ti-anchor", color: "var(--amber2)", bg: "var(--amber-bg)",
     table: "psc_detention_summary",
     exportColumns: {
-      vessel: "Vessel", imo: "IMO#", inspection_date: "Inspection Date", port: "Port", mou: "MOU",
-      flag_psc: "Flag/PSC", num_findings: "#Findings", was_detained: "Was Detained",
-      days_since_last: "Days", last_onboard: "Last Onboard", risk_level: "Risk Level",
-      target_vessel: "Target Vsl", psc_det_history: "PSC Det History", age: "Age",
-      vessel_type: "Vessel Type", vessel_status: "Vessel Status", ism_client: "ISM Client",
-      inspection_type: "Inspection Type",
+      vessel:"Vessel", imo:"IMO#", inspection_date:"Inspection Date", port:"Port", mou:"MOU",
+      flag_psc:"Flag/PSC", num_findings:"#Findings", was_detained:"Was Detained",
+      days_since_last:"Days", last_onboard:"Last Onboard", risk_level:"Risk Level",
+      target_vessel:"Target Vsl", psc_det_history:"PSCDetentionHistory", age:"Age",
+      vessel_type:"Vessel Type", vessel_status:"Vessel Status", ism_client:"ISM Client",
+      inspection_type:"Inspection Type",
     },
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: String(r["Vessel"]||r["vessel"]||"").trim(),
-      imo: String(r["IMO#"]||r["IMO"]||r["imo"]||"").replace(/[^0-9]/g,""),
-      inspection_date: r["Inspection Date"]||r["inspection_date"]||null,
-      port: String(r["Port"]||r["port"]||"").trim(),
-      mou: String(r["MOU"]||r["mou"]||"").trim(),
-      flag_psc: String(r["Flag/PSC"]||r["flag_psc"]||"").trim(),
-      num_findings: parseInt(r["#Findings"]||r["num_findings"])||0,
-      was_detained: String(r["Was Detained"]||r["was_detained"]||"").trim(),
-      days_since_last: parseFloat(r["Days"]||r["days_since_last"])||0,
-      last_onboard: String(r["Last Onboard"]||r["last_onboard"]||"").trim(),
-      risk_level: String(r["Risk Level"]||r["risk_level"]||"").trim(),
-      target_vessel: String(r["Target Vsl"]||r["target_vessel"]||"").trim(),
-      psc_det_history: parseFloat(r["PSCDetentionHistory"]||r["PSC Det History"]||r["psc_det_history"]||0)||0,
-      age: parseFloat(r["Age"]||r["age"])||0,
-      vessel_type: String(r["Vessel Type"]||r["vessel_type"]||"").trim(),
-      vessel_status: String(r["Vessel Status"]||r["vessel_status"]||"").trim(),
-      ism_client: String(r["ISM Client"]||r["ism_client"]||"").trim(),
-      inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: s(r["IMO#"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
+      port: s(r["Port"]||r["port"]),
+      mou: s(r["MOU"]||r["mou"]),
+      flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
+      num_findings: i(r["#Findings"]||r["num_findings"]),
+      was_detained: s(r["Was Detained"]||r["was_detained"]),
+      days_since_last: n(r["Days"]||r["days_since_last"]),
+      last_onboard: s(r["Last Onboard"]||r["last_onboard"]),
+      risk_level: s(r["Risk Level"]||r["risk_level"]),
+      target_vessel: s(r["Target Vsl"]||r["target_vessel"]),
+      psc_det_history: n(r["PSCDetentionHistory"]||r["PSC Det History"]||r["psc_det_history"]),
+      age: n(r["Age"]||r["age"]),
+      vessel_type: s(r["Vessel Type"]||r["vessel_type"]),
+      vessel_status: s(r["Vessel Status"]||r["vessel_status"]),
+      ism_client: s(r["ISM Client"]||r["ism_client"]),
+      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
     }),
-    filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO#"]||r["IMO"]||r["imo"]),
   },
   {
     key: "dpp_case_files",
@@ -200,30 +226,30 @@ const UPLOADS = [
     icon: "ti-radar", color: "var(--amber2)", bg: "var(--amber-bg)",
     table: "dpp_case_files",
     exportColumns: {
-      vessel: "Vessel Name", imo: "IMO Number", inspection_date: "Inspection Date",
-      port: "Port", mou: "MOU", num_findings: "Number Of Deficiencies",
-      was_detained: "Detained", psc_vessel_owner: "PSC Vessel Owner",
-      report_status: "PSC Report Status", inspection_type: "Inspection Type",
-      car_status: "CAR Status", action_type: "Case Action Type",
-      action_status: "Case Action Status", flag: "Flag",
+      vessel:"Vessel Name", imo:"IMO Number", inspection_date:"Inspection Date",
+      port:"Port", mou:"MOU", num_findings:"Number Of Deficiencies",
+      was_detained:"Detained", psc_vessel_owner:"PSC Vessel Owner",
+      report_status:"PSC Report Status", inspection_type:"Inspection Type",
+      car_status:"CAR Status", action_type:"Case Action Type",
+      action_status:"Case Action Status", flag:"Flag",
     },
+    filter: (r) => s(r["Vessel Name"]||r["Vessel"]||r["vessel"]) && s(r["IMO Number"]||r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: String(r["Vessel Name"]||r["Vessel"]||r["vessel"]||"").trim(),
-      imo: String(r["IMO Number"]||r["IMO"]||r["IMONumber"]||r["imo"]||"").replace(/[^0-9]/g,""),
-      inspection_date: r["Inspection Date"]||r["inspection_date"]||null,
-      port: String(r["Port"]||r["port"]||"").trim(),
-      mou: String(r["MOU"]||r["mou"]||"").trim(),
-      num_findings: parseInt(r["Number Of Deficiencies"]||r["num_findings"])||0,
-      was_detained: String(r["Detained"]||r["was_detained"]||"").toLowerCase()==="yes"||String(r["Detained"]||"").toLowerCase()==="true"||r["was_detained"]===true,
-      psc_vessel_owner: String(r["PSC Vessel Owner"]||r["psc_vessel_owner"]||"").trim(),
-      report_status: String(r["PSC Report Status"]||r["report_status"]||"").trim(),
-      inspection_type: String(r["Inspection Type"]||r["inspection_type"]||"").trim(),
-      car_status: String(r["CAR Status"]||r["car_status"]||"").trim(),
-      action_type: String(r["Case Action Type"]||r["Action Type"]||r["action_type"]||"").trim(),
-      action_status: String(r["Case Action Status"]||r["Action Status"]||r["action_status"]||"").trim(),
-      flag: String(r["Flag"]||r["flag"]||"").trim(),
+      vessel: s(r["Vessel Name"]||r["Vessel"]||r["vessel"]),
+      imo: s(r["IMO Number"]||r["IMO"]||r["imo"]).replace(/[^0-9]/g,""),
+      inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
+      port: s(r["Port"]||r["port"]),
+      mou: s(r["MOU"]||r["mou"]),
+      num_findings: i(r["Number Of Deficiencies"]||r["num_findings"]),
+      was_detained: s(r["Detained"]||r["was_detained"]),
+      psc_vessel_owner: s(r["PSC Vessel Owner"]||r["psc_vessel_owner"]),
+      report_status: s(r["PSC Report Status"]||r["report_status"]),
+      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
+      car_status: s(r["CAR Status"]||r["car_status"]),
+      action_type: s(r["Case Action Type"]||r["Action Type"]||r["action_type"]),
+      action_status: s(r["Case Action Status"]||r["Action Status"]||r["action_status"]),
+      flag: s(r["Flag"]||r["flag"]),
     }),
-    filter: (r) => (r["Vessel Name"]||r["Vessel"]||r["vessel"]) && (r["IMO Number"]||r["IMO"]||r["IMONumber"]||r["imo"]),
   },
 ];
 
@@ -233,11 +259,10 @@ export default function WeeklyData({ currentUser }) {
   const [counts, setCounts] = useState({});
 
   useEffect(() => {
-    // Load current row counts from Supabase
     const tables = UPLOADS.map(u => u.table);
     Promise.all(tables.map(t => supabase.from(t).select('count'))).then(results => {
       const c = {};
-      results.forEach(({data}, i) => { c[tables[i]] = data?.[0]?.count||0; });
+      results.forEach(({data}, idx) => { c[tables[idx]] = data?.[0]?.count||0; });
       setCounts(c);
     });
   }, []);
@@ -256,64 +281,64 @@ export default function WeeklyData({ currentUser }) {
     e.target.value = "";
     setUploading(p => ({...p, [cfg.key]: true}));
     setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:"Reading file..."}}));
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+        // Read with cellDates:true so dates come as JS Date objects
         const wb = XLSX.read(evt.target.result, {type:"binary", cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
-        const normalized = rows.map(r => { const c={}; Object.keys(r).forEach(k=>{c[k.trim().replace(/^﻿/,"")]=r[k];}); return c; });
-        // Fix Excel serial dates in all rows
-        function fixDate(v) {
-          if (!v && v !== 0) return null;
-          const s = String(v).trim();
-          if (/^\d{5}$/.test(s)) {
-            const d = new Date((parseInt(s)-25569)*86400*1000);
-            return d.toISOString().slice(0,10);
-          }
-          if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0,10);
-          if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
-            const [m,d,y] = s.split("/");
-            return y+"-"+m.padStart(2,"0")+"-"+d.padStart(2,"0");
-          }
-          return null;
-        }
-        const fixedRows = normalized.map(r => {
-          const nr = {...r};
-          ["Reported Date","Inspection Date","reported_date","inspection_date"].forEach(k=>{
-            if(nr[k] !== undefined) nr[k] = fixDate(nr[k]);
-          });
-          return nr;
+        // raw:true to preserve Date objects; defval:null for empty cells
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+        // Normalize headers (trim BOM/whitespace)
+        const normalized = rows.map(r => {
+          const c = {};
+          Object.keys(r).forEach(k => { c[k.trim().replace(/^\uFEFF/,"")] = r[k]; });
+          return c;
         });
-        const mapped = fixedRows.filter(cfg.filter).map(cfg.map);
+
+        const mapped = normalized.filter(cfg.filter).map(cfg.map);
+
         if (!mapped.length) {
           setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"No valid rows found. Check file format."}}));
           setUploading(p => ({...p, [cfg.key]: false}));
           return;
         }
-        setStatus(p => ({...p, [cfg.key]: {state:"clearing", msg:`Clearing old data — ${mapped.length} rows to upload...`}}));
+
+        // Clear old data
+        setStatus(p => ({...p, [cfg.key]: {state:"clearing", msg:`Clearing old data — ${mapped.length} rows to insert...`}}));
         const {error: delErr} = await supabase.from(cfg.table).delete().neq("id", 0);
-        if (delErr) { setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Clear failed: "+delErr.message}})); setUploading(p => ({...p, [cfg.key]: false})); return; }
-        let saved = 0;
-        let skipped = 0;
-        for (let i = 0; i < mapped.length; i += 10) {
-          const batch = mapped.slice(i, i + 10);
+        if (delErr) {
+          setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Clear failed: "+delErr.message}}));
+          setUploading(p => ({...p, [cfg.key]: false}));
+          return;
+        }
+
+        // Insert in batches of 50, row-by-row fallback on batch error
+        let saved = 0, skipped = 0;
+        for (let idx = 0; idx < mapped.length; idx += 50) {
+          const batch = mapped.slice(idx, idx + 50);
           const {data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id");
           if (bErr) {
+            // Fallback: try one by one
             for (const row of batch) {
-              const {error: rErr} = await supabase.from(cfg.table).insert(row);
+              const {error: rErr} = await supabase.from(cfg.table).insert([row]).select("id");
               if (rErr) { skipped++; } else { saved++; }
             }
           } else {
-            saved += bData.length;
+            saved += bData?.length || batch.length;
           }
           setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Uploading... ${saved} / ${mapped.length}`}}));
         }
+
         const uploadTime = new Date().toLocaleString();
-        const doneMsg = skipped > 0 ? `${saved} records uploaded. ${skipped} rows skipped (missing required fields).` : `${saved} records uploaded.`;
-        setStatus(p => ({...p, [cfg.key]: {state:"done", msg:doneMsg, count:saved, time:uploadTime}}));
+        const msg = skipped > 0
+          ? `${saved} records uploaded. ${skipped} rows skipped.`
+          : `${saved} records uploaded.`;
+        setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
         setCounts(p => ({...p, [cfg.table]: saved}));
         setUploading(p => ({...p, [cfg.key]: false}));
+
       } catch(err) {
         setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"Error: "+err.message}}));
         setUploading(p => ({...p, [cfg.key]: false}));
@@ -323,9 +348,8 @@ export default function WeeklyData({ currentUser }) {
   }
 
   async function handleExport(cfg) {
-    const {data, error} = await supabase.from(cfg.table).select("*").limit(10000);
+    const {data, error} = await supabase.from(cfg.table).select("*").limit(100000);
     if (error || !data?.length) { alert("No data to export."); return; }
-    // Strip internal Supabase-only columns, rename snake_case back to original Excel headers
     const SKIP = new Set(["id","created_at","uploaded_at","reg_date","created","cf_eta"]);
     const colMap = cfg.exportColumns || {};
     const renamed = data.map(row => {
@@ -350,11 +374,11 @@ export default function WeeklyData({ currentUser }) {
       </div>
       <div style={{display:"grid",gap:"14px"}}>
         {UPLOADS.map(cfg => {
-          const s = status[cfg.key];
+          const st = status[cfg.key];
           const busy = uploading[cfg.key];
           return (
             <div key={cfg.key} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"16px 20px"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:s?"10px":"0"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:st?"10px":"0"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
                   <div style={{width:"36px",height:"36px",borderRadius:"8px",background:cfg.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                     <i className={"ti "+cfg.icon} style={{color:cfg.color,fontSize:"18px"}}></i>
@@ -367,7 +391,7 @@ export default function WeeklyData({ currentUser }) {
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                     {counts[cfg.table]>0&&<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]} rows in DB</span>}
-                    {s?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>✓ {s.time}</span>}
+                    {st?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>✓ {st.time}</span>}
                     {counts[cfg.table]>0&&<button onClick={()=>handleExport(cfg)} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>↓ Export</button>}
                     <input id={"file-"+cfg.key} type="file" accept=".xlsx,.xlsm,.xls" style={{display:"none"}} onChange={e=>handleFile(cfg,e)} />
                     <label htmlFor={"file-"+cfg.key} style={{padding:"7px 16px",border:"1px solid "+cfg.color,borderRadius:"6px",background:busy?"var(--bg3)":cfg.bg,color:busy?"var(--text3)":cfg.color,cursor:busy?"default":"pointer",fontSize:"11px",fontWeight:500,whiteSpace:"nowrap"}}>
@@ -376,7 +400,7 @@ export default function WeeklyData({ currentUser }) {
                   </div>
                 </div>
               </div>
-              {s&&<div style={{padding:"8px 12px",borderRadius:"6px",fontSize:"11px",background:s.state==="done"?"var(--green-bg)":s.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(s.state==="done"?"var(--green)":s.state==="error"?"var(--red)":"var(--border)"),color:s.state==="done"?"var(--green2)":s.state==="error"?"var(--red2)":"var(--text3)"}}>{s.state==="done"?"✓ ":s.state==="error"?"✗ ":"⟳ "}{s.msg}</div>}
+              {st&&<div style={{padding:"8px 12px",borderRadius:"6px",fontSize:"11px",background:st.state==="done"?"var(--green-bg)":st.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(st.state==="done"?"var(--green)":st.state==="error"?"var(--red)":"var(--border)"),color:st.state==="done"?"var(--green2)":st.state==="error"?"var(--red2)":"var(--text3)"}}>{st.state==="done"?"✓ ":st.state==="error"?"✗ ":"⟳ "}{st.msg}</div>}
             </div>
           );
         })}
