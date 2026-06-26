@@ -448,10 +448,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
-            {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)"},{l:"Deficiencies",v2:v.defs,c:"var(--text)"},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)"},{l:"MoU",v2:v.mou,c:"var(--text2)"},{l:"Date",v2:v.detentionDate,c:"var(--text3)"}].map(m=>(
-              <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+            {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)",bold:true},{l:"Deficiencies",v2:v.defs,c:"var(--text)",bold:false},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)",bold:false},{l:"MoU",v2:v.mou,c:"var(--text2)",bold:false},{l:"Detention Date",v2:v.detentionDate,c:"var(--text)",bold:true}].map(m=>(
+              <div key={m.l} style={{background:"var(--bg2)",border:"1px solid "+(m.bold&&m.l==="Detention Date"?"var(--border2)":"var(--border)"),borderRadius:"8px",padding:"10px 12px"}}>
                 <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>{m.l}</div>
-                <div style={{fontSize:"13px",fontWeight:500,color:m.c}}>{m.v2}</div>
+                <div style={{fontSize:m.bold?"15px":"13px",fontWeight:m.bold?700:500,color:m.c,fontFamily:m.l==="Detention Date"?"var(--mono)":"inherit"}}>{m.v2}</div>
               </div>
             ))}
           </div>
