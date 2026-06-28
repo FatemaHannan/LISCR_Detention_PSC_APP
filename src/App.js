@@ -41,7 +41,7 @@ const NAV = [
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
     { id:"vip", label:"VIP protocol", icon:"ti-shield-check", badge:null },
     { id:"meeting", label:"Meeting minutes", icon:"ti-notes", badge:null },
-    { id:"initiatives", label:"Initiatives", icon:"ti-rocket", badge:null },
+    { id:"initiatives", label:"Task Intelligence", icon:"ti-chart-dots", badge:null },
   ]},
   { section:"ASSISTANT", items:[
     { id:"chat", label:"AI assistant", icon:"ti-message-circle", badge:null },
