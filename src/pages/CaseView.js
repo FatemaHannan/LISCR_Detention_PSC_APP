@@ -8,6 +8,58 @@ import EditModal from "../components/EditModal";
 const MONTHS = ["All","Jun 2026","May 2026","Apr 2026","Mar 2026","Feb 2026","Jan 2026"];
 const FLAG_COLOR = {"WHISTLEBLOWER":"var(--purple)","FRAUDULENT RECORD":"var(--red)","HRS":"var(--red)","RO SURVEY GAP":"var(--amber)","MARPOL VIOLATION":"var(--red)","VIP REJECTION":"var(--blue)","REPEAT DETAINEE":"var(--red)","POST DRY DOCK":"var(--amber)"};
 const FLAG_BG = {"WHISTLEBLOWER":"var(--purple-bg)","FRAUDULENT RECORD":"var(--red-bg)","HRS":"var(--red-bg)","RO SURVEY GAP":"var(--amber-bg)","MARPOL VIOLATION":"var(--red-bg)","VIP REJECTION":"var(--blue-bg)","REPEAT DETAINEE":"var(--red-bg)","POST DRY DOCK":"var(--amber-bg)"};
+
+// Auto-generate smart alerts from case data
+function getSmartAlerts(v, intel, vesselTasks) {
+  const alerts = [];
+  const now = new Date();
+
+  // Detention date — days since detained
+  if (v.detentionDate) {
+    const det = new Date(v.detentionDate);
+    const days = Math.floor((now - det) / 86400000);
+    if (days > 0) alerts.push({msg: days+" days since detention", sev:"red"});
+  }
+
+  // High deficiency count
+  if ((v.defs||0) >= 20) alerts.push({msg: v.defs+" deficiencies — critical", sev:"red"});
+  else if ((v.defs||0) >= 10) alerts.push({msg: v.defs+" deficiencies — high", sev:"amber"});
+
+  // Detainable findings
+  if ((v.detainable||0) > 0) alerts.push({msg: v.detainable+" detainable finding"+(v.detainable>1?"s":""), sev:"red"});
+
+  // CAR not received
+  if (v.carStatus==="Not Received") alerts.push({msg:"CAR not received", sev:"red"});
+  else if (v.carStatus==="Requested") alerts.push({msg:"CAR requested — pending", sev:"amber"});
+
+  // Company repeat detentions from intel
+  if (intel?.client?.num_detentions >= 3) alerts.push({msg:"Company has "+intel.client.num_detentions+" detentions in last 24 months", sev:"red"});
+
+  // Company peer rank
+  if (intel?.client?.peer_rank==="Bottom Half") alerts.push({msg:"Company in bottom half peer rank", sev:"amber"});
+
+  // Vessel detention history from intel
+  if (intel?.vessel?.num_detentions >= 2) alerts.push({msg: intel.vessel.num_detentions+" vessel detentions on record", sev:"amber"});
+
+  // ASI overdue — days since last onboard > 365
+  if (intel?.inspections?.length > 0) {
+    const lastInsp = intel.inspections.find(h => h.last_onboard);
+    if (lastInsp?.days_since_last > 365) alerts.push({msg: lastInsp.days_since_last+" days since last ASI — overdue", sev:"red"});
+    else if (lastInsp?.days_since_last > 300) alerts.push({msg: lastInsp.days_since_last+" days since last ASI — due soon", sev:"amber"});
+  }
+
+  // Stalled tasks
+  const stalledTasks = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
+  if (stalledTasks.length > 5) alerts.push({msg: stalledTasks.length+" open tasks — action required", sev:"amber"});
+
+  // No PSC report uploaded
+  if ((v.deficiencies?.length||0)===0 && (v.defs||0)>0) alerts.push({msg:"PSC report not uploaded yet", sev:"amber"});
+
+  // Manual flags from old system
+  (v.flags||[]).forEach(f => alerts.push({msg:f, sev:"red"}));
+
+  return alerts;
+}
 const PRI = {Critical:"b-r",Urgent:"b-r",High:"b-a",Medium:"b-b",Low:"b-gr"};
 const AC = {"30":"var(--red2)","17":"var(--amber2)","50":"var(--blue)","70":"var(--text3)"};
 
@@ -436,6 +488,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               </div>
               <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port}</div>
               <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>Case Owner: <strong style={{color:"var(--text2)"}}>{v.caseOwner}</strong> · Task Owners: <strong style={{color:"var(--text2)"}}>{v.taskOwners?.join(", ")||"—"}</strong></div>
+              {/* Smart auto-generated alerts */}
+              {(()=>{const alerts=getSmartAlerts(v,intel,vesselTasks);return alerts.length>0&&(
+                <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginTop:"8px"}}>
+                  {alerts.map((a,i)=>(
+                    <div key={i} style={{padding:"4px 10px",borderRadius:"5px",background:a.sev==="red"?"var(--red-bg)":"var(--amber-bg)",border:"1px solid "+(a.sev==="red"?"#3D1A1A":"var(--amber)"),fontSize:"10px",fontWeight:600,color:a.sev==="red"?"var(--red2)":"var(--amber2)",fontFamily:"var(--mono)"}}>{a.msg}</div>
+                  ))}
+                </div>
+              );})()}
             </div>
             <div style={{display:"flex",gap:"7px",flexWrap:"wrap"}}>
               {canDownload&&<button onClick={downloadSummary} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download summary</button>}
