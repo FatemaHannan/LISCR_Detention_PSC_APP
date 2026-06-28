@@ -921,9 +921,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 )}
                 {/* MLC Complaints */}
-                {intel.mlc.length>0&&(
-                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>MLC Complaints ({intel.mlc.length})</div>
+                <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>MLC Complaints <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.mlc.length} records)</span></div>
+                  {intel.mlc.length>0?(
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
                       <thead><tr>{["Date","Status","Type","Inspector","Risk"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{intel.mlc.map((m,i)=>(
@@ -936,8 +936,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         </tr>
                       ))}</tbody>
                     </table>
-                  </div>
-                )}
+                  ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No MLC complaints found. Upload weekly MLC Complaints report to populate.</div>}
+                </div>
                 {/* PSC Detention Summary */}
                 {intel.psc&&intel.psc.length>0&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
