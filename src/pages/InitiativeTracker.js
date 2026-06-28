@@ -30,6 +30,7 @@ export default function InitiativeTracker() {
     const days = Math.floor((new Date() - new Date(t.due)) / 86400000);
     return days > 30;
   });
+  const noDueDate = open.filter(t => !t.due);
 
   // By status
   const statusCounts = {};
@@ -195,7 +196,7 @@ export default function InitiativeTracker() {
     <div style={{padding:"16px"}}>
       <div style={{marginBottom:"16px"}}>
         <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>Task Intelligence</div>
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{tasks.length} total tasks \u00b7 {pdaip.length} PDAIP \u00b7 {detention.length} detention \u00b7 {completionRate}% complete</div>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{tasks.length} total tasks · {pdaip.length} PDAIP · {detention.length} detention · {completionRate}% complete</div>
       </div>
 
       {/* Sub tabs */}
@@ -304,8 +305,8 @@ export default function InitiativeTracker() {
       {/* STALLED & OVERDUE */}
       {subTab==="stalled"&&(
         <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-            {[{l:"Stalled 30+ days",v:stalled.length,c:"var(--red2)"},{l:"Overdue",v:overdue.length,c:"var(--amber2)"}].map(s=>(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"}}>
+            {[{l:"Stalled 30+ days",v:stalled.length,c:"var(--red2)"},{l:"Overdue",v:overdue.length,c:"var(--amber2)"},{l:"No Due Date",v:noDueDate.length,c:"var(--text3)"}].map(s=>(
               <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
                 <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
                 <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
@@ -357,7 +358,24 @@ export default function InitiativeTracker() {
             </div>
           )}
 
-          {stalled.length===0&&overdue.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"40px"}}>No stalled or overdue tasks.</div>}
+          {noDueDate.length>0&&(
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",marginBottom:"10px"}}>Tasks with No Due Date ({noDueDate.length}) — Cannot track progress</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                <thead><tr>{["Vessel","Task","Owner","Status","Type"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>{noDueDate.slice(0,15).map((t,i)=>(
+                  <tr key={i} style={{background:i%2===0?"var(--bg3)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                    <td style={{padding:"8px 10px",color:"var(--text2)",fontWeight:600}}>{t.vessel||"—"}</td>
+                    <td style={{padding:"8px 10px",color:"var(--text2)",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</td>
+                    <td style={{padding:"8px 10px",color:"var(--text3)"}}>{t.assignedTo||t.taskOwner||"—"}</td>
+                    <td style={{padding:"8px 10px"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",color:"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{t.status}</span></td>
+                    <td style={{padding:"8px 10px",color:"var(--text3)",fontSize:"10px"}}>{t.type||"—"}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {stalled.length===0&&overdue.length===0&&noDueDate.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"40px"}}>No stalled or overdue tasks.</div>}
         </div>
       )}
 
