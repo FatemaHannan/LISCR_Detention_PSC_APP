@@ -181,7 +181,8 @@ function FleetAnalysis({vessels}) {
   const topMous=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
   const mouDefs={};const mouDefC={};
-  vessels.forEach(v=>{if(v.mou&&v.defs){mouDefs[v.mou]=(mouDefs[v.mou]||0)+(v.defs||0);mouDefC[v.mou]=(mouDefC[v.mou]||0)+1;}});
+  const EXCLUDED = ["Unknown","—","Not specified","","null"];
+  vessels.filter(v=>v.company&&!EXCLUDED.includes(v.company.trim())).forEach(v=>{if(v.mou&&v.defs){mouDefs[v.mou]=(mouDefs[v.mou]||0)+(v.defs||0);mouDefC[v.mou]=(mouDefC[v.mou]||0)+1;}});
   const mouAvg=Object.entries(mouDefs).map(([m,s])=>([m,(s/mouDefC[m]).toFixed(1)])).sort((a,b)=>b[1]-a[1]);
 
   const monthCounts={};
@@ -380,7 +381,7 @@ function CompanyPattern({vessels}) {
 
   const companyMap = {};
   vessels.forEach(v=>{
-    const c = v.company||"Unknown";
+    const c = v.company&&v.company.trim()&&v.company!=="Unknown"?v.company.trim():"Unknown";
     if (!companyMap[c]) companyMap[c]={name:c,cases:0,detained:0,totalDefs:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:new Set()};
     companyMap[c].cases++;
     if (v.detained) companyMap[c].detained++;
