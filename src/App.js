@@ -112,8 +112,8 @@ export default function App() {
   const [fleetTasks, setFleetTasks] = useState(TASKS);
 
   React.useEffect(() => {
-    getVessels().then(v => setFleetVessels([...VESSELS, ...v.filter(dv => !VESSELS.find(s => s.imo === dv.imo && s.detentionDate === dv.detentionDate))]));
-    getTasks().then(t => setFleetTasks([...TASKS, ...t.filter(dt => !TASKS.find(s => s.id === dt.id))]));
+    getVessels().then(v => setFleetVessels(v||[]));
+    getTasks().then(t => setFleetTasks(t||[]));
   }, []);
   const [processing, setProcessing] = useState(false);
   const messagesEndRef = useRef(null);
@@ -355,38 +355,111 @@ export default function App() {
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
 
-          {page === "fleet" && (
+          {page === "fleet" && (()=>{
+            // Real-time fleet stats from Supabase
+            const detained = fleetVessels.filter(v=>v.detained);
+            const openTasks = fleetTasks.filter(t=>t.status!=="Executed");
+            const carNotReceived = fleetVessels.filter(v=>v.carStatus==="Not Received");
+
+            // Monthly trend from detention dates
+            const monthCounts = {};
+            fleetVessels.forEach(v=>{
+              if(v.detentionDate){
+                const m = v.detentionDate.slice(0,7);
+                monthCounts[m] = (monthCounts[m]||0)+1;
+              }
+            });
+            const months = Object.entries(monthCounts).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6);
+            const maxMonth = months.length?Math.max(...months.map(m=>m[1])):1;
+
+            // MoU breakdown
+            const mouCounts = {};
+            fleetVessels.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+            const topMous = Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+            const maxMou = topMous.length?topMous[0][1]:1;
+
+            // CAR status breakdown
+            const carCounts = {};
+            fleetVessels.forEach(v=>{const k=v.carStatus||"Unknown";carCounts[k]=(carCounts[k]||0)+1;});
+            const carBreakdown = Object.entries(carCounts).sort((a,b)=>b[1]-a[1]);
+
+            // Top companies by detentions
+            const compDetentions = {};
+            fleetVessels.filter(v=>v.detained&&v.company&&v.company!=="—"&&v.company!=="Unknown").forEach(v=>{
+              compDetentions[v.company]=(compDetentions[v.company]||0)+1;
+            });
+            const topCompanies = Object.entries(compDetentions).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const maxComp = topCompanies.length?topCompanies[0][1]:1;
+
+            return (
             <div className="pg active">
-              <div className="mg4">
-                <div className="met"><div className="m-l">Total vessels</div><div className="m-v">{fleetVessels.length}</div><div className="m-s">Jan-Jun 2026</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Detained</div><div className="m-v" style={{color:"var(--red2)"}}>{fleetVessels.filter(v=>v.detained).length}</div><div className="m-s">currently detained</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>Open tasks</div><div className="m-v" style={{color:"var(--amber2)"}}>{fleetTasks.filter(t=>t.status!=="Executed").length}</div><div className="m-s">PDAIP tasks open</div></div>
+              {/* Stats row */}
+              <div className="mg4" style={{gridTemplateColumns:"repeat(6,1fr)"}}>
+                <div className="met"><div className="m-l">Total Cases</div><div className="m-v">{fleetVessels.length}</div><div className="m-s">in Supabase</div></div>
+                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Detained</div><div className="m-v" style={{color:"var(--red2)"}}>{detained.length}</div><div className="m-s">{Math.round(detained.length/Math.max(fleetVessels.length,1)*100)}% of fleet</div></div>
+                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>Open Tasks</div><div className="m-v" style={{color:"var(--amber2)"}}>{openTasks.length}</div><div className="m-s">PDAIP tasks open</div></div>
+                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>CAR Missing</div><div className="m-v" style={{color:"var(--red2)"}}>{carNotReceived.length}</div><div className="m-s">not received</div></div>
+                <div className="met"><div className="m-l">Avg Defs</div><div className="m-v">{fleetVessels.length?(fleetVessels.reduce((s,v)=>s+(v.defs||0),0)/fleetVessels.length).toFixed(1):0}</div><div className="m-s">per detention</div></div>
                 <div className="met"><div className="m-l">Tokyo MOU</div><div className="m-v">{fleetVessels.filter(v=>v.mou==="Tokyo MOU").length}</div><div className="m-s">{Math.round(fleetVessels.filter(v=>v.mou==="Tokyo MOU").length/Math.max(fleetVessels.length,1)*100)}% of total</div></div>
               </div>
+
               <div className="two">
+                {/* Monthly trend - LIVE */}
                 <div className="card">
-                  <div className="card-t">Monthly trend</div>
-                  {MONTHLY.map(r => (
-                    <div key={r.m} className="bar-r">
-                      <div className="bar-l">{r.m}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(r.v/25)*100}%`,background:r.m==="May"?"var(--amber)":"var(--blue)"}}></div></div>
-                      <div className="bar-v">{r.v}</div>
+                  <div className="card-t">Monthly trend <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
+                  {months.length>0?months.map(([m,v])=>(
+                    <div key={m} className="bar-r">
+                      <div className="bar-l">{m.slice(5)}/{m.slice(2,4)}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxMonth)*100}%`,background:"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
+                    </div>
+                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No detention date data yet.</div>}
+                </div>
+
+                {/* MoU breakdown - LIVE */}
+                <div className="card">
+                  <div className="card-t">Cases by MoU <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
+                  {topMous.map(([m,v])=>(
+                    <div key={m} className="bar-r">
+                      <div className="bar-l">{m}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxMou)*100}%`,background:"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="two" style={{marginTop:"12px"}}>
+                {/* CAR status - LIVE */}
                 <div className="card">
-                  <div className="card-t">Top detention causes</div>
-                  {[{c:"ISM Code failure",v:22},{c:"Fire safety systems",v:18},{c:"LSA / emergency",v:15},{c:"Corrosion / maintenance",v:10},{c:"MLC / Manning",v:9},{c:"Pollution prevention",v:8}].map(r => (
-                    <div key={r.c} className="bar-r">
-                      <div className="bar-l">{r.c}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(r.v/25)*100}%`,background:"var(--blue)"}}></div></div>
-                      <div className="bar-v">{r.v}</div>
+                  <div className="card-t">CAR Status <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
+                  {carBreakdown.map(([s,v])=>{
+                    const c = s==="Not Received"?"var(--red)":s==="Complete"?"var(--green)":s==="Requested"?"var(--amber)":"var(--blue)";
+                    return (
+                      <div key={s} className="bar-r">
+                        <div className="bar-l">{s}</div>
+                        <div className="bar-t"><div className="bar-f" style={{width:`${(v/fleetVessels.length)*100}%`,background:c}}></div></div>
+                        <div className="bar-v">{v}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Top companies - LIVE */}
+                <div className="card">
+                  <div className="card-t">Top Companies by Detentions <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
+                  {topCompanies.length>0?topCompanies.map(([c,v])=>(
+                    <div key={c} className="bar-r">
+                      <div className="bar-l" style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxComp)*100}%`,background:v>=3?"var(--red)":"var(--amber)"}}></div></div>
+                      <div className="bar-v">{v}</div>
                     </div>
-                  ))}
+                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No company data yet. Upload Client Vessel Details.</div>}
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {page === "tracker" && (
             <div className="pg active">
