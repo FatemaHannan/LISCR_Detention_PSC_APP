@@ -383,6 +383,27 @@ export default function WeeklyData({ currentUser }) {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
+      // After DPP upload: sync defs + detention_date + car_status back to vessels
+      if (cfg.key === "dpp_case_files") {
+        try {
+          const {data: dppRows} = await supabase.from("dpp_case_files").select("imo,num_findings,detention_date,car_status,port,mou");
+          if (dppRows?.length) {
+            for (const d of dppRows) {
+              if (!d.imo) continue;
+              const updates = {};
+              if (d.num_findings > 0) updates.defs = d.num_findings;
+              if (d.detention_date) updates.detention_date = d.detention_date;
+              if (d.car_status) updates.car_status = d.car_status;
+              if (d.port) updates.port = d.port;
+              if (d.mou) updates.mou = d.mou;
+              if (Object.keys(updates).length) {
+                await supabase.from("vessels").update(updates).eq("imo", d.imo).or("defs.is.null,defs.eq.0");
+              }
+            }
+          }
+        } catch(syncErr) { console.warn("DPP vessel sync:", syncErr); }
+      }
+
       const uploadTime = new Date().toLocaleString();
       const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
       const msg = mode === "replace"

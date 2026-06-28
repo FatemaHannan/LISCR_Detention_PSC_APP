@@ -28,7 +28,7 @@ const NAV = [
     { id:"tasks", label:"My tasks", icon:"ti-checklist", badge:{n:28,c:"nb-r"} },
   ]},
   { section:"ANALYSIS", items:[
-    { id:"case", label:"Case view", icon:"ti-file-analytics", badge:{n:5,c:"nb-b"} },
+    { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"pdaip", label:"PDAIP analysis", icon:"ti-chart-dots", badge:null },
     { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
     { id:"tracker", label:"PSC tracker", icon:"ti-table", badge:null },
