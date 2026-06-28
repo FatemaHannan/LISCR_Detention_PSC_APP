@@ -377,99 +377,152 @@ function PatternDetection({vessels}) {
 }
 
 // ── COMPANY PATTERN TAB ──────────────────────────────────────────────────────
+function 
 function CompanyPattern({vessels}) {
-  const [sortKey, setSortKey] = useState("cases");
+  const [sortKey, setSortKey] = useState("riskScore");
   const [sortDir, setSortDir] = useState("desc");
 
+  const EXCLUDED = ["Unknown","—","Not specified","","null"];
   const companyMap = {};
-  vessels.forEach(v=>{
-    const c = v.company&&v.company.trim()&&v.company!=="Unknown"?v.company.trim():"Unknown";
-    if (!companyMap[c]) companyMap[c]={name:c,cases:0,detained:0,totalDefs:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:new Set()};
+  vessels.filter(v=>v.company&&!EXCLUDED.includes(v.company.trim())).forEach(v=>{
+    const c = v.company.trim();
+    if (!companyMap[c]) companyMap[c]={name:c,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:new Set(),vesselList:[],unresponsive:0,inspectionRejection:0};
     companyMap[c].cases++;
     if (v.detained) companyMap[c].detained++;
     companyMap[c].totalDefs += (v.defs||0);
+    companyMap[c].totalDetainable += (v.detainable||0);
     if (v.carStatus==="Complete") companyMap[c].carComplete++;
     if (v.carStatus==="Not Received") companyMap[c].carNotReceived++;
     if (v.mou) companyMap[c].mous.add(v.mou);
     companyMap[c].vessels.add(v.imo);
+    companyMap[c].vesselList.push(v);
+    const flags = (v.flags||[]).map(f=>String(f).toUpperCase());
+    const isUnresponsive = flags.some(f=>f.includes("UNRESPONSIVE")||f.includes("REJECTION")||f.includes("NO RESPONSE")||f.includes("REJECTED ASI"));
+    const daysDetained = v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):0;
+    if (isUnresponsive||(v.carStatus==="Not Received"&&daysDetained>60)) companyMap[c].unresponsive++;
+    if (flags.some(f=>f.includes("VIP REJECTION")||f.includes("REFUSED")||f.includes("INSPECTION REJECTION"))) companyMap[c].inspectionRejection++;
   });
 
-  const companies = Object.values(companyMap).map(c=>({
-    ...c,
-    avgDefs: c.cases?(c.totalDefs/c.cases).toFixed(1):0,
-    carRate: c.cases?Math.round(c.carComplete/c.cases*100):0,
-    detRate: c.cases?Math.round(c.detained/c.cases*100):0,
-    mouList:[...c.mous].join(", "),
-    fleetSize:[...c.vessels].length,
-  }));
-
-  const sorted = [...companies].sort((a,b)=>{
-    const av=a[sortKey]; const bv=b[sortKey];
-    return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);
+  const companies = Object.values(companyMap).map(c=>{
+    const avgDefs = c.cases?(c.totalDefs/c.cases).toFixed(1):"0";
+    const avgDetainable = c.cases?(c.totalDetainable/c.cases).toFixed(1):"0";
+    const carRate = c.cases?Math.round(c.carComplete/c.cases*100):0;
+    const detRate = c.cases?Math.round(c.detained/c.cases*100):0;
+    const fleetSize = [...c.vessels].length;
+    const rs = (detRate*0.4)+(parseFloat(avgDefs)*2)+(c.carNotReceived*5)+(c.unresponsive*8)+(c.inspectionRejection*10);
+    const riskLabel = rs>40?"High":rs>20?"Medium":"Low";
+    const riskColor = rs>40?"var(--red2)":rs>20?"var(--amber2)":"var(--green2)";
+    const riskBg = rs>40?"var(--red-bg)":rs>20?"var(--amber-bg)":"rgba(34,197,94,0.08)";
+    const riskBorder = rs>40?"#3D1A1A":rs>20?"var(--amber)":"rgba(34,197,94,0.3)";
+    const worstVessel = [...c.vesselList].sort((a,b)=>(b.defs||0)-(a.defs||0))[0];
+    const mouCounts={};c.vesselList.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+    const dominantMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
+    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskScore:Math.round(rs),riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
   });
 
+  const sorted = [...companies].sort((a,b)=>{const av=a[sortKey];const bv=b[sortKey];return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
-
-  const riskScore = c => (c.detRate*0.4) + (parseFloat(c.avgDefs)*2) + (c.carNotReceived*5);
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
-        {[
-          {l:"Companies",v:companies.length,c:"var(--text)"},
-          {l:"Multi-Detention Companies",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},
-          {l:"0% CAR Compliance",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--red2)"},
-          {l:"100% CAR Compliance",v:companies.filter(c=>c.carRate===100&&c.cases>0).length,c:"var(--green2)"},
-        ].map(s=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
+        {[{l:"Companies",v:companies.length,c:"var(--text)"},{l:"High Risk",v:companies.filter(c=>c.riskLabel==="High").length,c:"var(--red2)"},{l:"Multi-Detention",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},{l:"Unresponsive",v:companies.filter(c=>c.unresponsive>0).length,c:"var(--amber2)"},{l:"Insp. Rejected",v:companies.filter(c=>c.inspectionRejection>0).length,c:"var(--red2)"},{l:"0% CAR",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
             <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
-            <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+            <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
           </div>
         ))}
       </div>
 
-      {/* High risk companies */}
-      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-        <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies</div>
-        <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-          {sorted.filter(c=>c.detained>=2||c.carNotReceived>=2||(parseFloat(c.avgDefs)>=15)).map(c=>(
-            <div key={c.name} style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"8px 12px",minWidth:"160px"}}>
-              <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"4px"}}>{c.name}</div>
-              <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                {c.detained>=2&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detained} detentions</span>}
-                {c.carNotReceived>=2&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"rgba(245,158,11,0.15)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carNotReceived} CAR missing</span>}
-                {parseFloat(c.avgDefs)>=15&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.avgDefs} avg defs</span>}
-              </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Unresponsive Companies</div>
+          <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"10px"}}>CAR not received 60+ days, no response to LISCR, or client unresponsive flag</div>
+          {sorted.filter(c=>c.unresponsive>0).length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+              {sorted.filter(c=>c.unresponsive>0).map(c=>(
+                <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--amber-bg)",borderRadius:"6px",border:"1px solid var(--amber)"}}>
+                  <div style={{flex:1}}><div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)"}}>{c.name}</div><div style={{fontSize:"9px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
+                  <div style={{display:"flex",gap:"4px"}}>
+                    <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive} flag{c.unresponsive>1?"s":""}</span>
+                    {c.carNotReceived>0&&<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carNotReceived} CAR</span>}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          {sorted.filter(c=>c.detained>=2||c.carNotReceived>=2||(parseFloat(c.avgDefs)>=15)).length===0&&<div style={{fontSize:"11px",color:"var(--text3)"}}>No high risk companies identified.</div>}
+          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No unresponsive companies detected.</div>}
+        </div>
+
+        <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"4px"}}>Inspection Rejection</div>
+          <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"10px"}}>Companies that refused or rejected PSC/ASI inspections</div>
+          {sorted.filter(c=>c.inspectionRejection>0).length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+              {sorted.filter(c=>c.inspectionRejection>0).map(c=>(
+                <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A"}}>
+                  <div style={{flex:1}}><div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)"}}>{c.name}</div><div style={{fontSize:"9px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
+                  <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}x rejected</span>
+                </div>
+              ))}
+            </div>
+          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No inspection rejections on record.</div>}
         </div>
       </div>
 
-      {/* Full company table */}
-      <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",minWidth:"800px"}}>
-          <thead>
-            <tr style={{background:"var(--bg2)"}}>
-              {th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet (IMOs)")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}
-              <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase"}}>MoUs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((c,i)=>(
-              <tr key={c.name} style={{background:riskScore(c)>20?"rgba(239,68,68,0.03)":i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
-                <td style={{padding:"9px 12px",fontWeight:600,color:riskScore(c)>20?"var(--red2)":"var(--text)"}}>{c.name}</td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text)"}}>{c.cases}</td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}}>{c.fleetSize}</td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.detained>1?"var(--red2)":"var(--text)",fontWeight:c.detained>1?600:400}}>{c.detained}</td>
-                <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.avgDefs>=15?"var(--red2)":c.avgDefs>=8?"var(--amber2)":"var(--text)",fontWeight:c.avgDefs>=10?600:400}}>{c.avgDefs}</td>
-                <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.carRate>=80?"rgba(34,197,94,0.08)":c.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:c.carRate>=80?"var(--green2)":c.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carRate}%</span></td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:c.carNotReceived>0?600:400}}>{c.carNotReceived}</td>
-                <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:"10px",maxWidth:"180px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.mouList||"\u2014"}</td>
-              </tr>
+      {sorted.filter(c=>c.riskLabel==="High").length>0&&(
+        <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"8px"}}>
+            {sorted.filter(c=>c.riskLabel==="High").map(c=>(
+              <div key={c.name} style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--red2)",flex:1,lineHeight:1.3}}>{c.name}</div>
+                  <span style={{fontSize:"8px",padding:"2px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginLeft:"6px"}}>HIGH RISK</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"4px",marginBottom:"8px"}}>
+                  {[["Detained",c.detained,"var(--red2)"],["Avg Defs",c.avgDefs,"var(--amber2)"],["CAR%",c.carRate+"%",c.carRate===0?"var(--red2)":"var(--amber2)"]].map(([l,v,col])=>(
+                    <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"4px",padding:"5px",textAlign:"center"}}>
+                      <div style={{fontSize:"8px",color:"var(--text3)",marginBottom:"1px"}}>{l}</div>
+                      <div style={{fontSize:"13px",fontWeight:600,fontFamily:"var(--mono)",color:col}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                  {c.unresponsive>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>Unresponsive</span>}
+                  {c.inspectionRejection>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>Insp. Rejected</span>}
+                  {c.worstVessel&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(0,0,0,0.2)",color:"var(--text3)",fontFamily:"var(--mono)"}}>Worst: {c.worstVessel.name}</span>}
+                </div>
+              </div>
             ))}
-          </tbody>
+          </div>
+        </div>
+      )}
+
+      <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",minWidth:"1100px"}}>
+          <thead><tr style={{background:"var(--bg2)"}}>
+            {th("riskScore","Risk")}{th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}{th("unresponsive","Unresponsive")}{th("inspectionRejection","Insp. Rejected")}
+            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Top MoU</th>
+            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Worst Vessel</th>
+          </tr></thead>
+          <tbody>{sorted.map((c,i)=>(
+            <tr key={c.name} style={{background:c.riskLabel==="High"?"rgba(239,68,68,0.03)":i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"9px 12px"}}><span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:c.riskBg,color:c.riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+c.riskBorder}}>{c.riskLabel}</span></td>
+              <td style={{padding:"9px 12px",fontWeight:600,color:c.riskLabel==="High"?"var(--red2)":"var(--text)"}}>{c.name}</td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.cases}</td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}}>{c.fleetSize}</td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.detained>1?"var(--red2)":"var(--text)",fontWeight:c.detained>1?600:400}}>{c.detained}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDefs)>=15?"var(--red2)":parseFloat(c.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(c.avgDefs)>=8?600:400}}>{c.avgDefs}</td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{c.avgDetainable}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.carRate>=80?"rgba(34,197,94,0.08)":c.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:c.carRate>=80?"var(--green2)":c.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carRate}%</span></td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:c.carNotReceived>0?600:400}}>{c.carNotReceived}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.unresponsive>0?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.inspectionRejection>0?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
+              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"10px"}}>{c.dominantMou}</td>
+              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"10px"}}>{c.worstVessel?c.worstVessel.name+" ("+c.worstVessel.defs+" defs)":"—"}</td>
+            </tr>
+          ))}</tbody>
         </table>
       </div>
     </div>
