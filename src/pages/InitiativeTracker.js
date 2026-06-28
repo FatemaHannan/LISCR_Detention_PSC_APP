@@ -79,8 +79,9 @@ export default function InitiativeTracker() {
     {id:"stalled", label:"Stalled & Overdue"},
     {id:"byvessel", label:"By Vessel"},
     {id:"byowner", label:"By Owner"},
-    {id:"impact", label:"Impact & Efficiency"},
-    {id:"initiatives", label:"Major Initiatives"},
+    {id:"patterns", label:"Task Patterns"},
+    {id:"initiatives", label:"PD Initiatives"},
+    {id:"impact", label:"Impact"},
     {id:"pdaip", label:"PDAIP Tasks"},
     {id:"detention", label:"Detention Tasks"},
   ];
@@ -431,8 +432,279 @@ export default function InitiativeTracker() {
         </div>
       )}
 
-      {/* IMPACT & EFFICIENCY */}
+      {/* TASK PATTERNS */}
+      {subTab==="patterns"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
+            Analysis of what the <strong style={{color:"var(--text)"}}>Prevention Team</strong> is doing — which task types are being assigned most, to which vessels and companies, and whether the same issues keep recurring.
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+            {/* Most assigned task types */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Most Assigned Task Types by PD</div>
+              {(()=>{
+                const tc={};tasks.forEach(t=>{const k=t.type||"Other";tc[k]=(tc[k]||0)+1;});
+                const types=Object.entries(tc).sort((a,b)=>b[1]-a[1]);
+                const max=types[0]?.[1]||1;
+                return types.map(([t,v])=>(
+                  <div key={t} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
+                    <div style={{fontSize:"10px",color:"var(--text2)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t}</div>
+                    <div style={{width:"100px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:"var(--blue)",width:(v/max*100)+"%"}}></div></div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--mono)",color:"var(--text3)",width:"24px",textAlign:"right"}}>{v}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* Recurring task titles */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Recurring Task Patterns</div>
+              <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"10px"}}>Same task assigned to multiple vessels — indicates systemic issue</div>
+              {(()=>{
+                const tc={};
+                tasks.forEach(t=>{
+                  const key = (t.title||"").toLowerCase().slice(0,40);
+                  if(!key) return;
+                  if(!tc[key]) tc[key]={title:t.title,count:0,vessels:new Set(),done:0};
+                  tc[key].count++;
+                  if(t.vessel) tc[key].vessels.add(t.vessel);
+                  if(t.status==="Executed"||t.status==="Completed") tc[key].done++;
+                });
+                return Object.values(tc).filter(t=>t.count>=2).sort((a,b)=>b.count-a.count).slice(0,6).map((t,i)=>(
+                  <div key={i} style={{padding:"8px 10px",background:"var(--bg3)",borderRadius:"6px",marginBottom:"6px",border:"1px solid var(--border)"}}>
+                    <div style={{fontSize:"10px",color:"var(--text)",fontWeight:500,marginBottom:"3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</div>
+                    <div style={{display:"flex",gap:"6px"}}>
+                      <span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"rgba(59,130,246,0.1)",color:"var(--blue)",fontFamily:"var(--mono)",fontWeight:600}}>{t.count}x assigned</span>
+                      <span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--bg2)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{[...t.vessels].length} vessels</span>
+                      <span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:t.done===t.count?"rgba(34,197,94,0.1)":"var(--amber-bg)",color:t.done===t.count?"var(--green2)":"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{t.done}/{t.count} done</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+            {/* Tasks by company */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Tasks Assigned by Company</div>
+              {(()=>{
+                const cc={};
+                tasks.forEach(t=>{
+                  const vessel = vessels.find(v=>v.imo===t.imo);
+                  const comp = vessel?.company||"Unknown";
+                  if(comp==="Unknown"||comp==="—") return;
+                  if(!cc[comp]) cc[comp]={count:0,done:0};
+                  cc[comp].count++;
+                  if(t.status==="Executed"||t.status==="Completed") cc[comp].done++;
+                });
+                const entries=Object.entries(cc).sort((a,b)=>b[1].count-a[1].count).slice(0,7);
+                const max=entries[0]?.[1].count||1;
+                return entries.map(([c,d])=>{
+                  const rate=Math.round(d.done/d.count*100);
+                  return (
+                    <div key={c} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
+                      <div style={{fontSize:"10px",color:"var(--text2)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</div>
+                      <div style={{width:"60px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:"var(--blue)",width:(d.count/max*100)+"%"}}></div></div>
+                      <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:rate===100?"var(--green2)":"var(--text3)",width:"55px",textAlign:"right"}}>{d.done}/{d.count} ({rate}%)</div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Tasks by MoU */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Tasks by MoU Zone</div>
+              {(()=>{
+                const mc={};
+                tasks.forEach(t=>{
+                  const vessel=vessels.find(v=>v.imo===t.imo);
+                  const mou=vessel?.mou||"Unknown";
+                  if(!mc[mou]) mc[mou]={count:0,done:0};
+                  mc[mou].count++;
+                  if(t.status==="Executed"||t.status==="Completed") mc[mou].done++;
+                });
+                const entries=Object.entries(mc).sort((a,b)=>b[1].count-a[1].count);
+                const max=entries[0]?.[1].count||1;
+                return entries.map(([m,d])=>{
+                  const rate=Math.round(d.done/d.count*100);
+                  return (
+                    <div key={m} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
+                      <div style={{fontSize:"10px",color:"var(--text2)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m}</div>
+                      <div style={{width:"60px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:rate===100?"var(--green)":rate>50?"var(--amber)":"var(--blue)",width:(d.count/max*100)+"%"}}></div></div>
+                      <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:rate===100?"var(--green2)":"var(--text3)",width:"55px",textAlign:"right"}}>{d.done}/{d.count} ({rate}%)</div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PD INITIATIVES */}
+      {subTab==="initiatives"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
+            <strong style={{color:"var(--text)"}}>Prevention Team initiatives</strong> — auto-detected from detention data patterns. Each initiative represents a systemic issue identified by the team and the corrective program launched in response.
+          </div>
+
+          {autoInitiatives.length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+              {autoInitiatives.sort((a,b)=>a.status==="Critical"?-1:b.status==="Critical"?1:0).map((init,i)=>{
+                const borderColor=init.sev==="red"?"#3D1A1A":init.sev==="amber"?"var(--amber)":"var(--blue)";
+                const bgColor=init.sev==="red"?"rgba(239,68,68,0.03)":init.sev==="amber"?"rgba(245,158,11,0.03)":"rgba(59,130,246,0.03)";
+                const statusBg=init.status==="Critical"?"var(--red-bg)":init.status==="Active"?"var(--amber-bg)":"rgba(59,130,246,0.1)";
+                const statusCol=init.status==="Critical"?"var(--red2)":init.status==="Active"?"var(--amber2)":"var(--blue)";
+                return (
+                  <div key={i} style={{background:bgColor,border:"1px solid "+borderColor,borderRadius:"10px",padding:"16px",borderLeft:"4px solid "+borderColor}}>
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"10px",gap:"12px"}}>
+                      <div>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}>{init.title}</div>
+                        <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:statusBg,color:statusCol,fontFamily:"var(--mono)",fontWeight:700}}>{init.status}</span>
+                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{init.category}</span>
+                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--blue)",fontFamily:"var(--mono)"}}>Auto-detected</span>
+                        </div>
+                      </div>
+                      <div style={{fontSize:"11px",fontFamily:"var(--mono)",color:statusCol,fontWeight:600,background:statusBg,padding:"4px 10px",borderRadius:"5px",whiteSpace:"nowrap",flexShrink:0}}>{init.metric}</div>
+                    </div>
+                    <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,marginBottom:"10px"}}>{init.desc}</div>
+                    <div style={{padding:"10px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:statusCol,textTransform:"uppercase",marginBottom:"4px",fontWeight:600,letterSpacing:".05em"}}>Prevention Team — Recommended Action</div>
+                      <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.65}}>{init.action}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ):(
+            <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"12px"}}>
+              No systemic patterns detected yet. Upload more PSC reports, DPP files, and case data to enable pattern detection.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* IMPACT */}
       {subTab==="impact"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
+            <strong style={{color:"var(--text)"}}>Is the Prevention Team's work making a difference?</strong> Measuring whether task assignments are translating into better CAR compliance, fewer repeat detentions, and faster case resolution.
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
+            {[
+              {l:"Vessels with Tasks",v:withTasks.length,c:"var(--blue)",s:"actively managed by PD"},
+              {l:"CAR Rate (with tasks)",v:withTasksCARRate+"%",c:"var(--green2)",s:withTasksCAROk+" vessels complete"},
+              {l:"CAR Rate (no tasks)",v:withoutTasksCARRate+"%",c:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--text3)",s:"baseline comparison"},
+              {l:"Coverage Gap",v:detainedNoTasks.length,c:detainedNoTasks.length>0?"var(--red2)":"var(--green2)",s:"detained with no tasks"},
+            ].map(s=>(
+              <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+                <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"2px"}}>{s.s}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Impact verdict */}
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+            <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Impact Verdict</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+              {/* CAR impact */}
+              <div style={{padding:"12px",background:"var(--bg3)",borderRadius:"8px"}}>
+                <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".05em"}}>CAR Compliance Impact</div>
+                <div style={{display:"flex",alignItems:"flex-end",gap:"16px",marginBottom:"10px"}}>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--green2)"}}>{withTasksCARRate}%</div>
+                    <div style={{fontSize:"9px",color:"var(--text3)"}}>With PD Tasks</div>
+                  </div>
+                  <div style={{fontSize:"20px",color:"var(--text3)",marginBottom:"8px"}}>{withTasksCARRate>withoutTasksCARRate?"→":"←"}</div>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--green2)"}}>{withoutTasksCARRate}%</div>
+                    <div style={{fontSize:"9px",color:"var(--text3)"}}>Without PD Tasks</div>
+                  </div>
+                </div>
+                <div style={{padding:"8px",borderRadius:"6px",background:withTasksCARRate>withoutTasksCARRate?"rgba(34,197,94,0.08)":"var(--amber-bg)",fontSize:"10px",color:withTasksCARRate>withoutTasksCARRate?"var(--green2)":"var(--amber2)",lineHeight:1.5}}>
+                  {withTasksCARRate>withoutTasksCARRate
+                    ? "PD task assignment improves CAR compliance by "+(withTasksCARRate-withoutTasksCARRate)+" percentage points. Tasks are effective."
+                    : "No measurable CAR improvement from PD tasks yet. Review task quality and follow-up process."}
+                </div>
+              </div>
+
+              {/* Repeat detention impact */}
+              <div style={{padding:"12px",background:"var(--bg3)",borderRadius:"8px"}}>
+                <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".05em"}}>Repeat Detention Prevention</div>
+                {(()=>{
+                  const imoC={};vessels.forEach(v=>{imoC[v.imo]=(imoC[v.imo]||0)+1;});
+                  const repeatVessels=vessels.filter(v=>imoC[v.imo]>1);
+                  const repeatWithTasks=repeatVessels.filter(v=>tasks.some(t=>t.imo===v.imo)).length;
+                  const repeatWithoutTasks=repeatVessels.length-repeatWithTasks;
+                  return (
+                    <div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}}>
+                        <div style={{textAlign:"center",padding:"8px",background:"var(--bg2)",borderRadius:"6px"}}>
+                          <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--red2)"}}>{repeatVessels.length}</div>
+                          <div style={{fontSize:"9px",color:"var(--text3)"}}>Repeat detentions</div>
+                        </div>
+                        <div style={{textAlign:"center",padding:"8px",background:"var(--bg2)",borderRadius:"6px"}}>
+                          <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{repeatWithoutTasks}</div>
+                          <div style={{fontSize:"9px",color:"var(--text3)"}}>No PD tasks assigned</div>
+                        </div>
+                      </div>
+                      <div style={{padding:"8px",borderRadius:"6px",background:repeatWithoutTasks>0?"var(--red-bg)":"rgba(34,197,94,0.08)",fontSize:"10px",color:repeatWithoutTasks>0?"var(--red2)":"var(--green2)",lineHeight:1.5}}>
+                        {repeatWithoutTasks>0
+                          ? repeatWithoutTasks+" repeat detention vessels never received PD tasks. Intervention opportunity missed."
+                          : "All repeat detention vessels have PD tasks assigned."}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* Tasks done but no result */}
+          {tasksCompletedNoResult>0&&(
+            <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>
+                Tasks Completed — No CAR Received ({tasksCompletedNoResult} vessels)
+              </div>
+              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"8px"}}>
+                These vessels completed all assigned PD tasks but company still has not submitted CAR. This may indicate tasks are not addressing the right issues, or the company is unresponsive despite PD engagement.
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                {allTasksDoneNoCAR.map(v=>(
+                  <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coverage gap */}
+          {detainedNoTasks.length>0&&(
+            <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>
+                Detained Vessels with No PD Tasks ({detainedNoTasks.length})
+              </div>
+              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"8px"}}>
+                These vessels are currently detained but the Prevention Team has not assigned any tasks. Cases may be unmanaged.
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                {detainedNoTasks.map(v=>(
+                  <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* IMPACT & EFFICIENCY (old) */}
+      {subTab==="impact_old"&&(
         <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px"}}>
             {[
