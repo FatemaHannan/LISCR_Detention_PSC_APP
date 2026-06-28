@@ -112,85 +112,51 @@ export default function InitiativeTracker() {
   });
   const avgCompletionDays = completionDays.length?(completionDays.reduce((a,b)=>a+b,0)/completionDays.length).toFixed(0):null;
 
-  // ── Auto-detected initiatives ─────────────────────────────────────
-  const autoInitiatives = [];
+  // ── Detect real PD initiatives from task titles/actions ────────────
+  // Each initiative = a keyword cluster found in task data
+  const INITIATIVE_PATTERNS = [
+    {key:"wechat",label:"WeChat Inspector Communication",category:"Technology",keywords:["wechat","we chat","chinese inspector","china inspector"],action:"Implement WeChat as primary communication channel for Chinese-based inspectors who cannot use WhatsApp."},
+    {key:"marine_advisory",label:"Marine Advisory (MA)",category:"Fleet-wide Communication",keywords:["marine advisory","ma issued","ma sent","advisory"],action:"Issue Marine Advisory to all relevant vessel operators documenting lessons learned and required SMS updates."},
+    {key:"pbi",label:"PBI Report / Boarding Intelligence",category:"Intelligence",keywords:["pbi","pre-boarding","boarding intelligence","boarding report"],action:"Update PBI reports to include detention history, known PSCO patterns, and risk flags before vessel arrival."},
+    {key:"dispensation",label:"Dispensation Management",category:"Compliance",keywords:["dispensation","dispens"],action:"Track and manage all active dispensations. Ensure dispensation letters are current and submitted to PSC before boarding."},
+    {key:"asi",label:"ASI / Preemptive Inspection",category:"Prevention",keywords:["asi","preemptive","pre-emptive","safety inspection","advance safety"],action:"Schedule ASI before vessel enters high-risk MoU zone. Coordinate with RO for joint survey."},
+    {key:"ism",label:"ISM SMS Update",category:"Safety Management",keywords:["ism","sms","safety management system","procedure update","work instruction"],action:"Update ISM SMS procedures fleet-wide to address systemic deficiencies identified across detentions."},
+    {key:"ro_survey",label:"RO / Class Survey Coordination",category:"Technical",keywords:["ro survey","class survey","classification","lloyd","bureau veritas","dnv","class attendance"],action:"Coordinate RO attendance during and after detention. Ensure class certificates are current before sailing."},
+    {key:"mlc",label:"MLC Compliance Program",category:"Manning / Welfare",keywords:["mlc","manning","seafarer","crew welfare","rest hours","working hours"],action:"Review MLC compliance across fleet. Engage ISM managers on crew welfare and rest hour documentation."},
+    {key:"car",label:"CAR Follow-up Program",category:"Compliance",keywords:["car","corrective action","corrective report","response to psc"],action:"Systematic follow-up on all outstanding CARs. Escalate non-responsive companies to senior management."},
+    {key:"appeal",label:"Appeal & NOC Management",category:"Legal",keywords:["appeal","noc","notice of correction","challenge","contest detention"],action:"Review appeal viability for each detention. Submit NOC where deficiencies are unsupported by PSC evidence."},
+    {key:"vip",label:"VIP / Inspector Network",category:"External Engagement",keywords:["vip","inspector network","inspector contact","psco contact","inspector relationship"],action:"Maintain and develop relationships with key PSCOs. Flag high-risk inspectors in boarding intelligence."},
+    {key:"cic",label:"Concentrated Inspection Campaign (CIC)",category:"External Engagement",keywords:["cic","concentrated inspection","campaign","mou campaign"],action:"Monitor active CIC themes. Brief fleet on CIC focus areas before vessel entry into targeted ports."},
+  ];
 
-  // ISM/deficiency patterns from vessels
-  const defKeywords = {};
-  vessels.forEach(v=>{(v.deficiencies||[]).forEach(d=>{
-    const desc = String(d.desc||"").toLowerCase();
-    const cat = desc.includes("ism")||desc.includes("safety management")?"ISM Code":
-      desc.includes("fire")?"Fire Safety":desc.includes("lsa")||desc.includes("lifeboat")?"LSA/Emergency":
-      desc.includes("marpol")||desc.includes("pollut")?"Pollution":desc.includes("mlc")||desc.includes("manning")?"MLC/Manning":
-      desc.includes("navig")||desc.includes("chart")?"Navigation":null;
-    if(cat) defKeywords[cat]=(defKeywords[cat]||0)+1;
-  });});
-  Object.entries(defKeywords).sort((a,b)=>b[1]-a[1]).slice(0,3).forEach(([cat,count])=>{
-    if(count>=3) autoInitiatives.push({
-      type:"auto",title:cat+" Systemic Initiative",category:"Deficiency Pattern",
-      status:count>=10?"Critical":count>=5?"Active":"Monitor",
-      desc:"Found in "+count+" deficiency records fleet-wide. Systemic pattern requires fleet-wide corrective action.",
-      metric:count+" cases affected",action:"Issue fleet-wide advisory and verify SMS procedures across all vessels.",
-      sev:count>=10?"red":count>=5?"amber":"blue"
+  const autoInitiatives = [];
+  INITIATIVE_PATTERNS.forEach(pattern=>{
+    const matchingTasks = tasks.filter(t=>{
+      const text = ((t.title||"")+" "+(t.actions||"")+" "+(t.type||"")+" "+(t.remark||"")).toLowerCase();
+      return pattern.keywords.some(kw=>text.includes(kw));
+    });
+    if(matchingTasks.length===0) return;
+    const doneTasks = matchingTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+    const openTasks2 = matchingTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
+    const affectedVessels = [...new Set(matchingTasks.map(t=>t.vessel).filter(Boolean))];
+    const completionRate2 = Math.round(doneTasks.length/matchingTasks.length*100);
+    autoInitiatives.push({
+      key:pattern.key,
+      title:pattern.label,
+      category:pattern.category,
+      status:completionRate2===100?"Complete":openTasks2.length>0?"Active":"Monitor",
+      sev:completionRate2===100?"green":openTasks2.length>5?"amber":"blue",
+      desc:"Detected in "+matchingTasks.length+" PD task"+(matchingTasks.length>1?"s":"")+" across "+affectedVessels.length+" vessel"+(affectedVessels.length>1?"s":"")+".",
+      metric:matchingTasks.length+" tasks · "+completionRate2+"% done",
+      action:pattern.action,
+      taskCount:matchingTasks.length,
+      done:doneTasks.length,
+      open:openTasks2.length,
+      completionRate:completionRate2,
+      vessels:affectedVessels,
     });
   });
-
-  // Tokyo MOU dominance
-  const tokyoCount = vessels.filter(v=>v.mou==="Tokyo MOU").length;
-  const tokyoRate = vessels.length?Math.round(tokyoCount/vessels.length*100):0;
-  if(tokyoRate>=50) autoInitiatives.push({
-    type:"auto",title:"Tokyo MOU High-Risk Focus",category:"Regional",
-    status:"Active",desc:tokyoRate+"% of detentions are Tokyo MOU. Disproportionate concentration requires targeted action.",
-    metric:tokyoCount+" of "+vessels.length+" cases",action:"Increase pre-arrival inspections for Tokyo MOU ports. Brief ASIs on Tokyo MOU priorities.",
-    sev:"amber"
-  });
-
-  // CAR compliance drive
-  const carNotRec = vessels.filter(v=>v.carStatus==="Not Received").length;
-  const carNotRecRate = vessels.length?Math.round(carNotRec/vessels.length*100):0;
-  if(carNotRecRate>=30) autoInitiatives.push({
-    type:"auto",title:"CAR Compliance Drive",category:"Compliance",
-    status:carNotRecRate>=50?"Critical":"Active",
-    desc:carNotRecRate+"% of cases have CAR not received. Systematic follow-up required.",
-    metric:carNotRec+" vessels non-compliant",action:"Escalate all CAR not received cases >30 days. Issue formal reminder to ISM companies.",
-    sev:carNotRecRate>=50?"red":"amber"
-  });
-
-  // Repeat detention intervention
-  const imoCount2={};vessels.forEach(v=>{imoCount2[v.imo]=(imoCount2[v.imo]||0)+1;});
-  const repeatCount = Object.values(imoCount2).filter(c=>c>1).length;
-  if(repeatCount>=2) autoInitiatives.push({
-    type:"auto",title:"Repeat Detention Intervention",category:"Vessel Performance",
-    status:"Critical",desc:repeatCount+" vessels have been detained more than once. Indicates systemic failure.",
-    metric:repeatCount+" repeat detention vessels",action:"Mandatory pre-detention review for all vessels with prior detention. Enhanced monitoring.",
-    sev:"red"
-  });
-
-  // Unresponsive companies
-  const companyMap2={};
-  vessels.forEach(v=>{
-    if(!v.company||v.company==="—"||v.company==="Unknown") return;
-    const daysDetained=v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):0;
-    if(v.carStatus==="Not Received"&&daysDetained>60){
-      companyMap2[v.company]=(companyMap2[v.company]||0)+1;
-    }
-  });
-  const unresponsiveCompCount = Object.keys(companyMap2).length;
-  if(unresponsiveCompCount>=2) autoInitiatives.push({
-    type:"auto",title:"Unresponsive Company Escalation",category:"Client Engagement",
-    status:"Active",desc:unresponsiveCompCount+" companies have not responded to CAR requests for 60+ days.",
-    metric:Object.entries(companyMap2).map(([c])=>c).join(", "),
-    action:"Formal escalation letter to company management. Flag for EVP awareness.",
-    sev:"amber"
-  });
-
-  // Coverage gap
-  if(detainedNoTasks.length>=3) autoInitiatives.push({
-    type:"auto",title:"Task Coverage Gap",category:"Process",
-    status:"Active",desc:detainedNoTasks.length+" detained vessels have no tasks assigned. Cases are not being actively managed.",
-    metric:detainedNoTasks.length+" vessels with no tasks",action:"Auto-generate minimum task set for all detention cases with 10+ deficiencies.",
-    sev:"amber"
-  });
+  autoInitiatives.sort((a,b)=>b.taskCount-a.taskCount);
 
   return (
     <div style={{padding:"16px"}}>
@@ -571,27 +537,57 @@ export default function InitiativeTracker() {
 
           {autoInitiatives.length>0?(
             <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-              {autoInitiatives.sort((a,b)=>a.status==="Critical"?-1:b.status==="Critical"?1:0).map((init,i)=>{
-                const borderColor=init.sev==="red"?"#3D1A1A":init.sev==="amber"?"var(--amber)":"var(--blue)";
-                const bgColor=init.sev==="red"?"rgba(239,68,68,0.03)":init.sev==="amber"?"rgba(245,158,11,0.03)":"rgba(59,130,246,0.03)";
-                const statusBg=init.status==="Critical"?"var(--red-bg)":init.status==="Active"?"var(--amber-bg)":"rgba(59,130,246,0.1)";
-                const statusCol=init.status==="Critical"?"var(--red2)":init.status==="Active"?"var(--amber2)":"var(--blue)";
+              {autoInitiatives.map((init,i)=>{
+                const borderColor=init.status==="Complete"?"rgba(34,197,94,0.3)":init.sev==="amber"?"var(--amber)":"var(--blue)";
+                const bgColor=init.status==="Complete"?"rgba(34,197,94,0.02)":init.sev==="amber"?"rgba(245,158,11,0.02)":"rgba(59,130,246,0.02)";
+                const statusBg=init.status==="Complete"?"rgba(34,197,94,0.1)":init.status==="Active"?"var(--amber-bg)":"rgba(59,130,246,0.1)";
+                const statusCol=init.status==="Complete"?"var(--green2)":init.status==="Active"?"var(--amber2)":"var(--blue)";
                 return (
                   <div key={i} style={{background:bgColor,border:"1px solid "+borderColor,borderRadius:"10px",padding:"16px",borderLeft:"4px solid "+borderColor}}>
-                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"10px",gap:"12px"}}>
-                      <div>
-                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}>{init.title}</div>
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"10px",gap:"12px",flexWrap:"wrap"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"5px"}}>{init.title}</div>
                         <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:statusBg,color:statusCol,fontFamily:"var(--mono)",fontWeight:700}}>{init.status}</span>
-                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{init.category}</span>
-                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--blue)",fontFamily:"var(--mono)"}}>Auto-detected</span>
+                          <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:statusBg,color:statusCol,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+borderColor}}>{init.status}</span>
+                          <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{init.category}</span>
+                          <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:"rgba(59,130,246,0.08)",color:"var(--blue)",fontFamily:"var(--mono)"}}>Detected from PD tasks</span>
                         </div>
                       </div>
-                      <div style={{fontSize:"11px",fontFamily:"var(--mono)",color:statusCol,fontWeight:600,background:statusBg,padding:"4px 10px",borderRadius:"5px",whiteSpace:"nowrap",flexShrink:0}}>{init.metric}</div>
+                      <div style={{display:"flex",gap:"8px",alignItems:"center",flexShrink:0}}>
+                        <div style={{textAlign:"center",padding:"6px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:"18px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{init.taskCount}</div>
+                          <div style={{fontSize:"8px",color:"var(--text3)",textTransform:"uppercase"}}>tasks</div>
+                        </div>
+                        <div style={{textAlign:"center",padding:"6px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:"18px",fontWeight:300,fontFamily:"var(--mono)",color:init.completionRate===100?"var(--green2)":init.completionRate>50?"var(--amber2)":"var(--red2)"}}>{init.completionRate}%</div>
+                          <div style={{fontSize:"8px",color:"var(--text3)",textTransform:"uppercase"}}>done</div>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Progress bar */}
+                    <div style={{marginBottom:"10px"}}>
+                      <div style={{height:"6px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}>
+                        <div style={{height:"100%",background:init.completionRate===100?"var(--green)":init.completionRate>50?"var(--amber)":"var(--blue)",width:init.completionRate+"%",borderRadius:"3px"}}></div>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginTop:"4px",fontSize:"9px",color:"var(--text3)"}}>
+                        <span>{init.done} completed</span>
+                        <span>{init.open} remaining</span>
+                      </div>
+                    </div>
+
                     <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,marginBottom:"10px"}}>{init.desc}</div>
+
+                    {/* Affected vessels */}
+                    {init.vessels.length>0&&(
+                      <div style={{marginBottom:"10px",display:"flex",flexWrap:"wrap",gap:"4px"}}>
+                        {init.vessels.slice(0,6).map(v=><span key={v} style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v}</span>)}
+                        {init.vessels.length>6&&<span style={{fontSize:"9px",color:"var(--text3)"}}>+{init.vessels.length-6} more</span>}
+                      </div>
+                    )}
+
                     <div style={{padding:"10px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
-                      <div style={{fontSize:"9px",color:statusCol,textTransform:"uppercase",marginBottom:"4px",fontWeight:600,letterSpacing:".05em"}}>Prevention Team — Recommended Action</div>
+                      <div style={{fontSize:"9px",color:statusCol,textTransform:"uppercase",marginBottom:"4px",fontWeight:600,letterSpacing:".05em"}}>Prevention Team — Action</div>
                       <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.65}}>{init.action}</div>
                     </div>
                   </div>
@@ -600,7 +596,7 @@ export default function InitiativeTracker() {
             </div>
           ):(
             <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"12px"}}>
-              No systemic patterns detected yet. Upload more PSC reports, DPP files, and case data to enable pattern detection.
+              No PD initiatives detected yet. Tasks mentioning WeChat, Marine Advisory, ASI, CAR, MLC, etc. will automatically appear here as initiatives.
             </div>
           )}
         </div>
