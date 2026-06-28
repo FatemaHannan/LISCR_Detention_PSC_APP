@@ -383,6 +383,23 @@ export default function WeeklyData({ currentUser }) {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
+      // After Client Vessel Details upload: sync ISM client -> company on vessels
+      if (cfg.key === "client_vessel_details") {
+        try {
+          const {data: cvdRows} = await supabase.from("client_vessel_details").select("imo,ism_client,ro,vsl_type,age");
+          if (cvdRows?.length) {
+            for (const r of cvdRows) {
+              if (!r.imo || !r.ism_client) continue;
+              const updates = {company: r.ism_client};
+              if (r.ro) updates.ro = r.ro;
+              if (r.vsl_type) updates.type = r.vsl_type;
+              if (r.age) updates.gt = r.age;
+              await supabase.from("vessels").update(updates).eq("imo", r.imo).or("company.is.null,company.eq.—,company.eq.Unknown");
+            }
+          }
+        } catch(syncErr) { console.warn("CVD company sync:", syncErr); }
+      }
+
       // After DPP upload: sync fields + auto-create missing cases
       if (cfg.key === "dpp_case_files") {
         try {
