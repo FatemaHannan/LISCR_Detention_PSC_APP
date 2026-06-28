@@ -73,29 +73,49 @@ function getMonth(d) {
   return "";
 }
 
-function VesselCard({v, selected, onSelect, isChecked, onCheck}) {
-  const isSel = selected?.imo === v.imo && selected?.detentionDate === v.detentionDate;
+function VesselCard({v, onOpen, isChecked, onCheck}) {
   const isDet = v.detained;
+  const now = new Date();
+  const daysSince = v.detentionDate ? Math.floor((now - new Date(v.detentionDate)) / 86400000) : null;
+  const defsColor = v.defs>=20?"var(--red2)":v.defs>=10?"var(--amber2)":"var(--text)";
+  const carBadge = v.carStatus==="Not Received"
+    ? {c:"var(--red2)",bg:"var(--red-bg)",b:"#3D1A1A",label:"CAR Not Received"}
+    : v.carStatus==="Complete"
+    ? {c:"var(--green2)",bg:"rgba(34,197,94,0.08)",b:"rgba(34,197,94,0.3)",label:"CAR Complete"}
+    : v.carStatus==="Requested"
+    ? {c:"var(--amber2)",bg:"var(--amber-bg)",b:"var(--amber)",label:"CAR Requested"}
+    : null;
   return (
-    <div onClick={()=>onSelect(v)} style={{padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isSel?"var(--blue)":isDet?"rgba(239,68,68,0.5)":"var(--border)"),background:isSel?"var(--blue-bg)":isDet?"rgba(239,68,68,0.06)":"var(--bg2)",cursor:"pointer",minWidth:"150px",maxWidth:"200px",flex:"1",position:"relative"}}>
-      {v.flags?.length>0&&<div style={{position:"absolute",top:6,right:8,width:7,height:7,borderRadius:"50%",background:"var(--red)",boxShadow:"0 0 6px rgba(239,68,68,0.8)"}}></div>}
-      {onCheck&&<div onClick={e=>{e.stopPropagation();onCheck();}} style={{position:"absolute",top:6,left:8,width:"16px",height:"16px",borderRadius:"3px",border:"1px solid "+(isChecked?"var(--blue)":"var(--border2)"),background:isChecked?"var(--blue)":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
-        {isChecked&&<span style={{color:"#fff",fontSize:"10px",lineHeight:1}}>✓</span>}
-      </div>}
-      <div style={{fontSize:"11px",fontWeight:600,color:isSel?"var(--blue)":isDet?"var(--red2)":"var(--text)",marginBottom:"2px",paddingLeft:onCheck?"22px":"0"}}>{v.name}</div>
-      <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"3px"}}>{v.imo}</div>
-      <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"4px"}}>{v.port||"—"}</div>
-      <div style={{display:"flex",gap:"5px",alignItems:"center",flexWrap:"wrap"}}>
-        <span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:isDet?"var(--red-bg)":"var(--bg3)",color:isDet?"var(--red2)":"var(--text3)",border:"1px solid "+(isDet?"#3D1A1A":"var(--border)"),fontFamily:"var(--mono)",fontWeight:600}}>{isDet?"DETAINED":"ACTIVE"}</span>
-        <span style={{fontSize:"9px",color:v.defs>=15?"var(--red2)":v.defs>=8?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)"}}>{v.defs} defs</span>
+    <div onClick={()=>onOpen(v)} style={{borderRadius:"10px",border:"1px solid "+(isDet?"rgba(239,68,68,0.4)":"var(--border)"),background:isDet?"rgba(239,68,68,0.04)":"var(--bg2)",cursor:"pointer",position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",transition:"box-shadow 0.15s"}}>
+      <div style={{height:"3px",background:isDet?"var(--red)":v.defs>=10?"var(--amber)":"var(--green)",flexShrink:0}}></div>
+      <div style={{padding:"12px 14px",flex:1,display:"flex",flexDirection:"column",gap:"8px"}}>
+        {onCheck&&<div onClick={e=>{e.stopPropagation();onCheck();}} style={{position:"absolute",top:10,right:10,width:"16px",height:"16px",borderRadius:"3px",border:"1px solid "+(isChecked?"var(--blue)":"var(--border2)"),background:isChecked?"var(--blue)":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+          {isChecked&&<span style={{color:"#fff",fontSize:"10px",lineHeight:1}}>{"✓"}</span>}
+        </div>}
+        <div>
+          <div style={{fontSize:"13px",fontWeight:700,color:isDet?"var(--red2)":"var(--text)",marginBottom:"3px",paddingRight:onCheck?"20px":"0",lineHeight:1.3}}>{v.name}</div>
+          <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}{v.mou?" · "+v.mou:""}</div>
+        </div>
+        {v.port&&<div style={{fontSize:"10px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port}</div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
+          {[{l:"Defs",val:v.defs||0,c:defsColor},{l:"Detainable",val:v.detainable||0,c:v.detainable>0?"var(--red2)":"var(--text3)"},{l:"Days",val:daysSince!=null?daysSince:"-",c:daysSince>30?"var(--red2)":daysSince>14?"var(--amber2)":"var(--text)"}].map(m=>(
+            <div key={m.l} style={{background:"var(--bg3)",borderRadius:"5px",padding:"5px 6px",textAlign:"center"}}>
+              <div style={{fontSize:"8px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+              <div style={{fontSize:"15px",fontWeight:600,fontFamily:"var(--mono)",color:m.c,lineHeight:1}}>{m.val}</div>
+            </div>
+          ))}
+        </div>
+        {v.detentionDate&&<div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate}</div>}
+        {carBadge&&<div style={{display:"inline-block",padding:"2px 8px",borderRadius:"4px",fontSize:"9px",fontWeight:600,background:carBadge.bg,color:carBadge.c,border:"1px solid "+carBadge.b,alignSelf:"flex-start"}}>{carBadge.label}</div>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"auto"}}>
+          <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:isDet?"var(--red-bg)":"rgba(34,197,94,0.08)",color:isDet?"var(--red2)":"var(--green2)",border:"1px solid "+(isDet?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{isDet?"DETAINED":"ACTIVE"}</span>
+          <span style={{fontSize:"9px",color:"var(--blue)",fontWeight:500}}>View case {"→"}</span>
+        </div>
       </div>
-      {v.flags?.length>0&&<div style={{marginTop:"4px",display:"flex",gap:"3px",flexWrap:"wrap"}}>
-        {v.flags.slice(0,2).map(f=><span key={f} style={{fontSize:"8px",padding:"1px 4px",borderRadius:"2px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600,border:"1px solid #3D1A1A"}}>{f.length>10?f.slice(0,10)+"...":f}</span>)}
-        {v.flags.length>2&&<span style={{fontSize:"8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>+{v.flags.length-2}</span>}
-      </div>}
     </div>
   );
 }
+
 
 export default function CaseView({canEdit, canDelete, canDownload, currentUser, importedVessels=[]}) {
   const [month, setMonth] = useState("All");
@@ -121,6 +141,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [gapStates, setGapStates] = useState({});
   const [saving, setSaving] = useState(false);
   const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], loading:false});
+  const [modalVessel, setModalVessel] = useState(null);
 
   useEffect(() => {
     loadAll();
@@ -389,6 +410,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
   const v = sel;
+  function openModal(vessel) { setSel(vessel); setTab("overview"); setModalVessel(vessel); loadIntelligence(vessel.imo, vessel.company); }
 
   return (
     <div style={{padding:"16px"}}>
@@ -445,10 +467,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {detained.length>0&&(
             <div style={{marginBottom:"10px"}}>
               <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--red2)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Detained</div>
-              <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
                 {detained.map(v=>{
                   const key=v.imo+"__"+v.detentionDate;
-                  return <VesselCard key={key} v={v} selected={sel} onSelect={selectVessel} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;
+                  return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;
                 })}
               </div>
             </div>
@@ -456,10 +478,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {active.length>0&&(
             <div style={{marginBottom:"14px"}}>
               <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--text3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Active / released</div>
-              <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
                 {active.map(v=>{
                   const key=v.imo+"__"+v.detentionDate;
-                  return <VesselCard key={key} v={v} selected={sel} onSelect={selectVessel} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;
+                  return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;
                 })}
               </div>
             </div>
@@ -475,10 +497,15 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         </div>
       )}
 
-      {!v&&viewMode==="active"&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"24px 0",textAlign:"center",borderTop:"1px solid var(--border)",marginTop:"8px"}}>Select a vessel above to view its case file</div>}
-
-      {/* Case file */}
-      {v&&(
+      {/* Full-screen case modal */}
+      {modalVessel&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"stretch",justifyContent:"flex-end"}} onClick={()=>setModalVessel(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"min(900px,95vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)"}}>
+              <div style={{fontSize:"11px",color:"var(--text3)"}}>Case File</div>
+              <button onClick={()=>setModalVessel(null)} style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"18px",lineHeight:1,padding:"2px 8px",borderRadius:"4px"}}>{"×"}</button>
+            </div>
+            <div style={{padding:"16px",flex:1}}>
         <div style={{borderTop:"1px solid var(--border)",paddingTop:"16px",marginTop:"4px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
             <div>
@@ -1158,6 +1185,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           </div>
         </div>
       )}
+
+          </div>
+        </div>
+      )} {/* end case modal */}
 
       {/* Delete confirmation */}
       {showDeleteConfirm&&(
