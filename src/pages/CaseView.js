@@ -141,7 +141,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [modalVessel, setModalVessel] = useState(null);
   const [modalFull, setModalFull] = useState(false);
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     loadAll();
