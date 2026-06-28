@@ -430,19 +430,38 @@ export default function App() {
               </div>
 
               <div className="two" style={{marginTop:"12px"}}>
-                {/* CAR status - LIVE */}
+                {/* Top detention causes from deficiencies - LIVE */}
                 <div className="card">
-                  <div className="card-t">CAR Status <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
-                  {carBreakdown.map(([s,v])=>{
-                    const c = s==="Not Received"?"var(--red)":s==="Complete"?"var(--green)":s==="Requested"?"var(--amber)":"var(--blue)";
-                    return (
-                      <div key={s} className="bar-r">
-                        <div className="bar-l">{s}</div>
-                        <div className="bar-t"><div className="bar-f" style={{width:`${(v/fleetVessels.length)*100}%`,background:c}}></div></div>
+                  <div className="card-t">Top Detention Causes <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>from deficiency data</span></div>
+                  {(()=>{
+                    const causeCounts = {};
+                    fleetVessels.forEach(v=>{
+                      (v.deficiencies||[]).forEach(d=>{
+                        if (!d.desc) return;
+                        const desc = String(d.desc).toLowerCase();
+                        const cat =
+                          desc.includes("ism")||desc.includes("safety management")?"ISM Code failure":
+                          desc.includes("fire")||desc.includes("fire safety")?"Fire safety systems":
+                          desc.includes("lsa")||desc.includes("life saving")||desc.includes("lifeboat")?"LSA / emergency":
+                          desc.includes("corros")||desc.includes("mainte")||desc.includes("hull")?"Corrosion / maintenance":
+                          desc.includes("mlc")||desc.includes("manning")||desc.includes("crew")?"MLC / Manning":
+                          desc.includes("pollut")||desc.includes("marpol")||desc.includes("oil")?"Pollution prevention":
+                          desc.includes("navig")||desc.includes("chart")||desc.includes("gps")?"Navigation / charts":
+                          desc.includes("certif")||desc.includes("document")?"Certification":
+                          "Other";
+                        causeCounts[cat] = (causeCounts[cat]||0)+1;
+                      });
+                    });
+                    const causes = Object.entries(causeCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+                    const maxC = causes.length?causes[0][1]:1;
+                    return causes.length>0?causes.map(([c,v])=>(
+                      <div key={c} className="bar-r">
+                        <div className="bar-l">{c}</div>
+                        <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxC)*100}%`,background:"var(--blue)"}}></div></div>
                         <div className="bar-v">{v}</div>
                       </div>
-                    );
-                  })}
+                    )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>Upload PSC reports to see detention causes.</div>;
+                  })()}
                 </div>
 
                 {/* Top companies - LIVE */}
