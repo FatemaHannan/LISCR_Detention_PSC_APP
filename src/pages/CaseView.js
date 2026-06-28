@@ -740,26 +740,75 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
           {/* HISTORY TAB */}
           {tab==="history"&&(
-            <div>
-              {v.history?.length>0?(
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                  <thead><tr>{["Date","Port","MoU","Deficiencies","Detained","Note"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {v.history.map((h,i)=>(
-                      <tr key={i} style={{background:h.detained?"rgba(239,68,68,0.04)":""}}>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{h.date}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text2)"}}>{h.port}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.mou}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:h.defs>=10?"var(--red2)":h.defs>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",textAlign:"center"}}>{h.defs||"—"}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{h.detained?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.note||""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ):(
-                <div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No inspection history. Upload PSC Form A to extract history.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+
+              {/* RO / Class Survey */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
+                {v.roSurveyDate?(
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
+                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
+                        <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                          <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey date, findings, and notes automatically.</div>}
+              </div>
+
+              {/* CAR Document */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
+                {v.carNotes?(
+                  <div>
+                    {v.carStatus&&(
+                      <div style={{display:"inline-block",padding:"3px 10px",borderRadius:"4px",fontSize:"10px",fontWeight:600,marginBottom:"10px",background:v.carStatus==="Complete"?"rgba(34,197,94,0.1)":v.carStatus==="Not Received"?"var(--red-bg)":"var(--amber-bg)",color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>
+                        CAR Status: {v.carStatus}
+                      </div>
+                    )}
+                    <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                      {v.carNotes}
+                    </div>
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
+              </div>
+
+              {/* PSC Correspondence & Other Documents */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
+                {v.otherNotes?(
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    {v.otherNotes}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, detention timeline, and other correspondence under Other Documents — key details will appear here.</div>}
+              </div>
+
+              {/* PSC Inspection History from weekly data */}
+              {v.history?.length>0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Prior PSC Inspection Records</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                    <thead><tr>{["Date","Port","MoU","Deficiencies","Detained","Note"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {v.history.map((h,i)=>(
+                        <tr key={i} style={{background:h.detained?"rgba(239,68,68,0.04)":""}}>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{h.date}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text2)"}}>{h.port}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.mou}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:h.defs>=10?"var(--red2)":h.defs>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",textAlign:"center"}}>{h.defs||"—"}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{h.detained?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.note||""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
+
             </div>
           )}
 
