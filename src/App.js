@@ -29,6 +29,7 @@ const NAV = [
   ]},
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
+    { id:"vessels", label:"Fleet Registry", icon:"ti-ship", badge:null },
     { id:"pdaip", label:"PDAIP analysis", icon:"ti-chart-dots", badge:null },
     { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
     { id:"tracker", label:"PSC tracker", icon:"ti-table", badge:null },
@@ -46,7 +47,6 @@ const NAV = [
     { id:"chat", label:"AI assistant", icon:"ti-message-circle", badge:null },
   ]},
   { section:"SYSTEM", items:[
-    { id:"vessels", label:"Fleet Registry", icon:"ti-ship", badge:null },
     { id:"admin", label:"Admin panel", icon:"ti-shield-lock", badge:null },
     { id:"weekly", label:"Weekly data", icon:"ti-database-import", badge:null },
   ]},
