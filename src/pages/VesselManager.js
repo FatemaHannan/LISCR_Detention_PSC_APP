@@ -377,7 +377,6 @@ function PatternDetection({vessels}) {
 }
 
 // ── COMPANY PATTERN TAB ──────────────────────────────────────────────────────
-function 
 function CompanyPattern({vessels}) {
   const [sortKey, setSortKey] = useState("riskScore");
   const [sortDir, setSortDir] = useState("desc");
