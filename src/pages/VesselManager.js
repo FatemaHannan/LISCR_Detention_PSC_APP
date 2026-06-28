@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getVessels, upsertVessel, deleteVesselFromDB } from "../lib/db";
+import { supabase } from "../lib/supabaseClient";
+import * as XLSX from "xlsx";
 
 const CAR_OPTS = ["Not Received","Received","Requested","Complete","Rejected"];
 const CASE_OPTS = ["New","Pending Review","Pending CAR","In Progress","Close Case"];
@@ -551,6 +553,9 @@ export default function VesselManager({ currentUser }) {
   const [vessels, setVessels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("list");
+  const [bulkStatus, setBulkStatus] = useState(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const bulkRef = useRef();
 
   const canEdit = currentUser?.role==="Super Admin"||currentUser?.role==="Admin";
   const canDelete = currentUser?.role==="Super Admin";
@@ -558,6 +563,69 @@ export default function VesselManager({ currentUser }) {
   useEffect(() => {
     getVessels().then(v=>{setVessels(v||[]);setLoading(false);});
   }, []);
+
+  async function handleBulkUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setBulkLoading(true);
+    setBulkStatus({state:"reading", msg:"Reading file..."});
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, {type:"array", cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+
+      // Get existing vessels
+      const {data: existing} = await supabase.from("vessels").select("imo,detention_date");
+      const existingKeys = new Set((existing||[]).map(v=>v.imo+"__"+(v.detention_date||"")));
+
+      let created = 0, skipped = 0, errors = 0;
+      setBulkStatus({state:"uploading", msg:"Processing rows..."});
+
+      for (const row of rows) {
+        const name = String(row["Vessel Name"]||row["Vessel"]||row["vessel"]||"").trim();
+        const rawImo = row["IMO Number"]||row["IMO#"]||row["IMO"]||row["imo"]||"";
+        const imoNum = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
+        const imo = imoNum.length>7?imoNum.slice(-7):imoNum;
+        if (!name || !imo) continue;
+
+        const rawDate = row["Inspection Date"]||row["Detention Date"]||row["detention_date"]||"";
+        let detDate = "";
+        if (rawDate instanceof Date) detDate = rawDate.toISOString().slice(0,10);
+        else if (rawDate) detDate = String(rawDate).slice(0,10);
+
+        const key = imo+"__"+detDate;
+        if (existingKeys.has(key)) { skipped++; continue; }
+
+        const newCase = {
+          name,
+          imo,
+          mou: String(row["MOU"]||row["mou"]||"—").trim(),
+          port: String(row["Port"]||row["port"]||"—").trim(),
+          detention_date: detDate||null,
+          defs: parseInt(row["Number Of Deficiencies"]||row["Deficiencies"]||0)||0,
+          detained: true,
+          car_status: String(row["CAR Status"]||row["car_status"]||"Not Received").trim(),
+          case_status: "New",
+          flag: String(row["Flag"]||"Liberia").trim(),
+          added_date: new Date().toISOString().slice(0,10),
+        };
+
+        const {error} = await supabase.from("vessels").insert(newCase);
+        if (error) errors++;
+        else { created++; existingKeys.add(key); }
+      }
+
+      const msg = created+" new cases created, "+skipped+" skipped (already exist)"+(errors>0?", "+errors+" errors":"")+"." ;
+      setBulkStatus({state:"done", msg});
+      const updated = await getVessels();
+      setVessels(updated||[]);
+    } catch(err) {
+      setBulkStatus({state:"error", msg:"Error: "+err.message});
+    }
+    setBulkLoading(false);
+  }
 
   const TABS = [
     {id:"list",label:"Case List"},
@@ -571,9 +639,24 @@ export default function VesselManager({ currentUser }) {
 
   return (
     <div style={{padding:"16px"}}>
-      <div style={{marginBottom:"16px"}}>
-        <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>Detention Cases</div>
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{vessels.length} total cases \u00b7 {vessels.filter(v=>v.detained).length} currently detained</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px",flexWrap:"wrap",gap:"8px"}}>
+        <div>
+          <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>Detention Cases</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{vessels.length} total cases · {vessels.filter(v=>v.detained).length} currently detained</div>
+        </div>
+        {canEdit&&(
+          <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+            <input ref={bulkRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleBulkUpload} />
+            <button onClick={()=>bulkRef.current?.click()} disabled={bulkLoading} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:bulkLoading?"default":"pointer",fontSize:"11px",fontWeight:500}}>{bulkLoading?"⏳ Processing...":"↑ Bulk Upload DPP"}</button>
+          </div>
+        )}
+      </div>
+      {bulkStatus&&(
+        <div style={{marginBottom:"12px",padding:"10px 14px",borderRadius:"6px",background:bulkStatus.state==="done"?"rgba(34,197,94,0.08)":bulkStatus.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(bulkStatus.state==="done"?"rgba(34,197,94,0.3)":bulkStatus.state==="error"?"#3D1A1A":"var(--border)"),fontSize:"11px",color:bulkStatus.state==="done"?"var(--green2)":bulkStatus.state==="error"?"var(--red2)":"var(--text3)"}}>
+          {bulkStatus.msg}
+          {bulkStatus.state==="done"&&<button onClick={()=>setBulkStatus(null)} style={{marginLeft:"12px",background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>dismiss</button>}
+        </div>
+      )}
       </div>
 
       <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"16px",gap:"2px"}}>

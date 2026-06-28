@@ -383,22 +383,53 @@ export default function WeeklyData({ currentUser }) {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
-      // After DPP upload: sync defs + detention_date + car_status back to vessels
+      // After DPP upload: sync fields + auto-create missing cases
       if (cfg.key === "dpp_case_files") {
         try {
-          const {data: dppRows} = await supabase.from("dpp_case_files").select("imo,num_findings,detention_date,car_status,port,mou");
+          const {data: dppRows} = await supabase.from("dpp_case_files").select("*");
           if (dppRows?.length) {
+            // Get existing vessels to check for duplicates
+            const {data: existingVessels} = await supabase.from("vessels").select("imo,detention_date");
+            const existingKeys = new Set((existingVessels||[]).map(v=>v.imo+"__"+(v.detention_date||"")));
+
+            let created = 0, updated = 0, skipped = 0;
+
             for (const d of dppRows) {
-              if (!d.imo) continue;
-              const updates = {};
-              if (d.num_findings > 0) updates.defs = d.num_findings;
-              if (d.detention_date) updates.detention_date = d.detention_date;
-              if (d.car_status) updates.car_status = d.car_status;
-              // Never sync port/mou from DPP as they may overwrite better data
-              // Never sync company — PSC vessel owner is not the ISM company
-              if (Object.keys(updates).length) {
-                await supabase.from("vessels").update(updates).eq("imo", d.imo).or("defs.is.null,defs.eq.0");
+              if (!d.imo || !d.vessel) continue;
+              const key = d.imo+"__"+(d.detention_date||"");
+
+              if (!existingKeys.has(key)) {
+                // Create new case from DPP row
+                const newCase = {
+                  name: d.vessel,
+                  imo: d.imo,
+                  mou: d.mou||"—",
+                  port: d.port||"—",
+                  detention_date: d.detention_date||null,
+                  defs: d.num_findings||0,
+                  detained: true,
+                  car_status: d.car_status||"Not Received",
+                  case_status: "New",
+                  flag: d.flag||"Liberia",
+                  inspection_type: d.inspection_type||"",
+                  added_date: new Date().toISOString().slice(0,10),
+                };
+                const {error: cErr} = await supabase.from("vessels").insert(newCase);
+                if (!cErr) { created++; existingKeys.add(key); }
+              } else {
+                // Update existing case — only defs and car_status if not already set
+                const updates = {};
+                if (d.num_findings > 0) updates.defs = d.num_findings;
+                if (d.car_status) updates.car_status = d.car_status;
+                if (Object.keys(updates).length) {
+                  await supabase.from("vessels").update(updates).eq("imo", d.imo).eq("detention_date", d.detention_date||"");
+                  updated++;
+                }
               }
+            }
+            console.log("DPP sync: "+created+" cases created, "+updated+" updated, "+skipped+" skipped");
+            if (created > 0) {
+              setStatus(p => ({...p, [cfg.key]: {state:"done", msg: (saved.toLocaleString())+" rows uploaded. "+created+" new cases created automatically.", count:saved, time:new Date().toLocaleString()}}));
             }
           }
         } catch(syncErr) { console.warn("DPP vessel sync:", syncErr); }
