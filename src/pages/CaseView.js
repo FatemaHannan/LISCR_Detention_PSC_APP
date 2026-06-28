@@ -407,7 +407,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const docsByType = {};
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
-  const v = modalVessel || sel;
+  const v = modalVessel;
   function openModal(vessel) { setSel(vessel); setTab("overview"); setModalVessel(vessel); setModalFull(false); loadIntelligence(vessel.imo, vessel.company); }
 
   return (
@@ -497,13 +497,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
       {/* Case file modal */}
       {modalVessel&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>setModalVessel(null)}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{setModalVessel(null);setSel(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(940px,96vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s"}}>
             <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)",position:"sticky",top:0,zIndex:10}}>
               <div style={{fontSize:"11px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
               <div style={{display:"flex",gap:"6px"}}>
                 <button onClick={()=>setModalFull(f=>!f)} title={modalFull?"Minimize":"Fullscreen"} style={{border:"1px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"12px",padding:"3px 9px",borderRadius:"4px"}}>{modalFull?"⭳":"⛶"}</button>
-                <button onClick={()=>setModalVessel(null)} title="Close" style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"0px 8px",borderRadius:"4px",fontWeight:300}}>{"×"}</button>
+                <button onClick={()=>{setModalVessel(null);setSel(null);}} title="Close" style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"0px 8px",borderRadius:"4px",fontWeight:300}}>{"×"}</button>
               </div>
             </div>
             <div style={{padding:"16px",flex:1}}>
