@@ -1120,29 +1120,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
 
-          {tab==="summary"&&(
-            <div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"12px"}}>
-                {[
-                  {l:"Deficiencies",v:v.defs||0,c:"var(--red2)"},
-                  {l:"Detainable",v:v.detainable||0,c:"var(--amber2)"},
-                  {l:"Documents",v:dbDocs.length,c:"var(--blue)"},
-                  {l:"Tasks",v:vesselTasks.length,c:"var(--text)"},
-                  {l:"Executed",v:vesselTasks.filter(t=>t.status==="Executed").length,c:"var(--green2)"},
-                  {l:"Gaps",v:v.gaps?.length||0,c:"var(--amber2)"},
-                ].map(s=>(
-                  <div key={s.l} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
-                    <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
-                    <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-                  </div>
-                ))}
-              </div>
-              {v.vettingNotes&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Vetting Notes</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.vettingNotes}</div></div>}
-              {v.finalRecommendations&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Final Recommendations</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.finalRecommendations}</div></div>}
-              {v.fsiNotes&&<div style={{background:"var(--bg3)",borderRadius:"8px",padding:"12px",marginBottom:"10px"}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>FSI Notes</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.fsiNotes}</div></div>}
-              {v.detentionNotes&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"12px"}}><div style={{fontSize:"9px",color:"var(--amber2)",textTransform:"uppercase",marginBottom:"6px"}}>Detention Notes</div><div style={{fontSize:"11px",color:"var(--amber2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{v.detentionNotes}</div></div>}
-            </div>
-          )}
+
         </div>
       )}
 
