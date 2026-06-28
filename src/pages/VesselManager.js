@@ -657,7 +657,6 @@ export default function VesselManager({ currentUser }) {
           {bulkStatus.state==="done"&&<button onClick={()=>setBulkStatus(null)} style={{marginLeft:"12px",background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>dismiss</button>}
         </div>
       )}
-      </div>
 
       <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"16px",gap:"2px"}}>
         {TABS.map(t=>(
