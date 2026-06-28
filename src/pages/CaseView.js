@@ -977,85 +977,28 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           {tab==="timeline"&&(
-            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-
-              {/* PSC Detention Event */}
-              <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>PSC Detention — {v.detentionDate}</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
-                  {[{l:"Port",v2:v.port||"—"},{l:"MoU",v2:v.mou||"—"},{l:"Deficiencies",v2:v.defs||0},{l:"Detainable",v2:v.detainable||0}].map(m=>(
-                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
-                      <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
-                    </div>
-                  ))}
-                </div>
-                {v.release&&(
-                  <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px"}}>
-                    <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",fontWeight:600,marginBottom:"4px"}}>Release Condition</div>
-                    <div style={{fontSize:"11px",color:"var(--red2)",lineHeight:1.6}}>{v.release}</div>
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"16px"}}>
+              <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"16px"}}>Case Timeline</div>
+              <div style={{position:"relative",paddingLeft:"28px"}}>
+                <div style={{position:"absolute",left:"9px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
+                {[
+                  {date:v.detentionDate, label:"PSC Detention", sub:v.port+" · "+v.mou+" · "+v.defs+" deficiencies"+(v.detainable?" · "+v.detainable+" detainable":""), type:"r"},
+                  v.release&&{date:v.detentionDate, label:"Release Condition Issued", sub:v.release.slice(0,120)+(v.release.length>120?"...":""), type:"r"},
+                  v.roSurveyDate&&{date:v.roSurveyDate, label:"RO / Class Survey", sub:(v.roFindings??0)+" findings · "+(v.roStatus||"Status pending"), type:"a"},
+                  v.carStatus==="Received"&&{date:v.detentionDate, label:"CAR Submitted", sub:"Corrective actions submitted to PSC authority", type:"a"},
+                  v.carStatus==="Complete"&&{date:v.detentionDate, label:"CAR Accepted", sub:"Corrective action report accepted", type:"g"},
+                  dbDocs.length>0&&{date:"—", label:dbDocs.length+" Documents Uploaded", sub:dbDocs.filter(d=>d.analyzed).length+" analyzed by AI", type:"b"},
+                  vesselTasks.length>0&&{date:"—", label:"PDAIP Tasks", sub:vesselTasks.filter(t=>t.status==="Executed").length+" of "+vesselTasks.length+" completed", type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
+                  v.caseStatus==="Closed"&&{date:"—", label:"Case Closed", sub:"", type:"g"},
+                ].filter(Boolean).map((item,i)=>(
+                  <div key={i} style={{position:"relative",marginBottom:"18px",paddingLeft:"18px"}}>
+                    <div style={{position:"absolute",left:"-22px",top:"3px",width:"12px",height:"12px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)",boxShadow:"0 0 0 3px "+(item.type==="r"?"rgba(239,68,68,0.15)":item.type==="a"?"rgba(245,158,11,0.15)":item.type==="b"?"rgba(59,130,246,0.15)":"rgba(34,197,94,0.15)")}}></div>
+                    <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
+                    <div style={{fontSize:"12px",color:"var(--text)",fontWeight:600,marginBottom:"2px"}}>{item.label}</div>
+                    {item.sub&&<div style={{fontSize:"11px",color:"var(--text3)",lineHeight:1.5}}>{item.sub}</div>}
                   </div>
-                )}
+                ))}
               </div>
-
-              {/* RO / Class Survey */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
-                {v.roSurveyDate?(
-                  <div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
-                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
-                        <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
-                          <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey details automatically.</div>}
-              </div>
-
-              {/* CAR Document */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
-                {v.carNotes?(
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
-                    {v.carNotes}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
-              </div>
-
-              {/* Other documents / PSC correspondence */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
-                {v.otherNotes?(
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
-                    {v.otherNotes}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, and other correspondence under Other Documents — key details will appear here.</div>}
-              </div>
-
-              {/* Activity timeline */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Case Timeline</div>
-                <div style={{position:"relative",paddingLeft:"20px"}}>
-                  <div style={{position:"absolute",left:"5px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
-                  {[
-                    {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies",type:"r"},
-                    v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings??0)+" findings",type:"a"},
-                    dbDocs.length>0&&{date:"Docs",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
-                    vesselTasks.length>0&&{date:"Tasks",label:vesselTasks.length+" PDAIP tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
-                  ].filter(Boolean).map((item,i)=>(
-                    <div key={i} style={{position:"relative",marginBottom:"12px",paddingLeft:"16px"}}>
-                      <div style={{position:"absolute",left:"-19px",top:"4px",width:"10px",height:"10px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
-                      <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
-                      <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
             </div>
           )}
 
@@ -1147,88 +1090,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
             </div>
           )}
-          {tab==="timeline"&&(
-            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
 
-              {/* PSC Detention Event */}
-              <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>PSC Detention — {v.detentionDate}</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
-                  {[{l:"Port",v2:v.port||"—"},{l:"MoU",v2:v.mou||"—"},{l:"Deficiencies",v2:v.defs||0},{l:"Detainable",v2:v.detainable||0}].map(m=>(
-                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
-                      <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
-                    </div>
-                  ))}
-                </div>
-                {v.release&&(
-                  <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px"}}>
-                    <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",fontWeight:600,marginBottom:"4px"}}>Release Condition</div>
-                    <div style={{fontSize:"11px",color:"var(--red2)",lineHeight:1.6}}>{v.release}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* RO / Class Survey */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
-                {v.roSurveyDate?(
-                  <div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
-                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
-                        <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
-                          <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey details automatically.</div>}
-              </div>
-
-              {/* CAR Document */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
-                {v.carNotes?(
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
-                    {v.carNotes}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
-              </div>
-
-              {/* Other documents / PSC correspondence */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
-                {v.otherNotes?(
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
-                    {v.otherNotes}
-                  </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, and other correspondence under Other Documents — key details will appear here.</div>}
-              </div>
-
-              {/* Activity timeline */}
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Case Timeline</div>
-                <div style={{position:"relative",paddingLeft:"20px"}}>
-                  <div style={{position:"absolute",left:"5px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
-                  {[
-                    {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies",type:"r"},
-                    v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings??0)+" findings",type:"a"},
-                    dbDocs.length>0&&{date:"Docs",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
-                    vesselTasks.length>0&&{date:"Tasks",label:vesselTasks.length+" PDAIP tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
-                  ].filter(Boolean).map((item,i)=>(
-                    <div key={i} style={{position:"relative",marginBottom:"12px",paddingLeft:"16px"}}>
-                      <div style={{position:"absolute",left:"-19px",top:"4px",width:"10px",height:"10px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
-                      <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
-                      <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          )}
 
           {tab==="summary"&&(
             <div>
