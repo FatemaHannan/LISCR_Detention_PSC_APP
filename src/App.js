@@ -46,7 +46,7 @@ const NAV = [
     { id:"chat", label:"AI assistant", icon:"ti-message-circle", badge:null },
   ]},
   { section:"SYSTEM", items:[
-    { id:"vessels", label:"Vessel manager", icon:"ti-ship", badge:null },
+    { id:"vessels", label:"Fleet Registry", icon:"ti-ship", badge:null },
     { id:"admin", label:"Admin panel", icon:"ti-shield-lock", badge:null },
     { id:"weekly", label:"Weekly data", icon:"ti-database-import", badge:null },
   ]},

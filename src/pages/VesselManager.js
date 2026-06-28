@@ -1,299 +1,164 @@
-import React, { useState } from "react";
-import { VESSELS, DOC_TYPES } from "../data/masterData";
-import EditModal from "../components/EditModal";
+import React, { useState, useEffect } from "react";
+import { getVessels } from "../lib/db";
 
-const MOU_LIST = ["Tokyo MOU","Paris MOU","AMSA","USCG","Black Sea MOU","Indian Ocean MOU"];
-const RO_LIST = ["Korean Register","Bureau Veritas","DNV","ClassNK","ABS","Lloyds Register","RINA","CCS"];
-const TYPE_LIST = ["Bulk Carrier","Container","Tanker","General Cargo","Ro-Ro","Passenger","OSV","MODU"];
-const ROLES = ["Case Owner A","Case Owner B","Case Owner C"];
+const COLS = [
+  {key:"name",label:"Vessel"},
+  {key:"imo",label:"IMO"},
+  {key:"company",label:"Company"},
+  {key:"mou",label:"MoU"},
+  {key:"port",label:"Port"},
+  {key:"detentionDate",label:"Detention Date"},
+  {key:"defs",label:"Defs"},
+  {key:"detainable",label:"Detainable"},
+  {key:"carStatus",label:"CAR Status"},
+  {key:"caseStatus",label:"Case Status"},
+  {key:"ro",label:"RO / Class"},
+  {key:"detained",label:"Status"},
+];
 
-function daysUntil(d) { return Math.ceil((new Date(d)-new Date())/(1000*60*60*24)); }
-function daysAgo(d) { return Math.ceil((new Date()-new Date(d))/(1000*60*60*24)); }
-
-const EMPTY = {name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",flag:"Liberia",type:"Bulk Carrier",gt:"",caseOwner:"Case Owner A"};
-
-export default function VesselManager({ canEdit, canDelete, currentUser }) {
-  const [tab, setTab] = useState("active");
-  const [vessels, setVessels] = useState(VESSELS);
-  const [archive, setArchive] = useState([]);
-  const [deleteFolder, setDeleteFolder] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [showPermDelete, setShowPermDelete] = useState(null);
-  const [editVessel, setEditVessel] = useState(null);
+export default function VesselManager() {
+  const [vessels, setVessels] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("detentionDate");
+  const [sortDir, setSortDir] = useState("desc");
   const [filterMou, setFilterMou] = useState("All");
-  const [filterOwner, setFilterOwner] = useState("All");
-  const [newVessel, setNewVessel] = useState(EMPTY);
-  const [importInput, setImportInput] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterCAR, setFilterCAR] = useState("All");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  useEffect(() => {
+    getVessels().then(v => { setVessels(v||[]); setLoading(false); });
+  }, []);
+
+  const mous = ["All", ...new Set(vessels.map(v=>v.mou).filter(Boolean))];
+  const carStatuses = ["All","Not Received","Received","Requested","Complete"];
 
   const filtered = vessels.filter(v => {
     if (filterMou !== "All" && v.mou !== filterMou) return false;
-    if (filterOwner !== "All" && v.caseOwner !== filterOwner) return false;
-    if (search && !v.name.toLowerCase().includes(search.toLowerCase()) && !v.imo.includes(search)) return false;
+    if (filterStatus === "Detained" && !v.detained) return false;
+    if (filterStatus === "Active" && v.detained) return false;
+    if (filterCAR !== "All" && v.carStatus !== filterCAR) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!v.name?.toLowerCase().includes(q) && !v.imo?.includes(q) && !v.company?.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
-  function addVessel() {
-    if (!newVessel.name || !newVessel.imo) return;
-    setVessels(prev => [...prev, {...newVessel, id:Date.now(), status:"active", addedDate:new Date().toISOString().slice(0,10), documents:0, openTasks:0, detained:false, gt:parseInt(newVessel.gt)||0, flags:[], carStatus:"Not Received", caseStatus:"New"}]);
-    setNewVessel(EMPTY);
-    setShowAdd(false);
+  const sorted = [...filtered].sort((a,b) => {
+    const av = a[sortKey]||""; const bv = b[sortKey]||"";
+    return sortDir==="asc" ? (av>bv?1:-1) : (av<bv?1:-1);
+  });
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+  function toggleSort(key) {
+    if (sortKey===key) setSortDir(d=>d==="asc"?"desc":"asc");
+    else { setSortKey(key); setSortDir("asc"); }
+    setPage(1);
   }
 
-  function archiveVessel(vessel, deleteDocs) {
-    const archived = {...vessel, status:"archive", deletedDate:new Date().toISOString().slice(0,10), deletedBy:currentUser?.name||"Admin", scheduledDelete:new Date(Date.now()+30*24*60*60*1000).toISOString().slice(0,10), documents:deleteDocs?0:vessel.documents};
-    setVessels(prev => prev.filter(v => v.id !== vessel.id));
-    setArchive(prev => [...prev, archived]);
-    setShowDeleteConfirm(null);
-  }
+  const carColor = s => s==="Not Received"?"var(--red2)":s==="Complete"?"var(--green2)":s==="Requested"?"var(--amber2)":"var(--text3)";
 
-  function restoreVessel(vessel, fromDelete) {
-    const restored = {...vessel};
-    delete restored.deletedDate; delete restored.deletedBy; delete restored.scheduledDelete;
-    restored.status = "active";
-    setVessels(prev => [...prev, restored]);
-    if (fromDelete) setDeleteFolder(prev => prev.filter(v => v.id !== vessel.id));
-    else setArchive(prev => prev.filter(v => v.id !== vessel.id));
-  }
-
-  function moveToDelete(vessel) {
-    setArchive(prev => prev.filter(v => v.id !== vessel.id));
-    setDeleteFolder(prev => [...prev, {...vessel, status:"delete", scheduledDelete:new Date(Date.now()+60*24*60*60*1000).toISOString().slice(0,10)}]);
-  }
-
-  function permanentDelete(vessel) {
-    setDeleteFolder(prev => prev.filter(v => v.id !== vessel.id));
-    setShowPermDelete(null);
-  }
-
-  function exportCSV() {
-    const rows = [["Name","IMO","Company","RO","MoU","Type","GT","Case Owner","Status","Detained","Added","Defs","Open Tasks"]];
-    vessels.forEach(v => rows.push([v.name,v.imo,v.company,v.ro,v.mou,v.type,v.gt,v.caseOwner,v.caseStatus,v.detained?"Yes":"No",v.addedDate,v.defs||0,v.openTasks]));
-    const blob = new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"});
-    const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="LISCR_vessels.csv"; a.click();
-  }
-
-  const set = (k,v) => setNewVessel(p=>({...p,[k]:v}));
+  if (loading) return <div style={{padding:"40px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading vessels...</div>;
 
   return (
     <div style={{padding:"16px"}}>
+      {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px",flexWrap:"wrap",gap:"8px"}}>
         <div>
-          <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{vessels.length} active · {archive.length} archived · {deleteFolder.length} pending deletion</div>
-        </div>
-        <div style={{display:"flex",gap:"8px"}}>
-          {canEdit && <button onClick={exportCSV} style={{padding:"7px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"12px"}}>↓ Export CSV</button>}
-          {canEdit && <button onClick={() => setShowAdd(true)} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>+ Add vessel</button>}
+          <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>Fleet Registry</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{vessels.length} total vessels · {vessels.filter(v=>v.detained).length} detained</div>
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"}}>
-        {[{l:"Active",v:vessels.length,c:"var(--text)"},{l:"Detained",v:vessels.filter(v=>v.detained).length,c:"var(--red2)"},{l:"Archived",v:archive.length,c:"var(--amber2)"},{l:"Pending deletion",v:deleteFolder.length,c:"var(--red2)"}].map(m=>(
-          <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"12px"}}>
-            <div style={{fontSize:"10px",color:m.c,marginBottom:"4px",textTransform:"uppercase",letterSpacing:".05em"}}>{m.l}</div>
-            <div style={{fontSize:"26px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v}</div>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
+        {[
+          {l:"Total Cases",v:vessels.length,c:"var(--text)"},
+          {l:"Detained",v:vessels.filter(v=>v.detained).length,c:"var(--red2)"},
+          {l:"Active",v:vessels.filter(v=>!v.detained).length,c:"var(--green2)"},
+          {l:"CAR Not Received",v:vessels.filter(v=>v.carStatus==="Not Received").length,c:"var(--amber2)"},
+          {l:"CAR Complete",v:vessels.filter(v=>v.carStatus==="Complete").length,c:"var(--blue)"},
+        ].map(s=>(
+          <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
+            <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
           </div>
         ))}
       </div>
 
-      <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px"}}>
-        {[{id:"active",l:"Active vessels"},{id:"archive",l:"Archive ("+archive.length+")"},{id:"delete",l:"Delete folder ("+deleteFolder.length+")"}].map(t=>(
-          <div key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 16px",fontSize:"11px",cursor:"pointer",borderBottom:`2px solid ${tab===t.id?"var(--blue)":"transparent"}`,color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400}}>{t.l}</div>
-        ))}
+      {/* Filters */}
+      <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel, IMO, company..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none",width:"220px"}} />
+        <select value={filterMou} onChange={e=>{setFilterMou(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+          {mous.map(m=><option key={m}>{m}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+          {["All","Detained","Active"].map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select value={filterCAR} onChange={e=>{setFilterCAR(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+          {carStatuses.map(s=><option key={s}>{s}</option>)}
+        </select>
+        {(search||filterMou!=="All"||filterStatus!=="All"||filterCAR!=="All")&&<button onClick={()=>{setSearch("");setFilterMou("All");setFilterStatus("All");setFilterCAR("All");setPage(1);}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>Clear</button>}
+        <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} vessels</span>
       </div>
 
-      {tab === "active" && (
-        <div>
-          <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vessel name or IMO..."
-              style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none",width:"200px"}} />
-            <select value={filterMou} onChange={e=>setFilterMou(e.target.value)}
-              style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
-              <option>All</option>{MOU_LIST.map(m=><option key={m}>{m}</option>)}
-            </select>
-            <select value={filterOwner} onChange={e=>setFilterOwner(e.target.value)}
-              style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
-              <option>All</option>{ROLES.map(r=><option key={r}>{r}</option>)}
-            </select>
-            <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",alignSelf:"center",marginLeft:"auto"}}>{filtered.length} vessels</span>
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-            <thead><tr>
-              {["Vessel","IMO","Company","RO","MoU","Type","Case Owner","Docs","Tasks","Status","Actions"].map(h=>(
-                <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 10px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>
+      {/* Table */}
+      <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",minWidth:"900px"}}>
+          <thead>
+            <tr style={{background:"var(--bg2)"}}>
+              {COLS.map(c=>(
+                <th key={c.key} onClick={()=>toggleSort(c.key)} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>
+                  {c.label}{sortKey===c.key?sortDir==="asc"?" ↑":" ↓":""}
+                </th>
               ))}
-            </tr></thead>
-            <tbody>
-              {filtered.map(v=>(
-                <tr key={v.id} style={{background:v.detained?"rgba(239,68,68,0.03)":""}}>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)"}}>
-                    <strong style={{color:v.detained?"var(--red2)":"var(--text)",fontSize:"12px"}}>{v.name}</strong>
-                    {v.detained && <span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontFamily:"var(--mono)",fontWeight:600,marginLeft:"6px"}}>DETAINED</span>}
-                    {v.flags?.length>0 && <div style={{display:"flex",gap:"3px",marginTop:"3px",flexWrap:"wrap"}}>{v.flags.slice(0,2).map(f=><span key={f} style={{fontSize:"8px",padding:"1px 4px",borderRadius:"2px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{f.slice(0,8)}</span>)}</div>}
-                  </td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px"}}>{v.imo}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{v.company}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{v.ro}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{v.mou}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{v.type}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{v.caseOwner}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",textAlign:"center"}}>{v.documents}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)",color:v.openTasks>0?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",textAlign:"center"}}>{v.openTasks}</td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)"}}>
-                    <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"999px",background:v.detained?"var(--red-bg)":"var(--green-bg)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"#1A3016"),fontFamily:"var(--mono)",fontWeight:500}}>
-                      {v.detained?"Detained":"Active"}
-                    </span>
-                  </td>
-                  <td style={{padding:"10px",borderBottom:"1px solid var(--border)"}}>
-                    <div style={{display:"flex",gap:"5px"}}>
-                      {canEdit && <button onClick={()=>setEditVessel(v)} style={{fontSize:"10px",padding:"4px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
-                      {canEdit && <button onClick={()=>setShowDeleteConfirm(v)} style={{fontSize:"10px",padding:"4px 9px",border:"1px solid var(--red-bg)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Archive</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((v,i)=>(
+              <tr key={v.imo+"__"+v.detentionDate} style={{background:v.detained?"rgba(239,68,68,0.03)":i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"9px 12px",fontWeight:600,color:v.detained?"var(--red2)":"var(--text)"}}>{v.name}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</td>
+                <td style={{padding:"9px 12px",color:"var(--text2)"}}>{v.company||"—"}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)"}}>{v.mou||"—"}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port||"—"}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.detentionDate||"—"}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontFamily:"var(--mono)",color:v.defs>=20?"var(--red2)":v.defs>=10?"var(--amber2)":"var(--text)",fontWeight:v.defs>=10?600:400}}>{v.defs||0}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontFamily:"var(--mono)",color:v.detainable>0?"var(--red2)":"var(--text3)",fontWeight:v.detainable>0?600:400}}>{v.detainable||0}</td>
+                <td style={{padding:"9px 12px",color:carColor(v.carStatus),fontWeight:500,whiteSpace:"nowrap"}}>{v.carStatus||"—"}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)"}}>{v.caseStatus||"—"}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.ro||"—"}</td>
+                <td style={{padding:"9px 12px"}}>
+                  <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.08)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{v.detained?"DETAINED":"ACTIVE"}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {tab === "archive" && (
-        <div>
-          {archive.length===0 && <div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center",fontFamily:"var(--mono)"}}>No archived vessels.</div>}
-          {archive.map(v=>(
-            <div key={v.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginBottom:"8px",borderLeft:"3px solid var(--amber)"}}>
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"12px"}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"5px"}}>
-                    <strong style={{color:"var(--text)",fontSize:"12px"}}>{v.name}</strong>
-                    <span style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</span>
-                  </div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",marginBottom:"3px"}}>{v.company} · {v.ro} · {v.mou}</div>
-                  <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>Archived: {v.deletedDate} by {v.deletedBy}</div>
-                  <div style={{fontSize:"10px",color:"var(--amber2)",marginTop:"4px",fontFamily:"var(--mono)"}}>Moves to delete folder in {daysUntil(v.scheduledDelete)} days ({v.scheduledDelete})</div>
-                </div>
-                <div style={{display:"flex",gap:"6px",flexShrink:0}}>
-                  <button onClick={()=>restoreVessel(v,false)} style={{fontSize:"10px",padding:"5px 12px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer"}}>Restore</button>
-                  {canDelete && <button onClick={()=>moveToDelete(v)} style={{fontSize:"10px",padding:"5px 12px",border:"1px solid var(--red-bg)",borderRadius:"6px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Move to delete</button>}
-                </div>
-              </div>
-            </div>
+      {/* Pagination */}
+      {totalPages>1&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",marginTop:"14px"}}>
+          <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>«</button>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>‹</button>
+          {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>p===1||p===totalPages||Math.abs(p-page)<=1).reduce((acc,p,idx,arr)=>{if(idx>0&&p-arr[idx-1]>1)acc.push("...");acc.push(p);return acc;},[]).map((p,i)=>(
+            p==="..."
+              ?<span key={i} style={{padding:"5px 4px",color:"var(--text3)",fontSize:"11px"}}>…</span>
+              :<button key={i} onClick={()=>setPage(p)} style={{padding:"5px 10px",border:"1px solid "+(page===p?"var(--blue)":"var(--border)"),borderRadius:"5px",background:page===p?"var(--blue)":"var(--bg3)",color:page===p?"#fff":"var(--text2)",cursor:"pointer",fontSize:"11px",fontWeight:page===p?600:400,minWidth:"32px"}}>{p}</button>
           ))}
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>›</button>
+          <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>»</button>
+          <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>Page {page} of {totalPages} · {sorted.length} vessels</span>
         </div>
       )}
 
-      {tab === "delete" && (
-        <div>
-          <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 13px",fontSize:"11px",lineHeight:1.65,marginBottom:"12px",color:"var(--red2)"}}>
-            <strong>Vessels in this folder are permanently deleted after 90 days.</strong> Restoration still possible. After permanent deletion all data is gone.
-          </div>
-          {deleteFolder.length===0 && <div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center",fontFamily:"var(--mono)"}}>No vessels pending deletion.</div>}
-          {deleteFolder.map(v=>(
-            <div key={v.id} style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px",marginBottom:"8px",borderLeft:"3px solid var(--red)"}}>
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"12px"}}>
-                <div style={{flex:1}}>
-                  <strong style={{color:"var(--red2)",fontSize:"12px"}}>{v.name}</strong>
-                  <span style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>{v.imo}</span>
-                  <div style={{fontSize:"11px",color:"var(--red2)",marginTop:"6px",fontWeight:600,fontFamily:"var(--mono)"}}>Permanent deletion in {daysUntil(v.scheduledDelete)} days ({v.scheduledDelete})</div>
-                  <div style={{marginTop:"8px",background:"var(--bg3)",borderRadius:"6px",overflow:"hidden",height:"5px",width:"200px"}}>
-                    <div style={{height:"100%",background:"var(--red)",borderRadius:"6px",width:Math.min(100,Math.max(0,(daysAgo(v.deletedDate)/90)*100))+"%"}}></div>
-                  </div>
-                  <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"3px",fontFamily:"var(--mono)"}}>{Math.min(100,Math.round((daysAgo(v.deletedDate)/90)*100))}% of 90 days elapsed</div>
-                </div>
-                <div style={{display:"flex",gap:"6px",flexDirection:"column",flexShrink:0}}>
-                  <button onClick={()=>restoreVessel(v,true)} style={{fontSize:"10px",padding:"5px 12px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer"}}>Restore</button>
-                  {canDelete && <button onClick={()=>setShowPermDelete(v)} style={{fontSize:"10px",padding:"5px 12px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontWeight:600}}>Delete now</button>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showAdd && (
-        <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
-          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"560px",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Add new vessel</div>
-              <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>x</button>
-            </div>
-            <div style={{padding:"16px 20px",overflowY:"auto",flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
-              {[["Vessel name","name","text","OCEAN GALAXY"],["IMO (7 digits)","imo","text","9852705"],["Company name","company","text",""],["Gross tonnage","gt","number",""]].map(([label,key,type,ph])=>(
-                <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
-                  <input value={newVessel[key]||""} onChange={e=>set(key,e.target.value)} placeholder={ph} type={type}
-                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}} />
-                </div>
-              ))}
-              {[["RO / Class","ro",RO_LIST],["MoU","mou",MOU_LIST],["Vessel type","type",TYPE_LIST],["Case owner","caseOwner",ROLES]].map(([label,key,options])=>(
-                <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
-                  <select value={newVessel[key]||""} onChange={e=>set(key,e.target.value)}
-                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
-                    {options.map(o=><option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
-              <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              <button onClick={addVessel} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Add vessel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeleteConfirm && (
-        <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
-          <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"28px",maxWidth:"440px",width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:"28px",marginBottom:"12px"}}>⚠</div>
-            <div style={{fontSize:"14px",fontWeight:600,color:"var(--text)",marginBottom:"8px"}}>Archive {showDeleteConfirm.name}?</div>
-            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>
-              This vessel will be moved to Archive and permanently deleted after 90 days.<br/>
-              <strong style={{color:"var(--text)"}}>Do you also want to delete all uploaded documents for this vessel?</strong>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
-              <button onClick={()=>archiveVessel(showDeleteConfirm,true)} style={{padding:"9px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:600}}>Archive vessel and delete all documents ({showDeleteConfirm.documents} docs)</button>
-              <button onClick={()=>archiveVessel(showDeleteConfirm,false)} style={{padding:"9px 20px",border:"1px solid var(--amber)",borderRadius:"6px",background:"var(--amber-bg)",color:"var(--amber2)",cursor:"pointer",fontSize:"12px"}}>Archive vessel only — keep documents</button>
-              <button onClick={()=>setShowDeleteConfirm(null)} style={{padding:"9px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPermDelete && (
-        <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
-          <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"28px",maxWidth:"400px",width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:"28px",marginBottom:"12px"}}>🗑</div>
-            <div style={{fontSize:"14px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>Permanently delete {showPermDelete.name}?</div>
-            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>This action <strong style={{color:"var(--red2)"}}>cannot be undone</strong>. All data permanently removed.</div>
-            <div style={{display:"flex",gap:"10px",justifyContent:"center"}}>
-              <button onClick={()=>setShowPermDelete(null)} style={{padding:"8px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              <button onClick={()=>permanentDelete(showPermDelete)} style={{padding:"8px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:600}}>Permanently delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editVessel && (
-        <EditModal
-          title={"Edit vessel — "+editVessel.name}
-          fields={[
-            {key:"name",label:"Vessel name",type:"text"},
-            {key:"imo",label:"IMO",type:"text"},
-            {key:"company",label:"Company",type:"text"},
-            {key:"ro",label:"RO / Class",type:"select",options:RO_LIST},
-            {key:"mou",label:"MoU",type:"select",options:MOU_LIST},
-            {key:"type",label:"Vessel type",type:"select",options:TYPE_LIST},
-            {key:"caseOwner",label:"Case owner",type:"select",options:ROLES},
-            {key:"gt",label:"Gross tonnage",type:"text"},
-          ]}
-          data={editVessel}
-          onSave={updates=>{setVessels(prev=>prev.map(v=>v.id===editVessel.id?{...v,...updates}:v));setEditVessel(null);}}
-          onClose={()=>setEditVessel(null)}
-        />
-      )}
+      {paged.length===0&&!loading&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:"11px",padding:"30px"}}>No vessels match filters.</div>}
     </div>
   );
 }
