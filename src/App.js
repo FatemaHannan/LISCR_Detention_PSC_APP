@@ -29,7 +29,7 @@ const NAV = [
   ]},
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
-    { id:"vessels", label:"Fleet Registry", icon:"ti-ship", badge:null },
+    { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
     { id:"pdaip", label:"PDAIP analysis", icon:"ti-chart-dots", badge:null },
     { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
     { id:"tracker", label:"PSC tracker", icon:"ti-table", badge:null },
