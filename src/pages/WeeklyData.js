@@ -394,8 +394,8 @@ export default function WeeklyData({ currentUser }) {
               if (d.num_findings > 0) updates.defs = d.num_findings;
               if (d.detention_date) updates.detention_date = d.detention_date;
               if (d.car_status) updates.car_status = d.car_status;
-              if (d.port) updates.port = d.port;
-              if (d.mou) updates.mou = d.mou;
+              // Never sync port/mou from DPP as they may overwrite better data
+              // Never sync company — PSC vessel owner is not the ISM company
               if (Object.keys(updates).length) {
                 await supabase.from("vessels").update(updates).eq("imo", d.imo).or("defs.is.null,defs.eq.0");
               }
