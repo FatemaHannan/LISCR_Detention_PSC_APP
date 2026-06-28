@@ -684,6 +684,7 @@ export default function VesselManager({ currentUser }) {
     {id:"analysis",label:"Fleet Analysis"},
     {id:"patterns",label:"Pattern Detection"},
     {id:"company",label:"Company Pattern"},
+    {id:"ro",label:"RO Pattern"},
     {id:"car",label:"CAR Tracker"},
   ];
 
@@ -722,6 +723,121 @@ export default function VesselManager({ currentUser }) {
       {tab==="analysis"&&<FleetAnalysis vessels={vessels} />}
       {tab==="patterns"&&<PatternDetection vessels={vessels} />}
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
+      {tab==="ro"&&(()=>{
+        const EXCLUDED_RO = ["—","Unknown","","null"];
+        const roMap = {};
+        vessels.filter(v=>v.ro&&!EXCLUDED_RO.includes(v.ro.trim())).forEach(v=>{
+          const r = v.ro.trim();
+          if (!roMap[r]) roMap[r]={name:r,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:[],worstVessel:null};
+          roMap[r].cases++;
+          if (v.detained) roMap[r].detained++;
+          roMap[r].totalDefs += (v.defs||0);
+          roMap[r].totalDetainable += (v.detainable||0);
+          if (v.carStatus==="Complete") roMap[r].carComplete++;
+          if (v.carStatus==="Not Received") roMap[r].carNotReceived++;
+          if (v.mou) roMap[r].mous.add(v.mou);
+          roMap[r].vessels.push(v);
+        });
+
+        const ros = Object.values(roMap).map(r=>({
+          ...r,
+          avgDefs: r.cases?(r.totalDefs/r.cases).toFixed(1):"0",
+          avgDetainable: r.cases?(r.totalDetainable/r.cases).toFixed(1):"0",
+          carRate: r.cases?Math.round(r.carComplete/r.cases*100):0,
+          detRate: r.cases?Math.round(r.detained/r.cases*100):0,
+          mouList:[...r.mous].join(", "),
+          worstVessel:[...r.vessels].sort((a,b)=>(b.defs||0)-(a.defs||0))[0],
+        })).sort((a,b)=>b.cases-a.cases);
+
+        const fleetAvgDefs = vessels.length?(vessels.reduce((s,v)=>s+(v.defs||0),0)/vessels.length).toFixed(1):0;
+        const fleetDetRate = vessels.length?Math.round(vessels.filter(v=>v.detained).length/vessels.length*100):0;
+        const maxCases = ros[0]?.cases||1;
+
+        return (
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+            {/* Fleet benchmark */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",display:"flex",gap:"20px",alignItems:"center"}}>
+              <div style={{fontSize:"11px",color:"var(--text3)"}}>Fleet benchmark:</div>
+              <div style={{fontSize:"11px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{fleetAvgDefs}</strong> avg defs</div>
+              <div style={{fontSize:"11px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--red2)"}}>{fleetDetRate}%</strong> detention rate</div>
+              <div style={{fontSize:"11px",color:"var(--text3)",marginLeft:"auto"}}>{ros.length} ROs active across {vessels.length} cases</div>
+            </div>
+
+            {/* RO performance cards */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"10px"}}>
+              {ros.map(r=>{
+                const aboveAvgDefs = parseFloat(r.avgDefs)>parseFloat(fleetAvgDefs);
+                const aboveAvgDet = r.detRate>fleetDetRate;
+                const riskLevel = (aboveAvgDefs&&aboveAvgDet)?"High":aboveAvgDefs||aboveAvgDet?"Medium":"Low";
+                const riskColor = riskLevel==="High"?"var(--red2)":riskLevel==="Medium"?"var(--amber2)":"var(--green2)";
+                const riskBg = riskLevel==="High"?"var(--red-bg)":riskLevel==="Medium"?"var(--amber-bg)":"rgba(34,197,94,0.08)";
+                const riskBorder = riskLevel==="High"?"#3D1A1A":riskLevel==="Medium"?"var(--amber)":"rgba(34,197,94,0.3)";
+                return (
+                  <div key={r.name} style={{background:"var(--bg2)",border:"1px solid "+(riskLevel==="High"?"#3D1A1A":"var(--border)"),borderRadius:"10px",overflow:"hidden"}}>
+                    <div style={{padding:"12px 14px",borderBottom:"1px solid var(--border)"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
+                        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",flex:1,lineHeight:1.3}}>{r.name}</div>
+                        <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:riskBg,color:riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+riskBorder,flexShrink:0,marginLeft:"8px"}}>{riskLevel} RISK</span>
+                      </div>
+                      <div style={{fontSize:"9px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""} · {[...r.mous].slice(0,2).join(", ")}</div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"0"}}>
+                      {[
+                        {l:"Cases",v:r.cases,c:"var(--text)"},
+                        {l:"Detained",v:r.detained,c:r.detained>0?"var(--red2)":"var(--text3)"},
+                        {l:"Avg Defs",v:r.avgDefs,c:parseFloat(r.avgDefs)>parseFloat(fleetAvgDefs)?"var(--red2)":"var(--green2)"},
+                        {l:"CAR %",v:r.carRate+"%",c:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)"},
+                      ].map((s,i)=>(
+                        <div key={s.l} style={{padding:"10px 10px",borderRight:i<3?"1px solid var(--border)":"none",textAlign:"center"}}>
+                          <div style={{fontSize:"8px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
+                          <div style={{fontSize:"16px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {r.worstVessel&&(
+                      <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",fontSize:"9px",color:"var(--text3)"}}>
+                        Worst vessel: <span style={{color:"var(--red2)",fontWeight:600}}>{r.worstVessel.name}</span> ({r.worstVessel.defs} defs)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* RO comparison table */}
+            <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                <thead>
+                  <tr style={{background:"var(--bg2)"}}>
+                    {["RO / Class","Cases","Detained","Det %","Avg Defs","Avg Det.","CAR %","CAR Missing","vs Fleet Avg","Worst Vessel"].map(h=>(
+                      <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ros.map((r,i)=>{
+                    const vsAvg = parseFloat(r.avgDefs)-parseFloat(fleetAvgDefs);
+                    return (
+                      <tr key={r.name} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                        <td style={{padding:"9px 12px",fontWeight:600,color:"var(--text)"}}>{r.name}</td>
+                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.cases}</td>
+                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.detained>0?"var(--red2)":"var(--text3)",fontWeight:r.detained>0?600:400}}>{r.detained}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
+                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDefs)>=15?"var(--red2)":parseFloat(r.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(r.avgDefs)>=8?600:400}}>{r.avgDefs}</td>
+                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{r.avgDetainable}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
+                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:r.carNotReceived>0?600:400}}>{r.carNotReceived}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:vsAvg>0?"var(--red-bg)":"rgba(34,197,94,0.08)",color:vsAvg>0?"var(--red2)":"var(--green2)",fontFamily:"var(--mono)",fontWeight:600}}>{vsAvg>0?"+":""}{vsAvg.toFixed(1)}</span></td>
+                        <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:"10px",whiteSpace:"nowrap"}}>{r.worstVessel?r.worstVessel.name+" ("+r.worstVessel.defs+" defs)":"—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
       {tab==="car"&&<CARTracker vessels={vessels} />}
     </div>
   );
