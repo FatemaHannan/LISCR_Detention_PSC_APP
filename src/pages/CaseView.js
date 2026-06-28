@@ -139,6 +139,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [saving, setSaving] = useState(false);
   const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], loading:false});
   const [modalVessel, setModalVessel] = useState(null);
+  const [modalFull, setModalFull] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -407,7 +408,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
   const v = modalVessel || sel;
-  function openModal(vessel) { setSel(vessel); setTab("overview"); setModalVessel(vessel); loadIntelligence(vessel.imo, vessel.company); }
+  function openModal(vessel) { setSel(vessel); setTab("overview"); setModalVessel(vessel); setModalFull(false); loadIntelligence(vessel.imo, vessel.company); }
 
   return (
     <div style={{padding:"16px"}}>
@@ -497,10 +498,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       {/* Case file modal */}
       {modalVessel&&(
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"stretch",justifyContent:"flex-end"}} onClick={()=>setModalVessel(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{width:"min(940px,96vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(940px,96vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s"}}>
             <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)",position:"sticky",top:0,zIndex:10}}>
               <div style={{fontSize:"11px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
-              <button onClick={()=>setModalVessel(null)} style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"0px 8px",borderRadius:"4px",fontWeight:300}}>{"\u00d7"}</button>
+              <div style={{display:"flex",gap:"6px"}}>
+                <button onClick={()=>setModalFull(f=>!f)} title={modalFull?"Minimize":"Fullscreen"} style={{border:"1px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"12px",padding:"3px 9px",borderRadius:"4px"}}>{modalFull?"⭳":"⛶"}</button>
+                <button onClick={()=>setModalVessel(null)} title="Close" style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"0px 8px",borderRadius:"4px",fontWeight:300}}>{"×"}</button>
+              </div>
             </div>
             <div style={{padding:"16px",flex:1}}>(
         <div style={{borderTop:"1px solid var(--border)",paddingTop:"16px",marginTop:"4px"}}>
