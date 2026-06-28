@@ -79,9 +79,116 @@ export default function InitiativeTracker() {
     {id:"stalled", label:"Stalled & Overdue"},
     {id:"byvessel", label:"By Vessel"},
     {id:"byowner", label:"By Owner"},
+    {id:"impact", label:"Impact & Efficiency"},
+    {id:"initiatives", label:"Major Initiatives"},
     {id:"pdaip", label:"PDAIP Tasks"},
     {id:"detention", label:"Detention Tasks"},
   ];
+
+  // ── Impact & Efficiency calculations ─────────────────────────────
+  const vesselImos = [...new Set(tasks.map(t=>t.imo).filter(Boolean))];
+  const withTasks = vessels.filter(v=>vesselImos.includes(v.imo));
+  const withoutTasks = vessels.filter(v=>!vesselImos.includes(v.imo));
+  const withTasksCAROk = withTasks.filter(v=>v.carStatus==="Complete").length;
+  const withoutTasksCAROk = withoutTasks.filter(v=>v.carStatus==="Complete").length;
+  const withTasksCARRate = withTasks.length?Math.round(withTasksCAROk/withTasks.length*100):0;
+  const withoutTasksCARRate = withoutTasks.length?Math.round(withoutTasksCAROk/withoutTasks.length*100):0;
+
+  const avgTasksPerVessel = vesselImos.length?(tasks.length/vesselImos.length).toFixed(1):0;
+  const detainedNoTasks = vessels.filter(v=>v.detained&&!vesselImos.includes(v.imo));
+  const allTasksDoneNoCAR = withTasks.filter(v=>{
+    const vt = tasks.filter(t=>t.imo===v.imo);
+    const allDone = vt.length>0&&vt.every(t=>t.status==="Executed"||t.status==="Completed");
+    return allDone&&v.carStatus==="Not Received";
+  });
+  const tasksCompletedNoResult = allTasksDoneNoCAR.length;
+
+  // Time to completion (days from creation to Executed)
+  const completionDays = tasks.filter(t=>(t.status==="Executed"||t.status==="Completed")&&t.due).map(t=>{
+    const days = Math.floor((new Date()-new Date(t.due))/86400000);
+    return Math.abs(days);
+  });
+  const avgCompletionDays = completionDays.length?(completionDays.reduce((a,b)=>a+b,0)/completionDays.length).toFixed(0):null;
+
+  // ── Auto-detected initiatives ─────────────────────────────────────
+  const autoInitiatives = [];
+
+  // ISM/deficiency patterns from vessels
+  const defKeywords = {};
+  vessels.forEach(v=>{(v.deficiencies||[]).forEach(d=>{
+    const desc = String(d.desc||"").toLowerCase();
+    const cat = desc.includes("ism")||desc.includes("safety management")?"ISM Code":
+      desc.includes("fire")?"Fire Safety":desc.includes("lsa")||desc.includes("lifeboat")?"LSA/Emergency":
+      desc.includes("marpol")||desc.includes("pollut")?"Pollution":desc.includes("mlc")||desc.includes("manning")?"MLC/Manning":
+      desc.includes("navig")||desc.includes("chart")?"Navigation":null;
+    if(cat) defKeywords[cat]=(defKeywords[cat]||0)+1;
+  });});
+  Object.entries(defKeywords).sort((a,b)=>b[1]-a[1]).slice(0,3).forEach(([cat,count])=>{
+    if(count>=3) autoInitiatives.push({
+      type:"auto",title:cat+" Systemic Initiative",category:"Deficiency Pattern",
+      status:count>=10?"Critical":count>=5?"Active":"Monitor",
+      desc:"Found in "+count+" deficiency records fleet-wide. Systemic pattern requires fleet-wide corrective action.",
+      metric:count+" cases affected",action:"Issue fleet-wide advisory and verify SMS procedures across all vessels.",
+      sev:count>=10?"red":count>=5?"amber":"blue"
+    });
+  });
+
+  // Tokyo MOU dominance
+  const tokyoCount = vessels.filter(v=>v.mou==="Tokyo MOU").length;
+  const tokyoRate = vessels.length?Math.round(tokyoCount/vessels.length*100):0;
+  if(tokyoRate>=50) autoInitiatives.push({
+    type:"auto",title:"Tokyo MOU High-Risk Focus",category:"Regional",
+    status:"Active",desc:tokyoRate+"% of detentions are Tokyo MOU. Disproportionate concentration requires targeted action.",
+    metric:tokyoCount+" of "+vessels.length+" cases",action:"Increase pre-arrival inspections for Tokyo MOU ports. Brief ASIs on Tokyo MOU priorities.",
+    sev:"amber"
+  });
+
+  // CAR compliance drive
+  const carNotRec = vessels.filter(v=>v.carStatus==="Not Received").length;
+  const carNotRecRate = vessels.length?Math.round(carNotRec/vessels.length*100):0;
+  if(carNotRecRate>=30) autoInitiatives.push({
+    type:"auto",title:"CAR Compliance Drive",category:"Compliance",
+    status:carNotRecRate>=50?"Critical":"Active",
+    desc:carNotRecRate+"% of cases have CAR not received. Systematic follow-up required.",
+    metric:carNotRec+" vessels non-compliant",action:"Escalate all CAR not received cases >30 days. Issue formal reminder to ISM companies.",
+    sev:carNotRecRate>=50?"red":"amber"
+  });
+
+  // Repeat detention intervention
+  const imoCount2={};vessels.forEach(v=>{imoCount2[v.imo]=(imoCount2[v.imo]||0)+1;});
+  const repeatCount = Object.values(imoCount2).filter(c=>c>1).length;
+  if(repeatCount>=2) autoInitiatives.push({
+    type:"auto",title:"Repeat Detention Intervention",category:"Vessel Performance",
+    status:"Critical",desc:repeatCount+" vessels have been detained more than once. Indicates systemic failure.",
+    metric:repeatCount+" repeat detention vessels",action:"Mandatory pre-detention review for all vessels with prior detention. Enhanced monitoring.",
+    sev:"red"
+  });
+
+  // Unresponsive companies
+  const companyMap2={};
+  vessels.forEach(v=>{
+    if(!v.company||v.company==="—"||v.company==="Unknown") return;
+    const daysDetained=v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):0;
+    if(v.carStatus==="Not Received"&&daysDetained>60){
+      companyMap2[v.company]=(companyMap2[v.company]||0)+1;
+    }
+  });
+  const unresponsiveCompCount = Object.keys(companyMap2).length;
+  if(unresponsiveCompCount>=2) autoInitiatives.push({
+    type:"auto",title:"Unresponsive Company Escalation",category:"Client Engagement",
+    status:"Active",desc:unresponsiveCompCount+" companies have not responded to CAR requests for 60+ days.",
+    metric:Object.entries(companyMap2).map(([c])=>c).join(", "),
+    action:"Formal escalation letter to company management. Flag for EVP awareness.",
+    sev:"amber"
+  });
+
+  // Coverage gap
+  if(detainedNoTasks.length>=3) autoInitiatives.push({
+    type:"auto",title:"Task Coverage Gap",category:"Process",
+    status:"Active",desc:detainedNoTasks.length+" detained vessels have no tasks assigned. Cases are not being actively managed.",
+    metric:detainedNoTasks.length+" vessels with no tasks",action:"Auto-generate minimum task set for all detention cases with 10+ deficiencies.",
+    sev:"amber"
+  });
 
   return (
     <div style={{padding:"16px"}}>
@@ -320,6 +427,139 @@ export default function InitiativeTracker() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* IMPACT & EFFICIENCY */}
+      {subTab==="impact"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px"}}>
+            {[
+              {l:"Vessels with Tasks",v:withTasks.length,c:"var(--blue)",s:"actively managed"},
+              {l:"Vessels without Tasks",v:withoutTasks.length,c:withoutTasks.length>5?"var(--red2)":"var(--text3)",s:"no tasks assigned"},
+              {l:"Avg Tasks / Vessel",v:avgTasksPerVessel,c:"var(--text)",s:"per detention case"},
+              {l:"CAR Rate (with tasks)",v:withTasksCARRate+"%",c:"var(--green2)",s:withTasksCAROk+" vessels"},
+              {l:"CAR Rate (no tasks)",v:withoutTasksCARRate+"%",c:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--green2)",s:withoutTasksCAROk+" vessels"},
+            ].map(s=>(
+              <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+                <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"2px"}}>{s.s}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+            {/* Task vs CAR impact */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Task Impact on CAR Compliance</div>
+              <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"14px"}}>Do cases with tasks have better CAR outcomes?</div>
+              {[
+                {l:"Cases WITH tasks — CAR complete",v:withTasksCARRate,c:"var(--green)"},
+                {l:"Cases WITHOUT tasks — CAR complete",v:withoutTasksCARRate,c:"var(--red)"},
+              ].map(r=>(
+                <div key={r.l} style={{marginBottom:"12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
+                    <div style={{fontSize:"10px",color:"var(--text2)"}}>{r.l}</div>
+                    <div style={{fontSize:"11px",fontFamily:"var(--mono)",color:r.c,fontWeight:600}}>{r.v}%</div>
+                  </div>
+                  <div style={{height:"8px",background:"var(--bg3)",borderRadius:"4px",overflow:"hidden"}}>
+                    <div style={{height:"100%",background:r.c,borderRadius:"4px",width:r.v+"%"}}></div>
+                  </div>
+                </div>
+              ))}
+              {withTasksCARRate>withoutTasksCARRate?(
+                <div style={{padding:"8px 10px",background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"6px",fontSize:"10px",color:"var(--green2)"}}>
+                  Tasks improve CAR compliance by {withTasksCARRate-withoutTasksCARRate} percentage points.
+                </div>
+              ):(
+                <div style={{padding:"8px 10px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",fontSize:"10px",color:"var(--amber2)"}}>
+                  No measurable CAR improvement from tasks yet. Review task quality and follow-up.
+                </div>
+              )}
+            </div>
+
+            {/* Efficiency gaps */}
+            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+              {detainedNoTasks.length>0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>Detained Vessels with No Tasks ({detainedNoTasks.length})</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
+                    {detainedNoTasks.slice(0,8).map(v=>(
+                      <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
+                    ))}
+                    {detainedNoTasks.length>8&&<span style={{fontSize:"9px",color:"var(--text3)"}}>+{detainedNoTasks.length-8} more</span>}
+                  </div>
+                </div>
+              )}
+              {tasksCompletedNoResult>0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>All Tasks Done — CAR Still Not Received ({tasksCompletedNoResult})</div>
+                  <div style={{fontSize:"10px",color:"var(--text3)",lineHeight:1.6}}>These vessels completed all assigned tasks but company has not submitted CAR. Tasks may not be addressing root cause, or company is unresponsive.</div>
+                </div>
+              )}
+              {avgCompletionDays&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Avg Task Completion Time</div>
+                  <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--blue)"}}>{avgCompletionDays}<span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"4px"}}>days</span></div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAJOR INITIATIVES */}
+      {subTab==="initiatives"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
+            Auto-detected from fleet data patterns. These represent the most impactful systemic issues requiring coordinated initiative-level response beyond individual case management.
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+            {[
+              {l:"Auto-detected",v:autoInitiatives.length,c:"var(--blue)"},
+              {l:"Critical",v:autoInitiatives.filter(i=>i.status==="Critical").length,c:"var(--red2)"},
+              {l:"Active",v:autoInitiatives.filter(i=>i.status==="Active").length,c:"var(--amber2)"},
+            ].map(s=>(
+              <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+                <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+
+          {autoInitiatives.length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+              {autoInitiatives.sort((a,b)=>a.status==="Critical"?-1:b.status==="Critical"?1:0).map((init,i)=>{
+                const borderColor = init.sev==="red"?"#3D1A1A":init.sev==="amber"?"var(--amber)":"var(--blue)";
+                const bgColor = init.sev==="red"?"rgba(239,68,68,0.03)":init.sev==="amber"?"rgba(245,158,11,0.03)":"rgba(59,130,246,0.03)";
+                const statusBg = init.status==="Critical"?"var(--red-bg)":init.status==="Active"?"var(--amber-bg)":"rgba(59,130,246,0.1)";
+                const statusColor2 = init.status==="Critical"?"var(--red2)":init.status==="Active"?"var(--amber2)":"var(--blue)";
+                return (
+                  <div key={i} style={{background:bgColor,border:"1px solid "+borderColor,borderRadius:"10px",padding:"16px",borderLeft:"4px solid "+borderColor}}>
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"10px",gap:"12px"}}>
+                      <div>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"3px"}}>{init.title}</div>
+                        <div style={{display:"flex",gap:"6px"}}>
+                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:statusBg,color:statusColor2,fontFamily:"var(--mono)",fontWeight:700}}>{init.status}</span>
+                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{init.category}</span>
+                        </div>
+                      </div>
+                      <div style={{fontSize:"10px",fontFamily:"var(--mono)",color:statusColor2,fontWeight:600,background:statusBg,padding:"4px 10px",borderRadius:"5px",whiteSpace:"nowrap"}}>{init.metric}</div>
+                    </div>
+                    <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"10px"}}>{init.desc}</div>
+                    <div style={{padding:"8px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px",fontWeight:600}}>Recommended Action</div>
+                      <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.6}}>{init.action}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ):(
+            <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"12px"}}>No systemic patterns detected yet. Upload more case data and PSC reports to enable pattern detection.</div>
           )}
         </div>
       )}
