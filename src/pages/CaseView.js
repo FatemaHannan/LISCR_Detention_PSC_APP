@@ -444,11 +444,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             </div>
           </div>
 
-          {v.flags?.length>0&&(
-            <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"}}>
-              {v.flags.map(f=><div key={f} style={{padding:"5px 11px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),fontSize:"10px",fontWeight:600,color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)"}}>{f}</div>)}
-            </div>
-          )}
+
 
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
             {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)",bold:true},{l:"Deficiencies",v2:v.defs,c:"var(--text)",bold:false},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)",bold:false},{l:"MoU",v2:v.mou,c:"var(--text2)",bold:false},{l:"Detention Date",v2:v.detentionDate,c:"var(--text)",bold:true}].map(m=>(
@@ -872,85 +868,256 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           {tab==="timeline"&&(
-            <div style={{position:"relative",paddingLeft:"24px"}}>
-              <div style={{position:"absolute",left:"8px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
-              {[
-                ...(v.history||[]).map(h=>({date:h.date,label:h.port+" — "+h.mou+" — "+h.defs+" defs"+(h.detained?" — DETAINED":""),type:h.detained?"r":"g",note:h.note})),
-                v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings===0?"0 findings":v.roFindings+" findings"),type:"a"},
-                {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies — "+v.detentionDate,type:"r",note:v.release?v.release.slice(0,80):""},
-                dbDocs.length>0&&{date:"Documents",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
-                vesselTasks.length>0&&{date:"PDAIP",label:vesselTasks.length+" tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
-              ].filter(Boolean).map((item,i)=>(
-                <div key={i} style={{position:"relative",marginBottom:"14px",paddingLeft:"16px"}}>
-                  <div style={{position:"absolute",left:"-19px",top:"4px",width:"12px",height:"12px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
-                  <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
-                  <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500,marginBottom:"2px"}}>{item.label}</div>
-                  {item.note&&<div style={{fontSize:"10px",color:"var(--text3)",fontStyle:"italic"}}>{item.note}</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+
+              {/* PSC Detention Event */}
+              <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>PSC Detention — {v.detentionDate}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
+                  {[{l:"Port",v2:v.port||"—"},{l:"MoU",v2:v.mou||"—"},{l:"Deficiencies",v2:v.defs||0},{l:"Detainable",v2:v.detainable||0}].map(m=>(
+                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                      <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+                {v.release&&(
+                  <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px"}}>
+                    <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",fontWeight:600,marginBottom:"4px"}}>Release Condition</div>
+                    <div style={{fontSize:"11px",color:"var(--red2)",lineHeight:1.6}}>{v.release}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* RO / Class Survey */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
+                {v.roSurveyDate?(
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
+                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
+                        <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                          <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey details automatically.</div>}
+              </div>
+
+              {/* CAR Document */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
+                {v.carNotes?(
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    {v.carNotes}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
+              </div>
+
+              {/* Other documents / PSC correspondence */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
+                {v.otherNotes?(
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    {v.otherNotes}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, and other correspondence under Other Documents — key details will appear here.</div>}
+              </div>
+
+              {/* Activity timeline */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Case Timeline</div>
+                <div style={{position:"relative",paddingLeft:"20px"}}>
+                  <div style={{position:"absolute",left:"5px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
+                  {[
+                    {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies",type:"r"},
+                    v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings??0)+" findings",type:"a"},
+                    dbDocs.length>0&&{date:"Docs",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
+                    vesselTasks.length>0&&{date:"Tasks",label:vesselTasks.length+" PDAIP tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
+                  ].filter(Boolean).map((item,i)=>(
+                    <div key={i} style={{position:"relative",marginBottom:"12px",paddingLeft:"16px"}}>
+                      <div style={{position:"absolute",left:"-19px",top:"4px",width:"10px",height:"10px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
+                      <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
+                      <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 
           {/* SUMMARY TAB */}
           {tab==="summary"&&(
-            <div>
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+
+              {/* Case Flags */}
+              {v.flags?.length>0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Case Flags</div>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {v.flags.map(f=><div key={f} style={{padding:"5px 11px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),fontSize:"10px",fontWeight:600,color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)"}}>{f}</div>)}
+                  </div>
+                </div>
+              )}
+
+              {/* Admin stats */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
+                {[
+                  {l:"Deficiencies",v2:v.defs||0,c:"var(--text)"},
+                  {l:"Detainable",v2:v.detainable||0,c:"var(--red2)"},
+                  {l:"Open tasks",v2:vesselTasks.filter(t=>t.status!=="Executed").length,c:"var(--amber2)"},
+                  {l:"Documents",v2:dbDocs.length,c:"var(--blue)"},
+                  {l:"Gaps",v2:v.gaps?.length||0,c:"var(--amber2)"},
+                  {l:"EVP Q&A",v2:v.evpQA?.length||0,c:"var(--green2)"},
+                ].map(m=>(
+                  <div key={m.l} style={{background:"var(--bg2)",borderRadius:"8px",padding:"10px",border:"1px solid var(--border)"}}>
+                    <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
+                    <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v2}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Detention Notes + Vetting Notes */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vetting notes</div>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Detention Notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("detentionNotes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  </div>
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                    {v.detentionNotes||"Upload detention analysis to extract detention notes automatically."}
+                  </div>
+                </div>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vetting Notes</div>
                     {canEdit&&<button onClick={()=>setEditModal("vetting")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
                   <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.vettingNotes||"Upload detention analysis to extract vetting notes automatically."}
                   </div>
                 </div>
+              </div>
+
+              {/* Final Recommendations + FSI Notes */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Final recommendations</div>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Final Recommendations</div>
                     {canEdit&&<button onClick={()=>setEditModal("recommendations")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
                   <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.finalRecommendations||"Upload detention analysis to extract final recommendations automatically."}
                   </div>
                 </div>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>FSI Notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("fsiNotes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  </div>
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                    {v.fsiNotes||"Upload detention analysis or FSI reports to extract FSI notes automatically."}
+                  </div>
+                </div>
               </div>
-              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginTop:"10px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Administrative summary</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+
+              {/* Meeting Minutes */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Meeting Minutes & Decisions</div>
+                  {canEdit&&<button onClick={()=>setEditModal("meetingMinutes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                </div>
+                <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"100px"}}>
+                  {v.meetingMinutes||"Upload Meeting Minutes document to extract decisions and action items automatically."}
+                </div>
+              </div>
+
+            </div>
+          )}
+          {tab==="timeline"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+
+              {/* PSC Detention Event */}
+              <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>PSC Detention — {v.detentionDate}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
+                  {[{l:"Port",v2:v.port||"—"},{l:"MoU",v2:v.mou||"—"},{l:"Deficiencies",v2:v.defs||0},{l:"Detainable",v2:v.detainable||0}].map(m=>(
+                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                      <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
+                    </div>
+                  ))}
+                </div>
+                {v.release&&(
+                  <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px"}}>
+                    <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",fontWeight:600,marginBottom:"4px"}}>Release Condition</div>
+                    <div style={{fontSize:"11px",color:"var(--red2)",lineHeight:1.6}}>{v.release}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* RO / Class Survey */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
+                {v.roSurveyDate?(
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
+                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
+                        <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                          <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey details automatically.</div>}
+              </div>
+
+              {/* CAR Document */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
+                {v.carNotes?(
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    {v.carNotes}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
+              </div>
+
+              {/* Other documents / PSC correspondence */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
+                {v.otherNotes?(
+                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    {v.otherNotes}
+                  </div>
+                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, and other correspondence under Other Documents — key details will appear here.</div>}
+              </div>
+
+              {/* Activity timeline */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Case Timeline</div>
+                <div style={{position:"relative",paddingLeft:"20px"}}>
+                  <div style={{position:"absolute",left:"5px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
                   {[
-                    {l:"Total deficiencies",v2:v.defs||0,c:"var(--text)"},
-                    {l:"Detainable",v2:v.detainable||0,c:"var(--red2)"},
-                    {l:"Open tasks",v2:vesselTasks.filter(t=>t.status!=="Executed").length,c:"var(--amber2)"},
-                    {l:"Documents uploaded",v2:dbDocs.length,c:"var(--blue)"},
-                    {l:"Gaps detected",v2:v.gaps?.length||0,c:"var(--amber2)"},
-                    {l:"EVP Q&A",v2:v.evpQA?.length||0,c:"var(--green2)"},
-                  ].map(m=>(
-                    <div key={m.l} style={{background:"var(--bg3)",borderRadius:"8px",padding:"10px",border:"1px solid var(--border)"}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
-                      <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v2}</div>
+                    {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies",type:"r"},
+                    v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings??0)+" findings",type:"a"},
+                    dbDocs.length>0&&{date:"Docs",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
+                    vesselTasks.length>0&&{date:"Tasks",label:vesselTasks.length+" PDAIP tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
+                  ].filter(Boolean).map((item,i)=>(
+                    <div key={i} style={{position:"relative",marginBottom:"12px",paddingLeft:"16px"}}>
+                      <div style={{position:"absolute",left:"-19px",top:"4px",width:"10px",height:"10px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
+                      <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
+                      <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{item.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-          {tab==="timeline"&&(
-            <div style={{position:"relative",paddingLeft:"24px"}}>
-              <div style={{position:"absolute",left:"8px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
-              {[
-                ...(v.history||[]).map(h=>({date:h.date,label:h.port+" — "+h.mou+" — "+h.defs+" defs"+(h.detained?" — DETAINED":""),type:h.detained?"r":"g",note:h.note})),
-                v.roSurveyDate&&{date:v.roSurveyDate,label:"RO Survey — "+(v.roFindings===0?"0 findings":v.roFindings+" findings"),type:"a"},
-                {date:v.detentionDate,label:"PSC Detention — "+v.defs+" deficiencies — "+v.detentionDate,type:"r",note:v.release?v.release.slice(0,80):""},
-                dbDocs.length>0&&{date:"Documents",label:dbDocs.length+" documents uploaded — "+dbDocs.filter(d=>d.analyzed).length+" analyzed",type:"b"},
-                vesselTasks.length>0&&{date:"PDAIP",label:vesselTasks.length+" tasks — "+vesselTasks.filter(t=>t.status==="Executed").length+" completed",type:vesselTasks.filter(t=>t.status==="Executed").length===vesselTasks.length?"g":"a"},
-              ].filter(Boolean).map((item,i)=>(
-                <div key={i} style={{position:"relative",marginBottom:"14px",paddingLeft:"16px"}}>
-                  <div style={{position:"absolute",left:"-19px",top:"4px",width:"12px",height:"12px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)"}}></div>
-                  <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
-                  <div style={{fontSize:"11px",color:"var(--text)",fontWeight:500,marginBottom:"2px"}}>{item.label}</div>
-                  {item.note&&<div style={{fontSize:"10px",color:"var(--text3)",fontStyle:"italic"}}>{item.note}</div>}
-                </div>
-              ))}
+
             </div>
           )}
 
