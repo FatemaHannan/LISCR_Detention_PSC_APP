@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getVessels, upsertVessel, deleteVesselFromDB } from "../lib/db";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 
 const CAR_OPTS = ["Not Received","Received","Requested","Complete","Rejected"];
