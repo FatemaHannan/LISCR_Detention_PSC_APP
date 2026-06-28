@@ -1119,8 +1119,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             </div>
           )}
 
-
-
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
