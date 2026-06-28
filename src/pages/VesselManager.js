@@ -725,9 +725,27 @@ export default function VesselManager({ currentUser }) {
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
       {tab==="ro"&&(()=>{
         const EXCLUDED_RO = ["—","Unknown","","null"];
+        function normalizeRO(ro) {
+          if (!ro) return null;
+          const r = ro.trim().toLowerCase().replace(/['"\[\]]/g,"").trim();
+          if (r.includes("dnv")||r.includes("det norske")) return "DNV";
+          if (r.includes("lloyd")||r.includes("lr ")) return "Lloyd's Register";
+          if (r.includes("american bureau")||r.includes("abs")) return "ABS";
+          if (r.includes("korean register")||r===("kr")||r.includes("korean r")) return "Korean Register (KR)";
+          if (r.includes("bureau veritas")||r.startsWith("bv")) return "Bureau Veritas (BV)";
+          if (r.includes("rina")) return "RINA Services";
+          if (r.includes("nippon")||r.includes("nk ")||r==="nk") return "Nippon Kaiji Kyokai (NK)";
+          if (r.includes("class nk")) return "Nippon Kaiji Kyokai (NK)";
+          if (r.includes("china classification")||r.includes("ccs")) return "China Classification Society (CCS)";
+          if (r.includes("indian register")||r.includes("irs")) return "Indian Register (IRS)";
+          if (r.includes("russian maritime")||r.includes("rs ")) return "Russian Maritime Register (RS)";
+          if (r.includes("polski")||r.includes("prs")) return "Polski Rejestr Statkow (PRS)";
+          return ro.trim();
+        }
         const roMap = {};
         vessels.filter(v=>v.ro&&!EXCLUDED_RO.includes(v.ro.trim())).forEach(v=>{
-          const r = v.ro.trim();
+          const r = normalizeRO(v.ro);
+          if (!r) return;
           if (!roMap[r]) roMap[r]={name:r,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:[],worstVessel:null};
           roMap[r].cases++;
           if (v.detained) roMap[r].detained++;
