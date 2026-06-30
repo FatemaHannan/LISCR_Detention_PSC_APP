@@ -525,8 +525,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
       {/* Case file modal */}
       {modalVessel&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{setModalVessel(null);setSel(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(940px,96vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s"}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{setModalVessel(null);setSel(null);}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(960px,75vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s",position:"relative",zIndex:10000}}>
             <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)",position:"sticky",top:0,zIndex:10}}>
               <div style={{fontSize:"11px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
               <div style={{display:"flex",gap:"6px"}}>
@@ -563,7 +563,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
 
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
-            {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)",bold:true},{l:"Deficiencies",v2:v.defs,c:"var(--text)",bold:false},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)",bold:false},{l:"MoU",v2:v.mou,c:"var(--text2)",bold:false},{l:"Detention Date",v2:v.detentionDate,c:"var(--text)",bold:true}].map(m=>(
+            {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)",bold:true},{l:"Deficiencies",v2:v.defs||v.deficiencies?.length||0,c:"var(--text)",bold:false},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)",bold:false},{l:"MoU",v2:v.mou,c:"var(--text2)",bold:false},{l:"Detention Date",v2:v.detentionDate,c:"var(--text)",bold:true}].map(m=>(
               <div key={m.l} style={{background:"var(--bg2)",border:"1px solid "+(m.bold&&m.l==="Detention Date"?"var(--border2)":"var(--border)"),borderRadius:"8px",padding:"10px 12px"}}>
                 <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>{m.l}</div>
                 <div style={{fontSize:m.bold?"15px":"13px",fontWeight:m.bold?700:500,color:m.c,fontFamily:m.l==="Detention Date"?"var(--mono)":"inherit"}}>{m.v2}</div>
