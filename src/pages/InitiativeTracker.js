@@ -117,8 +117,8 @@ export default function InitiativeTracker() {
   });
   const outreachDone = outreachTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
 
-  // PBI tasks
-  const pbiTasks = tasks.filter(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pbi")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pre-boarding"));
+  // Power BI tasks
+  const pbiTasks = tasks.filter(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("power bi")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("powerbi")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pbi report")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pbi update"));
   const pbiDone = pbiTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
 
   // Case closure — vessels where caseStatus = Closed or Close Case
@@ -136,7 +136,7 @@ export default function InitiativeTracker() {
     {key:"wechat",label:"WeChat Inspector Communication",category:"Technology",keywords:["wechat","we chat","chinese inspector","china inspector"],action:"Implement WeChat as primary communication channel for Chinese-based inspectors who cannot use WhatsApp."},
     {key:"marine_advisory",label:"Marine Advisory (MA)",category:"Fleet-wide Communication",keywords:["marine advisory","ma issued","ma sent","advisory"],action:"Issue Marine Advisory to all relevant vessel operators documenting lessons learned and required SMS updates."},
     {key:"dpp",label:"DPP Case File Management",category:"Case Management",keywords:["dpp","dpp case","dpp file","detention prevention program","dpp report"],action:"Ensure DPP case files are updated promptly after each detention. Track all DPP action items and close case files once CAR is accepted."},
-    {key:"pbi",label:"PBI Report / Pre-Boarding Intelligence",category:"Intelligence",keywords:["pbi","pre-boarding intelligence","pbi report","boarding intelligence report"],action:"Update PBI reports to include detention history, known PSCO patterns, and risk flags before vessel arrival. PBI is distinct from DPP — it is a pre-arrival intelligence brief, not a case file."},
+    {key:"pbi",label:"Power BI Reporting",category:"Data & Reporting",keywords:["power bi","pbi report","pbi update","pbi dashboard","powerbi"],action:"Update Power BI dashboards with latest detention data, fleet performance metrics, and trend analysis for management reporting."},
     {key:"dispensation",label:"Dispensation Management",category:"Compliance",keywords:["dispensation","dispens"],action:"Track and manage all active dispensations. Ensure dispensation letters are current and submitted to PSC before boarding."},
     {key:"asi",label:"ASI / Preemptive Inspection",category:"Prevention",keywords:["asi","preemptive","pre-emptive","safety inspection","advance safety"],action:"Schedule ASI before vessel enters high-risk MoU zone. Coordinate with RO for joint survey."},
     {key:"ism",label:"ISM SMS Update",category:"Safety Management",keywords:["ism","sms","safety management system","procedure update","work instruction"],action:"Update ISM SMS procedures fleet-wide to address systemic deficiencies identified across detentions."},
@@ -678,7 +678,7 @@ export default function InitiativeTracker() {
                 {l:"ASI / Preemptive Inspections",total:asiTasks.length,done:asiDone.length,rate:asiRate,c:"var(--blue)"},
                 {l:"Marine Advisories Issued",total:maTasks.length,done:maDone.length,rate:maRate,c:"var(--green2)"},
                 {l:"Outreach & Communications",total:outreachTasks.length,done:outreachDone.length,rate:outreachTasks.length?Math.round(outreachDone.length/outreachTasks.length*100):0,c:"var(--amber2)"},
-                {l:"PBI Reports Prepared",total:pbiTasks.length,done:pbiDone.length,rate:pbiTasks.length?Math.round(pbiDone.length/pbiTasks.length*100):0,c:"var(--blue)"},
+                {l:"Power BI Report Updates",total:pbiTasks.length,done:pbiDone.length,rate:pbiTasks.length?Math.round(pbiDone.length/pbiTasks.length*100):0,c:"var(--blue)"},
               ].map(r=>(
                 <div key={r.l} style={{marginBottom:"12px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
