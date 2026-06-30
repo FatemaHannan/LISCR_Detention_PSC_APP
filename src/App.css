@@ -175,6 +175,6 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
 .table-scroll::-webkit-scrollbar-thumb { background: #3a5a7a; border-radius: 5px; border: 2px solid #1a2a3a; }
 .table-scroll::-webkit-scrollbar-thumb:hover { background: #5a8aaa; }
 div[style*="overflowX"]::-webkit-scrollbar { height: 10px; }
-div[style*="overflowX"]::-webkit-scrollbar-track { background: #1a2a3a; border-radius: 5px; }
-div[style*="overflowX"]::-webkit-scrollbar-thumb { background: #3a5a7a; border-radius: 5px; border: 2px solid #1a2a3a; }
-div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #5a8aaa; }
+div[style*="overflowX"]::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 5px; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb { background: #f5a623; border-radius: 5px; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #ffc15e; }

@@ -985,7 +985,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     )}
                   </div>
                   {intel.inspections.length>0?(
-                    <div style={{overflowX:"auto",overflowY:"visible",paddingBottom:"12px",scrollbarWidth:"thin",scrollbarColor:"#3a5a7a #1a2a3a"}}>
+                    <div style={{overflowX:"auto",overflowY:"visible",paddingBottom:"12px",scrollbarWidth:"thin",scrollbarColor:"#f5a623 #1a1a1a"}}>
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px",minWidth:"1200px"}}>
                         <thead>
                           <tr>{["Date","Port","MoU","Flag/PSC","Type","Findings","Detainable","Detained","Risk","CAR Status","Days Since Last","Last Onboard","Auditor","Finding Note"].map(h=>(
