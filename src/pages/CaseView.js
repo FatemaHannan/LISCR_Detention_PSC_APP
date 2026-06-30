@@ -416,12 +416,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setModalVessel(vessel);
     setModalFull(false);
     setDbDocs([]);
-    setVesselTasks([]);
     loadIntelligence(vessel.imo, vessel.company);
     const docs = await getDocuments(vessel.imo, vessel.detentionDate);
     setDbDocs(docs);
-    const tasks2 = await getTasks(vessel.imo);
-    setVesselTasks(tasks2||[]);
   }
 
   return (
