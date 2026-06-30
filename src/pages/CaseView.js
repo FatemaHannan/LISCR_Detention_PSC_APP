@@ -62,7 +62,7 @@ function getSmartAlerts(v, intel, vesselTasks) {
   return alerts;
 }
 const PRI = {Critical:"b-r",Urgent:"b-r",High:"b-a",Medium:"b-b",Low:"b-gr"};
-const AC = {"30":"var(--red2)","17":"var(--amber2)","50":"var(--blue)","70":"var(--text3)"};
+const AC = {"10":"var(--green2)","15":"var(--amber2)","16":"var(--amber2)","17":"var(--amber2)","18":"var(--amber2)","19":"var(--red2)","30":"var(--red2)","35":"var(--green2)","40":"var(--blue)","45":"var(--red2)","50":"var(--blue)","55":"var(--blue)","70":"var(--blue)","80":"var(--text3)","85":"var(--amber2)","95":"var(--amber2)","99":"var(--text3)"};
 
 function getMonth(d) {
   if (!d) return "";
@@ -695,7 +695,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             <div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px",gap:"10px",flexWrap:"wrap"}}>
                 <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",flex:1}}>
-                  Code 30 = detainable · Code 17 = rectify before next port · Code 50 = outstanding may sail
+                  Code 30 = detention · Code 17 = rectify before departure · Code 35 = allowed to sail after detention · Code 15 = rectify at next port · Code 50 = flag state informed
                 </div>
                 {canEdit&&v.deficiencies?.length>0&&(
                   <button onClick={()=>{
@@ -756,10 +756,30 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
                           <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))}
                             style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
-                            <option value="17">17 — Rectify before next port</option>
-                            <option value="30">30 — Detainable</option>
-                            <option value="50">50 — Outstanding, may sail</option>
+                            <option value="">— Select code —</option>
+                            <option value="10">10 — Deficiency rectified</option>
+                            <option value="15">15 — Rectify at next port</option>
+                            <option value="16">16 — Rectify within 14 days</option>
+                            <option value="17">17 — Rectify before departure</option>
+                            <option value="18">18 — Rectify within 3 months</option>
+                            <option value="19">19 — Rectify major non-conformity before departure</option>
+                            <option value="30">30 — Ground for detention</option>
+                            <option value="35">35 — Allowed to sail after detention</option>
+                            <option value="40">40 — Next port informed</option>
+                            <option value="45">45 — Next port informed to re-detain</option>
+                            <option value="50">50 — Flag State/Consul informed</option>
+                            <option value="55">55 — Flag State consulted</option>
+                            <option value="70">70 — Recognized Organization informed</option>
+                            <option value="80">80 — Temporary exemption/repair accepted</option>
+                            <option value="85">85 — Investigation of MARPOL discharge</option>
+                            <option value="95">95 — Letter of warning issued</option>
+                            <option value="99">99 — Other action taken</option>
+                            <option value="other">Other (type manually below)</option>
                           </select>
+                          {editModal.data.action==="other"&&(
+                            <input placeholder="Enter action code manually" value={editModal.data.actionManual||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,actionManual:e.target.value}}))}
+                              style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box",marginTop:"6px"}} />
+                          )}
                         </div>
                         <div>
                           <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
