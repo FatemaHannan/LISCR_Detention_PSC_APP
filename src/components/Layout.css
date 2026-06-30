@@ -62,4 +62,4 @@
 .sm-value.amber { color: var(--amber); }
 .sm-value.accent { color: var(--accent); }
 
-.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; position: relative; }
