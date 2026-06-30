@@ -410,7 +410,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
   const v = modalVessel;
-  function openModal(vessel) { setSel(vessel); setTab("overview"); setModalVessel(vessel); setModalFull(false); loadIntelligence(vessel.imo, vessel.company); }
+  async function openModal(vessel) {
+    setSel(vessel);
+    setTab("overview");
+    setModalVessel(vessel);
+    setModalFull(false);
+    setDbDocs([]);
+    setVesselTasks([]);
+    loadIntelligence(vessel.imo, vessel.company);
+    const docs = await getDocuments(vessel.imo, vessel.detentionDate);
+    setDbDocs(docs);
+    const tasks2 = await getTasks(vessel.imo);
+    setVesselTasks(tasks2||[]);
+  }
 
   return (
     <div style={{padding:"16px"}}>
