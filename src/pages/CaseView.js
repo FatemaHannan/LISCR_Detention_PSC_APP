@@ -693,12 +693,26 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {/* DEFICIENCIES TAB */}
           {tab==="deficiencies"&&(
             <div>
-              <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",marginBottom:"10px"}}>
-                Code 30 = detainable · Code 17 = rectify before next port · Code 50 = outstanding may sail
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px",gap:"10px",flexWrap:"wrap"}}>
+                <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",flex:1}}>
+                  Code 30 = detainable · Code 17 = rectify before next port · Code 50 = outstanding may sail
+                </div>
+                {canEdit&&v.deficiencies?.length>0&&(
+                  <button onClick={()=>{
+                    const idx = prompt("Enter deficiency number to edit (1-"+v.deficiencies.length+"):");
+                    if (!idx) return;
+                    const i = parseInt(idx)-1;
+                    if (i<0||i>=v.deficiencies.length) return;
+                    const d = v.deficiencies[i];
+                    setEditModal({type:"deficiency",index:i,data:{...d}});
+                  }} style={{padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"11px",whiteSpace:"nowrap"}}>
+                    Edit deficiency
+                  </button>
+                )}
               </div>
               {v.deficiencies?.length>0?(
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                  <thead><tr>{["#","Code","Description","Action","RO","Detainable"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["#","Code","Description","Action","RO","Detainable",""].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {v.deficiencies.map((d,i)=>(
                       <tr key={i} style={{background:d.detainable?"rgba(239,68,68,0.04)":""}}>
@@ -708,12 +722,68 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)"}}><span style={{fontFamily:"var(--mono)",fontSize:"11px",fontWeight:600,color:AC[String(d.action)]||"var(--text3)"}}>{d.action}</span></td>
                         <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",textAlign:"center"}}>{d.ro?"Yes":""}</td>
                         <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{d.detainable?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:""}</td>
+                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
+                          {canEdit&&<button onClick={()=>setEditModal({type:"deficiency",index:i,data:{...d}})} style={{fontSize:"9px",padding:"2px 8px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ):(
                 <div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>Upload PSC Form A+B and click Analyze to extract deficiencies automatically</div>
+              )}
+              {/* Deficiency edit modal */}
+              {editModal?.type==="deficiency"&&(
+                <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10001,padding:"20px"}}>
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"560px",maxHeight:"90vh",overflow:"auto"}}>
+                    <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Edit Deficiency #{(editModal.index||0)+1}</div>
+                      <button onClick={()=>setEditModal(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>&times;</button>
+                    </div>
+                    <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
+                      <div>
+                        <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>PSC Code</div>
+                        <input value={editModal.data.code||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,code:e.target.value}}))}
+                          style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                      </div>
+                      <div>
+                        <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Description</div>
+                        <textarea value={editModal.data.desc||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,desc:e.target.value}}))} rows={5}
+                          style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+                        <div>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
+                          <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))}
+                            style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                            <option value="17">17 — Rectify before next port</option>
+                            <option value="30">30 — Detainable</option>
+                            <option value="50">50 — Outstanding, may sail</option>
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
+                          <div style={{padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:editModal.data.action==="30"?"var(--red2)":"var(--text3)",fontSize:"12px",fontWeight:editModal.data.action==="30"?600:400}}>
+                            {editModal.data.action==="30"?"YES — Detainable":"No"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
+                      <button onClick={()=>setEditModal(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+                      <button onClick={async()=>{
+                        const updated = [...(v.deficiencies||[])];
+                        updated[editModal.index] = {...editModal.data, detainable: editModal.data.action==="30"||editModal.data.action===30};
+                        const newDetainable = updated.filter(d=>d.detainable).length;
+                        const updates = {deficiencies: updated, detainable: newDetainable};
+                        await updateVesselFields(v.imo, v.detentionDate, updates);
+                        setSel(p=>({...p,...updates}));
+                        if(modalVessel) setModalVessel(p=>({...p,...updates}));
+                        setEditModal(null);
+                      }} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save changes</button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}
