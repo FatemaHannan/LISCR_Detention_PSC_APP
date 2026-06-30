@@ -168,3 +168,13 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
 .id-g{background:var(--green)}.id-a{background:var(--amber)}.id-r{background:var(--red)}
 .imp-t{font-size:11px;line-height:1.55;flex:1;color:var(--text2)}
 .imp-t strong{color:var(--text);font-weight:500}
+
+/* Visible scrollbars for table overflow */
+.table-scroll::-webkit-scrollbar { height: 8px; }
+.table-scroll::-webkit-scrollbar-track { background: var(--bg3); border-radius: 4px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.table-scroll::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+div[style*="overflowX"]::-webkit-scrollbar { height: 8px; }
+div[style*="overflowX"]::-webkit-scrollbar-track { background: var(--bg3); border-radius: 4px; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #666; }
