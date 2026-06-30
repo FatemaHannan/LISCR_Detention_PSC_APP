@@ -372,6 +372,93 @@ function PatternDetection({vessels}) {
           ):<div style={{fontSize:"11px",color:"var(--text3)"}}>All CARs received.</div>}
         </div>
       </div>
+      {/* Deficiency Pattern Analysis */}
+      {(()=>{
+        const defCats={};const defDetainable={};const defByMou={};
+        vessels.forEach(v=>{
+          (v.deficiencies||[]).forEach(d=>{
+            const desc=String(d.desc||d.text||d.code||"").toLowerCase();
+            if(!desc) return;
+            const cat=
+              desc.includes("ism")||desc.includes("safety management")||desc.includes("sms")?"ISM / Safety Management":
+              desc.includes("fire")?"Fire Safety":
+              desc.includes("lsa")||desc.includes("life saving")||desc.includes("lifeboat")?"LSA / Life Saving":
+              desc.includes("marpol")||desc.includes("pollut")||desc.includes("oil record")?"MARPOL / Pollution":
+              desc.includes("mlc")||desc.includes("manning")||desc.includes("seafarer")||desc.includes("rest hour")?"MLC / Manning":
+              desc.includes("navig")||desc.includes("chart")||desc.includes("ecdis")?"Navigation":
+              desc.includes("certif")||desc.includes("document")||desc.includes("record")?"Certification / Documentation":
+              desc.includes("corros")||desc.includes("mainte")||desc.includes("hull")?"Hull / Maintenance":
+              desc.includes("radio")||desc.includes("gmdss")?"Radio / GMDSS":
+              "Other";
+            defCats[cat]=(defCats[cat]||0)+1;
+            if(d.detainable||String(d.detainable).toLowerCase()==="yes") defDetainable[cat]=(defDetainable[cat]||0)+1;
+            if(v.mou){if(!defByMou[v.mou])defByMou[v.mou]={};defByMou[v.mou][cat]=(defByMou[v.mou][cat]||0)+1;}
+          });
+        });
+        const totalDefs=Object.values(defCats).reduce((a,b)=>a+b,0);
+        if(totalDefs===0) return null;
+        const sortedCats=Object.entries(defCats).sort((a,b)=>b[1]-a[1]);
+        const maxCat=sortedCats[0]?.[1]||1;
+        const mouDefTop=Object.entries(defByMou).map(([mou,cats])=>{
+          const top=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+          return {mou,topCat:top?.[0]||"—",topCount:top?.[1]||0,total:Object.values(cats).reduce((a,b)=>a+b,0)};
+        }).sort((a,b)=>b.total-a.total).slice(0,5);
+
+        return (
+          <div style={{marginTop:"12px"}}>
+            <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
+              Deficiency Pattern Analysis <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({totalDefs} deficiencies across {vessels.filter(v=>(v.deficiencies||[]).length>0).length} cases with uploaded PSC reports)</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency Categories</div>
+                {sortedCats.map(([cat,count])=>{
+                  const detCount=defDetainable[cat]||0;
+                  const pct=Math.round(count/totalDefs*100);
+                  return (
+                    <div key={cat} style={{marginBottom:"10px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
+                        <div style={{fontSize:"10px",color:"var(--text2)",fontWeight:500}}>{cat}</div>
+                        <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
+                          {detCount>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{detCount} det.</span>}
+                          <span style={{fontSize:"10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{count} ({pct}%)</span>
+                        </div>
+                      </div>
+                      <div style={{height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}>
+                        <div style={{height:"100%",background:detCount>0?"var(--red)":"var(--blue)",width:(count/maxCat*100)+"%"}}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency by MoU</div>
+                  {mouDefTop.length>0?mouDefTop.map(m=>(
+                    <div key={m.mou} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"7px",padding:"6px 8px",background:"var(--bg3)",borderRadius:"5px"}}>
+                      <div style={{fontSize:"10px",color:"var(--text2)",width:"90px",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.mou}</div>
+                      <div style={{flex:1,fontSize:"10px",color:"var(--amber2)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.topCat}</div>
+                      <span style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--text3)",flexShrink:0}}>{m.topCount}</span>
+                    </div>
+                  )):<div style={{fontSize:"11px",color:"var(--text3)"}}>No MoU data available.</div>}
+                </div>
+                {Object.keys(defDetainable).length>0&&(
+                  <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Most Detainable Deficiency Types</div>
+                    {Object.entries(defDetainable).sort((a,b)=>b[1]-a[1]).map(([cat,count])=>(
+                      <div key={cat} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                        <div style={{fontSize:"10px",color:"var(--text2)"}}>{cat}</div>
+                        <span style={{fontSize:"9px",padding:"1px 7px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{count} detainable</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
