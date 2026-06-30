@@ -176,9 +176,9 @@ body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--b
 .table-scroll::-webkit-scrollbar-thumb:hover { background: #5a8aaa; }
 div[style*="overflowX"]::-webkit-scrollbar { height: 14px; }
 div[style*="overflowX"]::-webkit-scrollbar-track { background: #222; border-radius: 7px; margin: 0 4px; }
-div[style*="overflowX"]::-webkit-scrollbar-thumb { background: #f5a623; border-radius: 7px; border: 3px solid #222; }
-div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #ffd166; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 7px; border: 3px solid #222; }
+div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #FFEC6E; }
 #inspection-scroll::-webkit-scrollbar { height: 14px; }
 #inspection-scroll::-webkit-scrollbar-track { background: #222; border-radius: 7px; }
-#inspection-scroll::-webkit-scrollbar-thumb { background: #f5a623; border-radius: 7px; border: 3px solid #222; }
-#inspection-scroll::-webkit-scrollbar-thumb:hover { background: #ffd166; }
+#inspection-scroll::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 7px; border: 3px solid #222; }
+#inspection-scroll::-webkit-scrollbar-thumb:hover { background: #FFEC6E; }
