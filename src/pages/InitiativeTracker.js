@@ -87,29 +87,47 @@ export default function InitiativeTracker() {
     {id:"detention", label:"Detention Tasks"},
   ];
 
-  // ── Impact & Efficiency calculations ─────────────────────────────
+  // ── Impact calculations (PD-specific, not CAR) ───────────────────
   const vesselImos = [...new Set(tasks.map(t=>t.imo).filter(Boolean))];
   const withTasks = vessels.filter(v=>vesselImos.includes(v.imo));
   const withoutTasks = vessels.filter(v=>!vesselImos.includes(v.imo));
-  const withTasksCAROk = withTasks.filter(v=>v.carStatus==="Complete").length;
-  const withoutTasksCAROk = withoutTasks.filter(v=>v.carStatus==="Complete").length;
-  const withTasksCARRate = withTasks.length?Math.round(withTasksCAROk/withTasks.length*100):0;
-  const withoutTasksCARRate = withoutTasks.length?Math.round(withoutTasksCAROk/withoutTasks.length*100):0;
-
-  const avgTasksPerVessel = vesselImos.length?(tasks.length/vesselImos.length).toFixed(1):0;
   const detainedNoTasks = vessels.filter(v=>v.detained&&!vesselImos.includes(v.imo));
-  const allTasksDoneNoCAR = withTasks.filter(v=>{
-    const vt = tasks.filter(t=>t.imo===v.imo);
-    const allDone = vt.length>0&&vt.every(t=>t.status==="Executed"||t.status==="Completed");
-    return allDone&&v.carStatus==="Not Received";
-  });
-  const tasksCompletedNoResult = allTasksDoneNoCAR.length;
+  const avgTasksPerVessel = vesselImos.length?(tasks.length/vesselImos.length).toFixed(1):0;
 
-  // Time to completion (days from creation to Executed)
-  const completionDays = tasks.filter(t=>(t.status==="Executed"||t.status==="Completed")&&t.due).map(t=>{
-    const days = Math.floor((new Date()-new Date(t.due))/86400000);
-    return Math.abs(days);
+  // Re-detention: vessels detained more than once
+  const imoDetCount={};vessels.forEach(v=>{imoDetCount[v.imo]=(imoDetCount[v.imo]||0)+1;});
+  const repeatVessels = vessels.filter(v=>imoDetCount[v.imo]>1);
+  const repeatWithPD = repeatVessels.filter(v=>vesselImos.includes(v.imo));
+  const repeatWithoutPD = repeatVessels.filter(v=>!vesselImos.includes(v.imo));
+
+  // ASI tasks
+  const asiTasks = tasks.filter(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/asi|preemptive|advance.*safety|safety.*inspect/));
+  const asiDone = asiTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+  const asiRate = asiTasks.length?Math.round(asiDone.length/asiTasks.length*100):0;
+
+  // Marine Advisory tasks
+  const maTasks = tasks.filter(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("marine advisory")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes(" ma "));
+  const maDone = maTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+  const maRate = maTasks.length?Math.round(maDone.length/maTasks.length*100):0;
+
+  // Outreach tasks (meetings, WeChat, notifications)
+  const outreachTasks = tasks.filter(t=>{
+    const text = ((t.title||"")+" "+(t.actions||"")).toLowerCase();
+    return text.includes("wechat")||text.includes("meeting")||text.includes("outreach")||text.includes("notification")||text.includes("contact")||text.includes("advisory");
   });
+  const outreachDone = outreachTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+
+  // PBI tasks
+  const pbiTasks = tasks.filter(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pbi")||((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("pre-boarding"));
+  const pbiDone = pbiTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+
+  // Case closure — vessels where caseStatus = Closed or Close Case
+  const closedCases = vessels.filter(v=>v.caseStatus==="Close Case"||v.caseStatus==="Closed");
+  const closedWithPD = closedCases.filter(v=>vesselImos.includes(v.imo));
+  const openCases = vessels.filter(v=>v.caseStatus!=="Close Case"&&v.caseStatus!=="Closed");
+
+  // Time to completion
+  const completionDays = tasks.filter(t=>(t.status==="Executed"||t.status==="Completed")&&t.due).map(t=>Math.abs(Math.floor((new Date()-new Date(t.due))/86400000)));
   const avgCompletionDays = completionDays.length?(completionDays.reduce((a,b)=>a+b,0)/completionDays.length).toFixed(0):null;
 
   // ── Detect real PD initiatives from task titles/actions ────────────
@@ -607,15 +625,17 @@ export default function InitiativeTracker() {
       {subTab==="impact"&&(
         <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
           <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
-            <strong style={{color:"var(--text)"}}>Is the Prevention Team's work making a difference?</strong> Measuring whether task assignments are translating into better CAR compliance, fewer repeat detentions, and faster case resolution.
+            <strong style={{color:"var(--text)"}}>Prevention Team impact</strong> — measuring whether PD actions are making a difference. CAR compliance is driven by companies, not PD tasks. This measures what PD actually controls: re-detention prevention, ASI execution, advisory reach, outreach, and case closure.
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
+          {/* Key impact metrics */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px"}}>
             {[
-              {l:"Vessels with Tasks",v:withTasks.length,c:"var(--blue)",s:"actively managed by PD"},
-              {l:"CAR Rate (with tasks)",v:withTasksCARRate+"%",c:"var(--green2)",s:withTasksCAROk+" vessels complete"},
-              {l:"CAR Rate (no tasks)",v:withoutTasksCARRate+"%",c:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--text3)",s:"baseline comparison"},
-              {l:"Coverage Gap",v:detainedNoTasks.length,c:detainedNoTasks.length>0?"var(--red2)":"var(--green2)",s:"detained with no tasks"},
+              {l:"Vessels with PD Tasks",v:withTasks.length,c:"var(--blue)",s:"actively managed"},
+              {l:"No PD Tasks (Detained)",v:detainedNoTasks.length,c:detainedNoTasks.length>0?"var(--red2)":"var(--green2)",s:"coverage gap"},
+              {l:"Avg Tasks / Vessel",v:avgTasksPerVessel,c:"var(--text)",s:"per case"},
+              {l:"Cases Closed",v:closedCases.length,c:"var(--green2)",s:closedWithPD.length+" had PD tasks"},
+              {l:"Cases Still Open",v:openCases.length,c:"var(--amber2)",s:"need resolution"},
             ].map(s=>(
               <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
                 <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
@@ -625,232 +645,92 @@ export default function InitiativeTracker() {
             ))}
           </div>
 
-          {/* Impact verdict */}
-          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-            <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"12px"}}>Impact Verdict</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
-              {/* CAR impact */}
-              <div style={{padding:"12px",background:"var(--bg3)",borderRadius:"8px"}}>
-                <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".05em"}}>CAR Compliance Impact</div>
-                <div style={{display:"flex",alignItems:"flex-end",gap:"16px",marginBottom:"10px"}}>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--green2)"}}>{withTasksCARRate}%</div>
-                    <div style={{fontSize:"9px",color:"var(--text3)"}}>With PD Tasks</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+            {/* Re-detention prevention */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Re-Detention Prevention</div>
+              <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"12px"}}>Did vessels with PD tasks avoid being detained again?</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}}>
+                {[
+                  {l:"Repeat Detentions",v:repeatVessels.length,c:"var(--red2)"},
+                  {l:"Had PD Tasks",v:repeatWithPD.length,c:"var(--amber2)"},
+                  {l:"No PD Tasks",v:repeatWithoutPD.length,c:repeatWithoutPD.length>0?"var(--red2)":"var(--green2)"},
+                ].map(s=>(
+                  <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px",textAlign:"center"}}>
+                    <div style={{fontSize:"8px",color:"var(--text3)",marginBottom:"2px",textTransform:"uppercase"}}>{s.l}</div>
+                    <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
                   </div>
-                  <div style={{fontSize:"20px",color:"var(--text3)",marginBottom:"8px"}}>{withTasksCARRate>withoutTasksCARRate?"→":"←"}</div>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--green2)"}}>{withoutTasksCARRate}%</div>
-                    <div style={{fontSize:"9px",color:"var(--text3)"}}>Without PD Tasks</div>
-                  </div>
-                </div>
-                <div style={{padding:"8px",borderRadius:"6px",background:withTasksCARRate>withoutTasksCARRate?"rgba(34,197,94,0.08)":"var(--amber-bg)",fontSize:"10px",color:withTasksCARRate>withoutTasksCARRate?"var(--green2)":"var(--amber2)",lineHeight:1.5}}>
-                  {withTasksCARRate>withoutTasksCARRate
-                    ? "PD task assignment improves CAR compliance by "+(withTasksCARRate-withoutTasksCARRate)+" percentage points. Tasks are effective."
-                    : "No measurable CAR improvement from PD tasks yet. Review task quality and follow-up process."}
-                </div>
-              </div>
-
-              {/* Repeat detention impact */}
-              <div style={{padding:"12px",background:"var(--bg3)",borderRadius:"8px"}}>
-                <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".05em"}}>Repeat Detention Prevention</div>
-                {(()=>{
-                  const imoC={};vessels.forEach(v=>{imoC[v.imo]=(imoC[v.imo]||0)+1;});
-                  const repeatVessels=vessels.filter(v=>imoC[v.imo]>1);
-                  const repeatWithTasks=repeatVessels.filter(v=>tasks.some(t=>t.imo===v.imo)).length;
-                  const repeatWithoutTasks=repeatVessels.length-repeatWithTasks;
-                  return (
-                    <div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}}>
-                        <div style={{textAlign:"center",padding:"8px",background:"var(--bg2)",borderRadius:"6px"}}>
-                          <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--red2)"}}>{repeatVessels.length}</div>
-                          <div style={{fontSize:"9px",color:"var(--text3)"}}>Repeat detentions</div>
-                        </div>
-                        <div style={{textAlign:"center",padding:"8px",background:"var(--bg2)",borderRadius:"6px"}}>
-                          <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{repeatWithoutTasks}</div>
-                          <div style={{fontSize:"9px",color:"var(--text3)"}}>No PD tasks assigned</div>
-                        </div>
-                      </div>
-                      <div style={{padding:"8px",borderRadius:"6px",background:repeatWithoutTasks>0?"var(--red-bg)":"rgba(34,197,94,0.08)",fontSize:"10px",color:repeatWithoutTasks>0?"var(--red2)":"var(--green2)",lineHeight:1.5}}>
-                        {repeatWithoutTasks>0
-                          ? repeatWithoutTasks+" repeat detention vessels never received PD tasks. Intervention opportunity missed."
-                          : "All repeat detention vessels have PD tasks assigned."}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-
-          {/* Tasks done but no result */}
-          {tasksCompletedNoResult>0&&(
-            <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-              <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>
-                Tasks Completed — No CAR Received ({tasksCompletedNoResult} vessels)
-              </div>
-              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"8px"}}>
-                These vessels completed all assigned PD tasks but company still has not submitted CAR. This may indicate tasks are not addressing the right issues, or the company is unresponsive despite PD engagement.
-              </div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                {allTasksDoneNoCAR.map(v=>(
-                  <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
                 ))}
               </div>
+              <div style={{padding:"8px 10px",borderRadius:"6px",fontSize:"10px",lineHeight:1.6,
+                background:repeatWithoutPD.length>0?"var(--red-bg)":"rgba(34,197,94,0.08)",
+                color:repeatWithoutPD.length>0?"var(--red2)":"var(--green2)"}}>
+                {repeatWithoutPD.length>0
+                  ? repeatWithoutPD.length+" repeat detention vessels never received PD intervention. These are missed prevention opportunities."
+                  : "All repeat detention vessels received PD task intervention."}
+              </div>
             </div>
-          )}
+
+            {/* PD action execution rates */}
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PD Action Execution Rates</div>
+              {[
+                {l:"ASI / Preemptive Inspections",total:asiTasks.length,done:asiDone.length,rate:asiRate,c:"var(--blue)"},
+                {l:"Marine Advisories Issued",total:maTasks.length,done:maDone.length,rate:maRate,c:"var(--green2)"},
+                {l:"Outreach & Communications",total:outreachTasks.length,done:outreachDone.length,rate:outreachTasks.length?Math.round(outreachDone.length/outreachTasks.length*100):0,c:"var(--amber2)"},
+                {l:"PBI Reports Prepared",total:pbiTasks.length,done:pbiDone.length,rate:pbiTasks.length?Math.round(pbiDone.length/pbiTasks.length*100):0,c:"var(--blue)"},
+              ].map(r=>(
+                <div key={r.l} style={{marginBottom:"12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
+                    <div style={{fontSize:"10px",color:"var(--text2)"}}>{r.l}</div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--mono)",color:r.total===0?"var(--text3)":r.rate===100?"var(--green2)":r.rate>50?"var(--amber2)":"var(--red2)",fontWeight:600}}>
+                      {r.total===0?"No tasks":r.done+"/"+r.total+" ("+r.rate+"%)"}
+                    </div>
+                  </div>
+                  {r.total>0&&(
+                    <div style={{height:"6px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}>
+                      <div style={{height:"100%",background:r.rate===100?"var(--green)":r.rate>50?"var(--amber)":"var(--blue)",width:r.rate+"%",borderRadius:"3px"}}></div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Coverage gap */}
           {detainedNoTasks.length>0&&(
             <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
               <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>
-                Detained Vessels with No PD Tasks ({detainedNoTasks.length})
+                Coverage Gap — Detained Vessels with No PD Tasks ({detainedNoTasks.length})
               </div>
-              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"8px"}}>
-                These vessels are currently detained but the Prevention Team has not assigned any tasks. Cases may be unmanaged.
+              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"10px"}}>
+                These vessels are currently detained but the Prevention Team has not assigned any tasks. These cases may be unmanaged or new and not yet actioned.
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
                 {detainedNoTasks.map(v=>(
-                  <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
+                  <div key={v.imo} style={{padding:"4px 10px",borderRadius:"4px",background:"var(--red-bg)",border:"1px solid #3D1A1A"}}>
+                    <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)"}}>{v.name}</div>
+                    <div style={{fontSize:"8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate||"No date"}</div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* IMPACT & EFFICIENCY (old) */}
-      {subTab==="impact_old"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px"}}>
-            {[
-              {l:"Vessels with Tasks",v:withTasks.length,c:"var(--blue)",s:"actively managed"},
-              {l:"Vessels without Tasks",v:withoutTasks.length,c:withoutTasks.length>5?"var(--red2)":"var(--text3)",s:"no tasks assigned"},
-              {l:"Avg Tasks / Vessel",v:avgTasksPerVessel,c:"var(--text)",s:"per detention case"},
-              {l:"CAR Rate (with tasks)",v:withTasksCARRate+"%",c:"var(--green2)",s:withTasksCAROk+" vessels"},
-              {l:"CAR Rate (no tasks)",v:withoutTasksCARRate+"%",c:withoutTasksCARRate<withTasksCARRate?"var(--red2)":"var(--green2)",s:withoutTasksCAROk+" vessels"},
-            ].map(s=>(
-              <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
-                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
-                <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-                <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"2px"}}>{s.s}</div>
+          {/* Avg task completion time */}
+          {avgCompletionDays&&(
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",display:"flex",alignItems:"center",gap:"20px"}}>
+              <div>
+                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Avg PD Task Completion Time</div>
+                <div style={{fontSize:"32px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--blue)"}}>{avgCompletionDays}<span style={{fontSize:"14px",color:"var(--text3)",marginLeft:"6px"}}>days</span></div>
               </div>
-            ))}
-          </div>
-
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
-            {/* Task vs CAR impact */}
-            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-              <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Task Impact on CAR Compliance</div>
-              <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"14px"}}>Do cases with tasks have better CAR outcomes?</div>
-              {[
-                {l:"Cases WITH tasks — CAR complete",v:withTasksCARRate,c:"var(--green)"},
-                {l:"Cases WITHOUT tasks — CAR complete",v:withoutTasksCARRate,c:"var(--red)"},
-              ].map(r=>(
-                <div key={r.l} style={{marginBottom:"12px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                    <div style={{fontSize:"10px",color:"var(--text2)"}}>{r.l}</div>
-                    <div style={{fontSize:"11px",fontFamily:"var(--mono)",color:r.c,fontWeight:600}}>{r.v}%</div>
-                  </div>
-                  <div style={{height:"8px",background:"var(--bg3)",borderRadius:"4px",overflow:"hidden"}}>
-                    <div style={{height:"100%",background:r.c,borderRadius:"4px",width:r.v+"%"}}></div>
-                  </div>
-                </div>
-              ))}
-              {withTasksCARRate>withoutTasksCARRate?(
-                <div style={{padding:"8px 10px",background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"6px",fontSize:"10px",color:"var(--green2)"}}>
-                  Tasks improve CAR compliance by {withTasksCARRate-withoutTasksCARRate} percentage points.
-                </div>
-              ):(
-                <div style={{padding:"8px 10px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",fontSize:"10px",color:"var(--amber2)"}}>
-                  No measurable CAR improvement from tasks yet. Review task quality and follow-up.
-                </div>
-              )}
-            </div>
-
-            {/* Efficiency gaps */}
-            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
-              {detainedNoTasks.length>0&&(
-                <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>Detained Vessels with No Tasks ({detainedNoTasks.length})</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
-                    {detainedNoTasks.slice(0,8).map(v=>(
-                      <span key={v.imo} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontFamily:"var(--mono)",fontWeight:600}}>{v.name}</span>
-                    ))}
-                    {detainedNoTasks.length>8&&<span style={{fontSize:"9px",color:"var(--text3)"}}>+{detainedNoTasks.length-8} more</span>}
-                  </div>
-                </div>
-              )}
-              {tasksCompletedNoResult>0&&(
-                <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>All Tasks Done — CAR Still Not Received ({tasksCompletedNoResult})</div>
-                  <div style={{fontSize:"10px",color:"var(--text3)",lineHeight:1.6}}>These vessels completed all assigned tasks but company has not submitted CAR. Tasks may not be addressing root cause, or company is unresponsive.</div>
-                </div>
-              )}
-              {avgCompletionDays&&(
-                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Avg Task Completion Time</div>
-                  <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--blue)"}}>{avgCompletionDays}<span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"4px"}}>days</span></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MAJOR INITIATIVES */}
-      {subTab==="initiatives"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>
-            Auto-detected from fleet data patterns. These represent the most impactful systemic issues requiring coordinated initiative-level response beyond individual case management.
-          </div>
-
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
-            {[
-              {l:"Auto-detected",v:autoInitiatives.length,c:"var(--blue)"},
-              {l:"Critical",v:autoInitiatives.filter(i=>i.status==="Critical").length,c:"var(--red2)"},
-              {l:"Active",v:autoInitiatives.filter(i=>i.status==="Active").length,c:"var(--amber2)"},
-            ].map(s=>(
-              <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
-                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
-                <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+              <div style={{fontSize:"11px",color:"var(--text3)",lineHeight:1.7}}>
+                Average time from task due date to completion across all executed PD tasks. Lower is better — indicates Prevention Team is actioning tasks promptly.
               </div>
-            ))}
-          </div>
-
-          {autoInitiatives.length>0?(
-            <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-              {autoInitiatives.sort((a,b)=>a.status==="Critical"?-1:b.status==="Critical"?1:0).map((init,i)=>{
-                const borderColor = init.sev==="red"?"#3D1A1A":init.sev==="amber"?"var(--amber)":"var(--blue)";
-                const bgColor = init.sev==="red"?"rgba(239,68,68,0.03)":init.sev==="amber"?"rgba(245,158,11,0.03)":"rgba(59,130,246,0.03)";
-                const statusBg = init.status==="Critical"?"var(--red-bg)":init.status==="Active"?"var(--amber-bg)":"rgba(59,130,246,0.1)";
-                const statusColor2 = init.status==="Critical"?"var(--red2)":init.status==="Active"?"var(--amber2)":"var(--blue)";
-                return (
-                  <div key={i} style={{background:bgColor,border:"1px solid "+borderColor,borderRadius:"10px",padding:"16px",borderLeft:"4px solid "+borderColor}}>
-                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"10px",gap:"12px"}}>
-                      <div>
-                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"3px"}}>{init.title}</div>
-                        <div style={{display:"flex",gap:"6px"}}>
-                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:statusBg,color:statusColor2,fontFamily:"var(--mono)",fontWeight:700}}>{init.status}</span>
-                          <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{init.category}</span>
-                        </div>
-                      </div>
-                      <div style={{fontSize:"10px",fontFamily:"var(--mono)",color:statusColor2,fontWeight:600,background:statusBg,padding:"4px 10px",borderRadius:"5px",whiteSpace:"nowrap"}}>{init.metric}</div>
-                    </div>
-                    <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,marginBottom:"10px"}}>{init.desc}</div>
-                    <div style={{padding:"8px 12px",background:"var(--bg2)",borderRadius:"6px",border:"1px solid var(--border)"}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px",fontWeight:600}}>Recommended Action</div>
-                      <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.6}}>{init.action}</div>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
-          ):(
-            <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"12px"}}>No systemic patterns detected yet. Upload more case data and PSC reports to enable pattern detection.</div>
           )}
         </div>
       )}
-
       {/* PDAIP TASKS */}
       {subTab==="pdaip"&&(
         <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
