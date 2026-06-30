@@ -314,8 +314,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         if (parsed.grossTonnage) updates.gt = parsed.grossTonnage;
         if (parsed.detained !== undefined) updates.detained = parsed.detained;
         if (parsed.flags?.length) updates.flags = [...new Set([...(sel?.flags||[]),...parsed.flags])];
+        // Normalize deficiencies — detainable ONLY if action code is 30
+        if (parsed.deficiencies?.length) {
+          parsed.deficiencies = parsed.deficiencies.map(d => ({
+            ...d,
+            detainable: String(d.action).trim() === "30" || d.action === 30
+          }));
+        }
         const dets = parsed.deficiencies?.filter(d=>d.detainable)||[];
-        if (dets.length) updates.detainable = dets.length;
+        if (parsed.deficiencies?.length) updates.deficiencies = parsed.deficiencies;
+        updates.detainable = dets.length;
+        updates.defs = parsed.deficiencies?.length||0;
       }
       if (doc.doc_type === "detentionAnalysis") {
         if (parsed.evpQA?.length) updates.evpQA = parsed.evpQA;
