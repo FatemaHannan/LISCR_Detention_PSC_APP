@@ -363,13 +363,11 @@ export default function WeeklyData({ currentUser }) {
       setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Parsing file (${(file.size/1024/1024).toFixed(1)} MB)...`}}));
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const wb = XLSX.read(buffer, {type:"array", cellDates:true, cellText:true});
+      const wb = XLSX.read(buffer, {type:"array", cellDates:true});
       const ws = wb.Sheets[wb.SheetNames[0]];
 
       // Parse all rows (SheetJS v0.18 standard API)
-      // For VIP file, read with raw:false to get formatted text for IMO
-      const isVIP = cfg.key === "vessel_inspection_performance";
-      const allRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:!isVIP});
+      const allRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
 
       // Normalize headers
       const normalized = allRows.map(r => {
