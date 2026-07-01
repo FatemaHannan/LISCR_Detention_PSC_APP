@@ -313,9 +313,11 @@ export default function WeeklyData({ currentUser }) {
 
   useEffect(() => {
     const tables = UPLOADS.map(u => u.table);
-    Promise.all(tables.map(t => supabase.from(t).select('count'))).then(results => {
+    Promise.allSettled(tables.map(t => supabase.from(t).select('count'))).then(results => {
       const c = {};
-      results.forEach(({data}, idx) => { c[tables[idx]] = data?.[0]?.count||0; });
+      results.forEach((res, idx) => {
+        c[tables[idx]] = res.status==="fulfilled" ? (res.value?.data?.[0]?.count||0) : 0;
+      });
       setCounts(c);
     });
   }, []);
