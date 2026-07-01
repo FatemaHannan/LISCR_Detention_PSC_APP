@@ -380,6 +380,7 @@ export default function WeeklyData({ currentUser }) {
 
       const conflictKey = cfg.onConflictKey || "id";
       let saved = 0, skipped = 0;
+      const BATCH_SIZE = cfg.key==="vessel_inspection_performance" ? 50 : 500;
 
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
@@ -387,7 +388,7 @@ export default function WeeklyData({ currentUser }) {
       }
 
       // Send in parallel groups of 5 batches of 500 rows each
-      const BATCH = 500;
+      const BATCH = BATCH_SIZE||500;
       const PARALLEL = 5;
 
       async function sendBatch(batch) {
