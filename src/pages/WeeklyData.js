@@ -376,7 +376,7 @@ export default function WeeklyData({ currentUser }) {
         return c;
       });
 
-      const allMapped = normalized.filter(cfg.filter).map(cfg.map);
+      const allMapped = normalized.filter(cfg.filter).map(cfg.map).filter(Boolean);
       const totalMapped = allMapped.length;
 
       setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed. Starting upload...`}}));
