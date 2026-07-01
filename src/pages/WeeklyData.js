@@ -370,13 +370,13 @@ export default function WeeklyData({ currentUser }) {
       const allRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
 
       // Normalize headers
-      const normalized = allRows.map(r => {
+      const normalized = allRows.filter(r=>r&&typeof r==="object").map(r => {
         const c = {};
-        Object.keys(r).forEach(k => { c[k.trim().replace(/^\uFEFF/,"")] = r[k]; });
+        Object.keys(r).forEach(k => { c[k.trim().replace(/^﻿/,"")] = r[k]; });
         return c;
       });
 
-      const allMapped = normalized.filter(cfg.filter).map(cfg.map).filter(Boolean);
+      const allMapped = normalized.filter(r=>r&&cfg.filter(r)).map(r=>{try{return cfg.map(r);}catch(e){return null;}}).filter(Boolean);
       const totalMapped = allMapped.length;
 
       setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed. Starting upload...`}}));
