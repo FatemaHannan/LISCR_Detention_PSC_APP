@@ -280,10 +280,17 @@ const UPLOADS = [
     filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO"]||r["imo"]),
     map: (r) => {
       const rawImo = r["IMO"]||r["imo"]||"";
-      const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
-      // Only use if looks like a real IMO (7 digits starting with 7,8,9 or at least 6 digits)
-      const imoStr = imoVal.length>=6?imoVal:null;
-      if (!imoStr) return null;
+      let imoStr = null;
+      if (typeof rawImo === "number") {
+        // Handle Excel float/scientific notation - round and take last 7 digits
+        const rounded = Math.round(rawImo);
+        const s = String(rounded);
+        imoStr = s.length > 7 ? s.slice(-7) : s;
+      } else {
+        const s = String(rawImo).replace(/[^0-9]/g,"");
+        imoStr = s.length > 7 ? s.slice(-7) : s;
+      }
+      if (!imoStr || imoStr.length < 6) return null;
       const nn = (v) => { if(v===null||v===undefined||v==="") return null; const n=Number(v); return isNaN(n)?null:n; };
       const ni = (v) => { if(v===null||v===undefined||v==="") return null; const n=parseInt(v); return isNaN(n)?null:n; };
       const ns = (v) => { if(v===null||v===undefined) return null; const s=String(v).trim(); return s===""?null:s; };
