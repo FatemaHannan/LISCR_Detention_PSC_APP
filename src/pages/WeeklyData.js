@@ -279,21 +279,20 @@ const UPLOADS = [
     table: "vessel_inspection_performance",
     filter: (r) => (r["Vessel"]||r["vessel"]) && (r["IMO"]||r["imo"]),
     map: (r) => {
-      const rawImo = r["IMO"]||r["imo"]||"";
+      const rawImo = r["IMO"]||r["imo"]||r["__IMO"]||"";
       let imoStr = null;
-      if (typeof rawImo === "number") {
-        const rounded = Math.round(rawImo);
-        const s = String(rounded);
-        imoStr = s.length > 7 ? s.slice(-7) : s;
-        if (rawImo > 9999999) console.log("Large IMO number:", rawImo, "->", imoStr, "vessel:", r["Vessel"]);
-      } else if (typeof rawImo === "string") {
-        const s = rawImo.replace(/[^0-9]/g,"");
-        imoStr = s.length > 7 ? s.slice(-7) : s;
+      // SheetJS can corrupt large integers - use string representation
+      const imoRaw = String(rawImo).replace(/[^0-9]/g,"").replace(/^0+/,"");
+      if (imoRaw.length === 7) {
+        imoStr = imoRaw; // perfect 7-digit IMO
+      } else if (imoRaw.length > 7) {
+        // Take last 7 digits - works for corrupted floats too
+        imoStr = imoRaw.slice(-7);
+      } else if (imoRaw.length >= 6) {
+        imoStr = imoRaw;
       } else {
-        console.log("Unexpected IMO type:", typeof rawImo, rawImo, "vessel:", r["Vessel"]);
         return null;
       }
-      if (!imoStr || imoStr.length < 6) { console.log("Short IMO skipped:", imoStr, r["Vessel"]); return null; }
       const nn = (v) => { if(v===null||v===undefined||v==="") return null; const n=Number(v); return isNaN(n)?null:n; };
       const ni = (v) => { if(v===null||v===undefined||v==="") return null; const n=parseInt(v); return isNaN(n)?null:n; };
       const ns = (v) => { if(v===null||v===undefined) return null; const s=String(v).trim(); return s===""?null:s; };
