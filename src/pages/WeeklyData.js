@@ -390,7 +390,7 @@ export default function WeeklyData({ currentUser }) {
 
       const conflictKey = cfg.onConflictKey || "id";
       let saved = 0, skipped = 0;
-      const BATCH_SIZE = cfg.key==="vessel_inspection_performance" ? 50 : 500;
+      const BATCH_SIZE = cfg.key==="vessel_inspection_performance" ? 1 : 500;
 
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
