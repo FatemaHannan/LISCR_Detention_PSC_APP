@@ -389,6 +389,7 @@ export default function WeeklyData({ currentUser }) {
           ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
         }
         if (bErr) {
+          console.error("Batch error for", cfg.table, ":", bErr.message, bErr.details, bErr.hint);
           // fallback row by row
           let s = 0, sk = 0;
           for (const row of batch) {
@@ -398,7 +399,7 @@ export default function WeeklyData({ currentUser }) {
             } else {
               ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
             }
-            if (rErr) sk++; else s++;
+            if (rErr) { console.error("Row error:", rErr.message, row); sk++; } else s++;
           }
           return {saved: s, skipped: sk};
         }
