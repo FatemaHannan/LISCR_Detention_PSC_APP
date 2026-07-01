@@ -268,6 +268,40 @@ const UPLOADS = [
       action_status: s(r["Case Action Status"]||r["Action Status"]||r["action_status"]),
       flag: s(r["Flag"]||r["flag"]),
     }),
+  },,
+  {
+    key: "vessel_inspection_performance",
+    onConflictKey: "imo",
+    color: "#8B5CF6",
+    bg: "rgba(139,92,246,0.1)",
+    label: "Vessel Inspection Performance",
+    icon: "ti-chart-bar",
+    table: "vessel_inspection_performance",
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && (r["IMO"]||r["imo"]),
+    map: (r) => ({
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: imo(r["IMO"]||r["imo"]),
+      ism_client: s(r["ISM Client"]||r["ism_client"]),
+      vsl_type: s(r["Vsl Type"]||r["vsl_type"]),
+      ro: s(r["RO"]||r["ro"]),
+      age: n(r["Age"]||r["age"]),
+      fsc: n(r["FSC"]||r["fsc"]),
+      flag_insps: i(r["#FLAG INSPs"]||r["flag_insps"]),
+      flag_finding_av: n(r["Flag Finding Av."]||r["flag_finding_av"]),
+      psc_insps: i(r["#PSC INSPs"]||r["psc_insps"]),
+      psc_finding_av: n(r["PSC Finding Av."]||r["psc_finding_av"]),
+      num_detentions: i(r["# Detentions"]||r["num_detentions"]),
+      psc_det_pct: n(r["PSC Det %"]||r["psc_det_pct"]),
+      avg_insp_findings: n(r["Average of INSP Findings"]||r["avg_insp_findings"]),
+      tech_disp_365: i(r["Tech DISP 365"]||r["tech_disp_365"]),
+      vsl_insp_perf: n(r["VSL INSP PERF"]||r["vsl_insp_perf"]),
+      us_trading: s(r["US Trading"]||r["us_trading"]),
+      vsl_casualty: i(r["VSL Casualty"]||r["vsl_casualty"]),
+      mlc_compl: i(r["MLC COMPL"]||r["mlc_compl"]),
+      flag_control_det_365: i(r["Flag Control or Det Last 365"]||r["flag_control_det_365"]),
+      flag_followup_rcm: s(r["Flag Follow-Up RCM"]||r["flag_followup_rcm"]),
+      psc_followup_rcm: s(r["PSC Follow-Up RCM"]||r["psc_followup_rcm"]),
+    }),
   },
 ];
 
@@ -381,6 +415,26 @@ export default function WeeklyData({ currentUser }) {
         const pct = Math.min(100, Math.round(((g + PARALLEL) / batches.length) * 100));
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} / ${totalMapped.toLocaleString()} (${pct}%)`}}));
         await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      // After Vessel Inspection Performance upload: sync case owners + ISM client to vessels
+      if (cfg.key === "vessel_inspection_performance") {
+        try {
+          const {data: vipRows} = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro,vsl_type,age");
+          if (vipRows?.length) {
+            for (const r of vipRows) {
+              if (!r.imo) continue;
+              const updates = {};
+              if (r.flag_followup_rcm) updates.fsi_case_owner = r.flag_followup_rcm;
+              if (r.psc_followup_rcm) updates.psc_case_owner = r.psc_followup_rcm;
+              if (r.ism_client) updates.company = r.ism_client;
+              if (r.ro) updates.ro = r.ro;
+              if (Object.keys(updates).length) {
+                await supabase.from("vessels").update(updates).eq("imo", r.imo);
+              }
+            }
+          }
+        } catch(syncErr) { console.warn("VIP sync:", syncErr); }
       }
 
       // After Client Vessel Details upload: sync ISM client -> company on vessels

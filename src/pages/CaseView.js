@@ -138,7 +138,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [analyzing, setAnalyzing] = useState({});
   const [gapStates, setGapStates] = useState({});
   const [saving, setSaving] = useState(false);
-  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], loading:false});
+  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], vip:null, loading:false});
   const [modalVessel, setModalVessel] = useState(null);
   const [modalFull, setModalFull] = useState(false);
   const [page, setPage] = useState(1);
@@ -158,15 +158,16 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
       supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(30),
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
+      supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1),
     ]);
-    setIntel({vessel:vRes.data?.[0]||null, client:cRes.data?.[0]||null, dpp:dRes.data||[], inspections:iRes.data||[], mlc:mRes.data||[], psc:pRes.data||[], loading:false});
+    setIntel({vessel:vRes.data?.[0]||null, client:cRes.data?.[0]||null, dpp:dRes.data||[], inspections:iRes.data||[], mlc:mRes.data||[], psc:pRes.data||[], vip:vipRes.data?.[0]||null, loading:false});
   }
 
   async function refreshVessels() {
@@ -1067,6 +1068,41 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No MLC complaints found. Upload weekly MLC Complaints report to populate.</div>}
                 </div>
                 {/* PSC Detention Summary */}
+                {/* Vessel Casualty */}
+                {intel.vip&&(intel.vip.vsl_casualty>0||intel.vip.mlc_compl>0||intel.vip.tech_disp_365>0)&&(
+                  <div style={{marginBottom:"16px"}}>
+                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
+                      {[
+                        {l:"VSL Casualty",v:intel.vip.vsl_casualty||0,c:intel.vip.vsl_casualty>0?"var(--red2)":"var(--text3)"},
+                        {l:"MLC Complaints",v:intel.vip.mlc_compl||0,c:intel.vip.mlc_compl>0?"var(--amber2)":"var(--text3)"},
+                        {l:"Tech Disp (365d)",v:intel.vip.tech_disp_365||0,c:"var(--text)"},
+                        {l:"Flag Control/Det 365",v:intel.vip.flag_control_det_365||0,c:intel.vip.flag_control_det_365>0?"var(--amber2)":"var(--text3)"},
+                      ].map(s=>(
+                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px",border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{s.l}</div>
+                          <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                      {[
+                        {l:"US Trading",v:intel.vip.us_trading||"—"},
+                        {l:"PSC Inspections",v:intel.vip.psc_insps||"—"},
+                        {l:"PSC Finding Avg",v:intel.vip.psc_finding_av||"—"},
+                        {l:"Flag Inspections",v:intel.vip.flag_insps||"—"},
+                        {l:"Flag Finding Avg",v:intel.vip.flag_finding_av||"—"},
+                        {l:"VSL Insp. Performance",v:intel.vip.vsl_insp_perf||"—"},
+                      ].map(s=>(
+                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px",border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
+                          <div style={{fontSize:"13px",fontWeight:500,fontFamily:"var(--mono)",color:"var(--text)"}}>{s.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {intel.psc&&intel.psc.length>0&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
                     <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Detention Summary <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.psc.length} records)</span></div>
