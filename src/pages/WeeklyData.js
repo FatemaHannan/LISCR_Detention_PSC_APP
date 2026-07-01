@@ -281,7 +281,8 @@ const UPLOADS = [
     map: (r) => {
       const rawImo = r["IMO"]||r["imo"]||"";
       const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
-      const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
+      // Only use if looks like a real IMO (7 digits starting with 7,8,9 or at least 6 digits)
+      const imoStr = imoVal.length>=6?imoVal:null;
       if (!imoStr) return null;
       const nn = (v) => { if(v===null||v===undefined||v==="") return null; const n=Number(v); return isNaN(n)?null:n; };
       const ni = (v) => { if(v===null||v===undefined||v==="") return null; const n=parseInt(v); return isNaN(n)?null:n; };
