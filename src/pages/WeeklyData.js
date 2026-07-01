@@ -520,7 +520,9 @@ export default function WeeklyData({ currentUser }) {
       const msg = mode === "replace"
         ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote
         : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote;
-      setStatus(p => ({...p, [cfg.key]: {state:"done", msg, count:saved, time:uploadTime}}));
+      const finalState = saved===0&&skipped>0?"error":"done";
+      const finalMsg = saved===0&&skipped>0 ? msg+" ⚠️ All rows failed — table may not exist in Supabase. Run the CREATE TABLE SQL first." : msg;
+      setStatus(p => ({...p, [cfg.key]: {state:finalState, msg:finalMsg, count:saved, time:uploadTime}}));
       setCounts(p => ({...p, [cfg.table]: saved}));
       setUploading(p => ({...p, [cfg.key]: false}));
 
