@@ -165,9 +165,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(30),
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
-      supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1),
+      supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
     ]);
-    setIntel({vessel:vRes.data?.[0]||null, client:cRes.data?.[0]||null, dpp:dRes.data||[], inspections:iRes.data||[], mlc:mRes.data||[], psc:pRes.data||[], vip:vipRes.data?.[0]||null, loading:false});
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, loading:false});
   }
 
   async function refreshVessels() {

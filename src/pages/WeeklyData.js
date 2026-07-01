@@ -420,8 +420,9 @@ export default function WeeklyData({ currentUser }) {
       // After Vessel Inspection Performance upload: sync case owners + ISM client to vessels
       if (cfg.key === "vessel_inspection_performance") {
         try {
-          const {data: vipRows} = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro,vsl_type,age");
-          if (vipRows?.length) {
+          const vipResult = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro,vsl_type,age");
+          const vipRows = vipResult?.data||[];
+          if (vipRows.length) {
             for (const r of vipRows) {
               if (!r.imo) continue;
               const updates = {};
