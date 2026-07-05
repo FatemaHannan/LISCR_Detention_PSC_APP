@@ -1361,6 +1361,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 )}
 
+                {/* Case Flags */}
+                {v.flags?.length>0&&(
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Flags ({v.flags.length})</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {v.flags.map(f=>(
+                        <span key={f} style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)",fontWeight:600}}>{f}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Recommendations */}
                 {(v.finalRecommendations||(v.gaps||[]).length>0)&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
