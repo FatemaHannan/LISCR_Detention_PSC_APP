@@ -1217,9 +1217,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   "EVP Q&A:","",
                   ...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"
    A: "+q.a),"","RECOMMENDATIONS:","",
-                  v.finalRecommendations||((v.gaps||[]).map(g=>"• "+g.title).join("
-"))].join("
-");const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="EVP_Report_"+v.name+"_"+v.imo+".txt";a.click();}} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Report</button>
+                  v.finalRecommendations||((v.gaps||[]).map(g=>"• "+g.title).join("\n"))].join("\n");const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="EVP_Report_"+v.name+"_"+v.imo+".txt";a.click();}} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Report</button>
                 </div>
 
                 <S title="Case Details"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}}>
