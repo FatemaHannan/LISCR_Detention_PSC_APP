@@ -1364,6 +1364,40 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 )}
 
+                {/* Last Inspection History */}
+                {intel?.inspections?.length>0&&(()=>{
+                  const lastInsp = intel.inspections[0];
+                  const daysSince = lastInsp.inspection_date?Math.floor((new Date()-new Date(lastInsp.inspection_date))/86400000):null;
+                  const prevInsp = intel.inspections[1];
+                  return (
+                    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                      <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Last PSC Inspection History</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"12px"}}>
+                        <Row label="Last Inspection Date" value={lastInsp.inspection_date||(daysSince!=null?daysSince+"d ago":"—")} />
+                        <Row label="Days Since Last Insp." value={daysSince!=null?daysSince+" days ago":"—"} red={daysSince!=null&&daysSince<30} />
+                        <Row label="Port" value={lastInsp.port||"—"} />
+                        <Row label="MoU" value={lastInsp.mou||"—"} />
+                        <Row label="Inspection Type" value={lastInsp.inspection_type||"—"} />
+                        <Row label="Flag / PSC" value={lastInsp.flag_psc||"—"} />
+                        <Row label="Deficiencies Found" value={lastInsp.num_findings!=null?lastInsp.num_findings+" deficiencies":"—"} red={(lastInsp.num_findings||0)>=10} />
+                        <Row label="Was Detained" value={lastInsp.was_detained?"YES — Vessel was detained":"No detention"} red={lastInsp.was_detained} />
+                        <Row label="CAR Status" value={lastInsp.car_status||"—"} red={lastInsp.car_status==="Not Received"||lastInsp.car_status==="Open"} />
+                        <Row label="Risk Level" value={lastInsp.risk_level||"—"} />
+                      </div>
+                      {daysSince!=null&&daysSince<60&&(
+                        <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"10px",color:"var(--amber2)",fontWeight:500,marginBottom:"8px"}}>
+                          Last inspection was only {daysSince} days before this detention. {lastInsp.num_findings>0?"Found "+lastInsp.num_findings+" deficiencies.":""} {lastInsp.car_status&&lastInsp.car_status!=="Complete"&&lastInsp.car_status!=="Case Closed"?"CAR was "+lastInsp.car_status+" — not resolved before next detention.":""}
+                        </div>
+                      )}
+                      {prevInsp&&(
+                        <div style={{fontSize:"10px",color:"var(--text3)",paddingTop:"8px",borderTop:"1px solid var(--border)"}}>
+                          Previous inspection: {prevInsp.inspection_date} at {prevInsp.port||"—"} — {prevInsp.num_findings||0} defs — CAR: {prevInsp.car_status||"—"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Case Flags */}
                 {v.flags?.length>0&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
