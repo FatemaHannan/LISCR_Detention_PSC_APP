@@ -1253,7 +1253,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       "","=".repeat(60),
                       "FLAG STATE ACTIONS",
                       "ASI: "+(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"),
-                      "Marine Advisory: "+(maTask?maTask.title+" ["+maTask.status+"]":"Not issued"),
                       "RO Informed: "+(roInformed?"Yes":"Not recorded"),
                       "Company Unresponsive: "+(isUnresponsive?"YES — Flagged":"No"),
                       "","=".repeat(60),
@@ -1342,8 +1341,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                   <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag State Actions</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
-                    <Row label="ASI / Preemptive Insp." value={asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"} red={!asiTask} />
-                    <Row label="Marine Advisory" value={maTask?maTask.title+" ["+maTask.status+"]":"Not issued"} red={!maTask} />
+                    <Row label="ASI / Preemptive Insp." value={asiTask?(asiTask.title+" ["+asiTask.status+"]"+(asiTask.due?" | Due: "+asiTask.due+(new Date(asiTask.due)<new Date()?" — OVERDUE":""):"")):"Not scheduled"} red={!asiTask} />
                     <Row label="Email / Client Notif." value={emailTask?emailTask.title+" ["+emailTask.status+"]":"Not recorded"} />
                     <Row label="RO Informed" value={roInformed?"Yes — RO notified":"Not recorded"} />
                     <Row label="Flag State Informed" value={flagStateInformed?"Yes":"Not recorded"} />
