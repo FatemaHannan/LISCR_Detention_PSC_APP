@@ -1215,8 +1215,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <button onClick={()=>{const txt=["EVP CASE INTELLIGENCE REPORT","Vessel: "+v.name+" | IMO: "+v.imo,"Detention: "+(v.detentionDate||"—")+(daysDetained?" ("+daysDetained+"d ago)":""),"Status: "+(v.detained?"DETAINED":"ACTIVE"),"FSI Owner: "+(v.fsiCaseOwner||"—")+" | PSC Owner: "+(v.pscOwner||"—"),"","DETAINABLE DEFICIENCIES ("+detainableDefs.length+")","",
                   ...detainableDefs.map((d,i)=>(i+1)+". "+d.code+" — "+d.desc),"","CAR STATUS: "+(v.carStatus||"—"),"CAR Task: "+(carTask?carTask.title+" ["+carTask.status+"]":"None"),"Email/Notification: "+(emailTask?emailTask.title:"Not recorded"),"","FLAG STATE ACTIONS:","ASI: "+(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"),"Marine Advisory: "+(maTask?maTask.title+" ["+maTask.status+"]":"Not issued"),"RO Informed: "+(roInformed?"Yes":"Not recorded"),"Company Unresponsive: "+(isUnresponsive?"YES":"No"),"",
                   "EVP Q&A:","",
-                  ...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"
-   A: "+q.a),"","RECOMMENDATIONS:","",
+                  ...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"\n   A: "+q.a),"","RECOMMENDATIONS:","",
                   v.finalRecommendations||((v.gaps||[]).map(g=>"• "+g.title).join("\n"))].join("\n");const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="EVP_Report_"+v.name+"_"+v.imo+".txt";a.click();}} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Report</button>
                 </div>
 
