@@ -316,6 +316,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         if (parsed.grossTonnage) updates.gt = parsed.grossTonnage;
         if (parsed.detained !== undefined) updates.detained = parsed.detained;
         if (parsed.flags?.length) updates.flags = [...new Set([...(sel?.flags||[]),...parsed.flags])];
+        if (parsed.port && parsed.port !== "Unknown") updates.port = parsed.port;
+        if (parsed.mou && parsed.mou !== "Unknown") updates.mou = parsed.mou;
+        if (parsed.inspectionDate) updates.detentionDate = parsed.inspectionDate;
         // Normalize deficiencies — detainable ONLY if action code is 30
         if (parsed.deficiencies?.length) {
           parsed.deficiencies = parsed.deficiencies.map(d => ({
