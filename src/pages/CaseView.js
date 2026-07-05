@@ -1364,9 +1364,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Last Inspection History */}
                 {intel?.inspections?.length>0&&(()=>{
-                  const lastInsp = intel.inspections[0];
-                  const daysSince = lastInsp.inspection_date?Math.floor((new Date()-new Date(lastInsp.inspection_date))/86400000):null;
-                  const prevInsp = intel.inspections[1];
+                  // Get last FLAG inspection only (not PSC)
+                  const flagInsps = intel.inspections.filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG"));
+                  const lastInsp = flagInsps[0]||intel.inspections[0];
+                  const daysSince = lastInsp.inspection_date?Math.floor((new Date(v.detentionDate||new Date())-new Date(lastInsp.inspection_date))/86400000):null;
+                  const prevInsp = flagInsps[1]||intel.inspections[1];
                   return (
                     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                       <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Last PSC Inspection History</div>
