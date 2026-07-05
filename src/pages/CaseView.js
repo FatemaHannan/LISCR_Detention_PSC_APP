@@ -1254,14 +1254,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       "RO Informed: "+(roInformed?"Yes":"Not recorded"),
                       "Company Unresponsive: "+(isUnresponsive?"YES — Flagged":"No"),
                       "","=".repeat(60),
-                      "EVP Q&A","",...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"
-   A: "+q.a),
+                      "EVP Q&A","",...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"\n   A: "+q.a),
                       "","=".repeat(60),
                       "FINAL RECOMMENDATIONS","",
-                      v.finalRecommendations||(v.gaps||[]).map(g=>"• "+g.title).join("
-")||"None recorded",
-                    ].join("
-");
+                      v.finalRecommendations||(v.gaps||[]).map(g=>"• "+g.title).join("\n")||"None recorded",
+                    ].join("\n");
                     const b=new Blob([txt],{type:"text/plain"});
                     const a=document.createElement("a");
                     a.href=URL.createObjectURL(b);
