@@ -1362,38 +1362,114 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 )}
 
-                {/* Last Inspection History */}
-                {intel?.inspections?.length>0&&(()=>{
-                  // Get last FLAG inspection only (not PSC)
-                  const flagInsps = intel.inspections.filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG"));
-                  const lastInsp = flagInsps[0]||intel.inspections[0];
-                  const daysSince = lastInsp.inspection_date?Math.floor((new Date(v.detentionDate||new Date())-new Date(lastInsp.inspection_date))/86400000):null;
-                  const prevInsp = flagInsps[1]||intel.inspections[1];
+                {/* Pre-Detention Intelligence Analysis */}
+                {(()=>{
+                  const flagInsps = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
+                  const lastFlag = flagInsps[0];
+                  const detDate = v.detentionDate?new Date(v.detentionDate):new Date();
+                  const daysBefore = lastFlag?.inspection_date?Math.floor((detDate-new Date(lastFlag.inspection_date))/86400000):null;
+                  const pscDefs = v.deficiencies||[];
+
+                  function catDef(desc) {
+                    const d = String(desc||"").toLowerCase();
+                    if(d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM/Safety Mgmt";
+                    if(d.includes("fire")) return "Fire Safety";
+                    if(d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")) return "LSA/Life Saving";
+                    if(d.includes("marpol")||d.includes("pollut")||d.includes("oil")) return "MARPOL/Pollution";
+                    if(d.includes("mlc")||d.includes("manning")||d.includes("crew")) return "MLC/Manning";
+                    if(d.includes("navig")||d.includes("chart")) return "Navigation";
+                    if(d.includes("corros")||d.includes("mainte")||d.includes("hull")) return "Hull/Maintenance";
+                    return null;
+                  }
+
+                  const pscCats = [...new Set(pscDefs.map(d=>catDef(d.desc)).filter(Boolean))];
+                  const flagNote = lastFlag?.finding_note||"";
+                  const flagCats = flagNote?[...new Set(flagNote.split(/[;,
+]/).map(n=>catDef(n)).filter(Boolean))]:[];
+                  const matchingCats = pscCats.filter(c=>flagCats.includes(c));
+
+                  const carClosed = lastFlag?.car_status&&(lastFlag.car_status.toLowerCase().includes("closed")||lastFlag.car_status.toLowerCase().includes("complete")||lastFlag.car_status.toLowerCase().includes("approved"));
+                  const carOpen = lastFlag?.car_status&&!carClosed&&lastFlag.car_status!=="No Deficiencies"&&lastFlag.car_status!=="";
+                  const sameIssuesAfterCAR = carClosed&&matchingCats.length>0;
+
+                  const asiTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/asi|preemptive/));
+
                   return (
-                    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                      <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Last PSC Inspection History</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"12px"}}>
-                        <Row label="Last Inspection Date" value={lastInsp.inspection_date||(daysSince!=null?daysSince+"d ago":"—")} />
-                        <Row label="Days Since Last Insp." value={daysSince!=null?daysSince+" days ago":"—"} red={daysSince!=null&&daysSince<30} />
-                        <Row label="Port" value={lastInsp.port||"—"} />
-                        <Row label="MoU" value={lastInsp.mou||"—"} />
-                        <Row label="Inspection Type" value={lastInsp.inspection_type||"—"} />
-                        <Row label="Flag / PSC" value={lastInsp.flag_psc||"—"} />
-                        <Row label="Deficiencies Found" value={lastInsp.num_findings!=null?lastInsp.num_findings+" deficiencies":"—"} red={(lastInsp.num_findings||0)>=10} />
-                        <Row label="Was Detained" value={lastInsp.was_detained?"YES — Vessel was detained":"No detention"} red={lastInsp.was_detained} />
-                        <Row label="CAR Status" value={lastInsp.car_status||"—"} red={lastInsp.car_status==="Not Received"||lastInsp.car_status==="Open"} />
-                        <Row label="Risk Level" value={lastInsp.risk_level||"—"} />
+                    <div style={{background:"var(--bg2)",border:"1px solid "+(sameIssuesAfterCAR||carOpen?"#3D1A1A":"var(--border)"),borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                      <div style={{fontSize:"11px",fontWeight:700,color:sameIssuesAfterCAR||carOpen?"var(--red2)":"var(--text)",textTransform:"uppercase",letterSpacing:".05em",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>Pre-Detention Intelligence Analysis</div>
+                      <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"12px",fontStyle:"italic"}}>Was this detention foreseeable? Could earlier action have prevented it?</div>
+
+                      {lastFlag?(
+                        <div style={{marginBottom:"12px"}}>
+                          <div style={{fontSize:"10px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Last Flag State Inspection</div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
+                            <Row label="Inspection Date" value={lastFlag.inspection_date||"—"} />
+                            <Row label="Days Before Detention" value={daysBefore!=null?daysBefore+" days before detention":"—"} red={daysBefore!=null&&daysBefore<90} />
+                            <Row label="Port" value={lastFlag.port||"—"} />
+                            <Row label="Inspection Type" value={lastFlag.inspection_type||"—"} />
+                            <Row label="Deficiencies Found" value={(lastFlag.num_findings||0)+" deficiencies"} red={(lastFlag.num_findings||0)>=10} />
+                            <Row label="CAR Status at Detention" value={lastFlag.car_status||"Unknown"} red={carOpen} />
+                          </div>
+
+                          {carOpen&&(
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"10px"}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Open CAR at Time of Detention</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>The last Flag inspection CAR was <strong style={{color:"var(--red2)"}}>{lastFlag.car_status}</strong> when this PSC detention occurred. Outstanding corrective actions were not resolved before the vessel was boarded by PSC.</div>
+                            </div>
+                          )}
+
+                          {sameIssuesAfterCAR&&(
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"10px"}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ CAR Closed But Same Issues Reappeared at PSC</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>Previous Flag CAR was marked <strong style={{color:"var(--red2)"}}>closed/complete</strong>, but the same deficiency categories were found again at PSC detention: <strong style={{color:"var(--red2)"}}>{matchingCats.join(", ")}</strong>. This indicates corrective actions were not properly implemented or verified before closure.</div>
+                            </div>
+                          )}
+
+                          {!carOpen&&!sameIssuesAfterCAR&&matchingCats.length===0&&lastFlag.num_findings>0&&(
+                            <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"10px"}}>
+                              <div style={{fontSize:"10px",fontWeight:600,color:"var(--amber2)",marginBottom:"3px"}}>Note: Flag Inspection Found Deficiencies</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>Last Flag inspection {daysBefore} days before detention found {lastFlag.num_findings} deficiencies. CAR status: {lastFlag.car_status||"Unknown"}.</div>
+                            </div>
+                          )}
+
+                          {pscCats.length>0&&(
+                            <div style={{marginTop:"10px"}}>
+                              <div style={{fontSize:"10px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>Deficiency Category Comparison (Flag vs PSC)</div>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"6px"}}>
+                                {pscCats.map(cat=>(
+                                  <span key={cat} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"4px",fontFamily:"var(--mono)",fontWeight:600,
+                                    background:matchingCats.includes(cat)?"var(--red-bg)":"rgba(34,197,94,0.08)",
+                                    color:matchingCats.includes(cat)?"var(--red2)":"var(--green2)",
+                                    border:"1px solid "+(matchingCats.includes(cat)?"#3D1A1A":"rgba(34,197,94,0.3)")
+                                  }}>{matchingCats.includes(cat)?"⚠ ":"✓ "}{cat}</span>
+                                ))}
+                              </div>
+                              {matchingCats.length>0&&<div style={{fontSize:"9px",color:"var(--red2)",fontWeight:500}}>⚠ Red categories were found in both last Flag inspection AND this PSC detention</div>}
+                              {matchingCats.length===0&&pscCats.length>0&&<div style={{fontSize:"9px",color:"var(--green2)"}}>No category overlap detected between last Flag inspection and PSC detention</div>}
+                            </div>
+                          )}
+                        </div>
+                      ):(
+                        <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"12px"}}>
+                          <div style={{fontSize:"11px",color:"var(--amber2)",fontWeight:500}}>No Flag State inspection found in history before this detention.</div>
+                        </div>
+                      )}
+
+                      {/* ASI */}
+                      <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                        <div style={{fontSize:"10px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>ASI / Preemptive Inspection</div>
+                        {asiTask?(
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                            <Row label="ASI Task" value={asiTask.title} />
+                            <Row label="Status" value={asiTask.status} red={asiTask.status!=="Executed"&&asiTask.status!=="Completed"} />
+                            {asiTask.due&&<Row label="Due Date" value={asiTask.due+(new Date(asiTask.due)<detDate?" — OVERDUE AT DETENTION":"")} red={new Date(asiTask.due)<detDate} />}
+                          </div>
+                        ):(
+                          <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"11px",color:"var(--amber2)",fontWeight:500}}>
+                            No ASI was scheduled or conducted before this detention. A preemptive inspection may have identified and corrected deficiencies before PSC boarding.
+                          </div>
+                        )}
                       </div>
-                      {daysSince!=null&&daysSince<60&&(
-                        <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"10px",color:"var(--amber2)",fontWeight:500,marginBottom:"8px"}}>
-                          Last inspection was only {daysSince} days before this detention. {lastInsp.num_findings>0?"Found "+lastInsp.num_findings+" deficiencies.":""} {lastInsp.car_status&&lastInsp.car_status!=="Complete"&&lastInsp.car_status!=="Case Closed"?"CAR was "+lastInsp.car_status+" — not resolved before next detention.":""}
-                        </div>
-                      )}
-                      {prevInsp&&(
-                        <div style={{fontSize:"10px",color:"var(--text3)",paddingTop:"8px",borderTop:"1px solid var(--border)"}}>
-                          Previous inspection: {prevInsp.inspection_date} at {prevInsp.port||"—"} — {prevInsp.num_findings||0} defs — CAR: {prevInsp.car_status||"—"}
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
