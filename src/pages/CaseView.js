@@ -1197,52 +1197,181 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {/* SUMMARY TAB */}
           {tab==="report"&&(()=>{
             const detainableDefs = (v.deficiencies||[]).filter(d=>d.detainable||String(d.action).trim()==="30"||d.action===30);
+            const allDefs = v.deficiencies||[];
             const daysDetained = v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):null;
             const asiTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/\basi\b|preemptive/));
             const maTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("marine advisory"));
             const carTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("car"));
-            const emailTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/email|notif|contact/));
+            const emailTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/email|notif|contact|letter/));
             const flags = (v.flags||[]).map(f=>String(f).toUpperCase());
             const isUnresponsive = flags.some(f=>f.includes("UNRESPONSIVE")||f.includes("REJECTION"));
-            const roInformed = flags.some(f=>f.includes("RO INFORMED")||f.includes("RO SURVEY"));
+            const roInformed = flags.some(f=>f.includes("RO INFORMED")||f.includes("RO SURVEY")||f.includes("RO INFORMED"));
             const flagStateInformed = flags.some(f=>f.includes("FLAG STATE")||f.includes("FLAG INFORMED"));
-            const S = ({title,red,children})=>(<div style={{marginBottom:"14px",borderRadius:"8px",border:"1px solid "+(red?"#3D1A1A":"var(--border)"),overflow:"hidden"}}><div style={{padding:"8px 14px",background:red?"rgba(239,68,68,0.08)":"var(--bg3)",borderBottom:"1px solid "+(red?"#3D1A1A":"var(--border)")}}><div style={{fontSize:"11px",fontWeight:700,color:red?"var(--red2)":"var(--text)",textTransform:"uppercase",letterSpacing:".05em"}}>{title}</div></div><div style={{padding:"12px 14px",background:"var(--bg2)"}}>{children}</div></div>);
-            const StatusBox = ({label,value,color,border})=>(<div style={{padding:"10px 12px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid "+(border||"var(--border)")}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{label}</div><div style={{fontSize:"12px",fontWeight:600,color:color||"var(--text)"}}>{value}</div></div>);
+
+            // CAR chain
+            const carChain = [
+              {step:"Detention",done:!!v.detentionDate,date:v.detentionDate,note:"Vessel detained"},
+              {step:"CAR Requested",done:v.carStatus==="Requested"||v.carStatus==="Received"||v.carStatus==="Complete"||v.carStatus==="Rejected",date:null,note:carTask?"Task: "+carTask.title:"Not recorded in tasks"},
+              {step:"CAR Received",done:v.carStatus==="Received"||v.carStatus==="Complete"||v.carStatus==="Rejected",date:null,note:v.carStatus==="Not Received"?(daysDetained?daysDetained+"d overdue":"Overdue"):""},
+              {step:"CAR Accepted",done:v.carStatus==="Complete",date:null,note:v.carStatus==="Rejected"?"Rejected by PSC":v.carStatus==="Complete"?"Accepted":"Pending"},
+            ];
+
+            const Row = ({label,value,red})=>(<div style={{display:"flex",gap:"12px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0,paddingTop:"1px"}}>{label}</div><div style={{fontSize:"11px",color:red?"var(--red2)":"var(--text)",fontWeight:red?600:500,lineHeight:1.5}}>{value||"—"}</div></div>);
+
             return (
               <div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
-                  <div><div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>EVP Case Intelligence Report</div><div style={{fontSize:"10px",color:"var(--text3)"}}>{v.name} · IMO {v.imo} · {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div></div>
-                  <button onClick={()=>{const txt=["EVP CASE INTELLIGENCE REPORT","Vessel: "+v.name+" | IMO: "+v.imo,"Detention: "+(v.detentionDate||"—")+(daysDetained?" ("+daysDetained+"d ago)":""),"Status: "+(v.detained?"DETAINED":"ACTIVE"),"FSI Owner: "+(v.fsiCaseOwner||"—")+" | PSC Owner: "+(v.pscOwner||"—"),"","DETAINABLE DEFICIENCIES ("+detainableDefs.length+")","",
-                  ...detainableDefs.map((d,i)=>(i+1)+". "+d.code+" — "+d.desc),"","CAR STATUS: "+(v.carStatus||"—"),"CAR Task: "+(carTask?carTask.title+" ["+carTask.status+"]":"None"),"Email/Notification: "+(emailTask?emailTask.title:"Not recorded"),"","FLAG STATE ACTIONS:","ASI: "+(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"),"Marine Advisory: "+(maTask?maTask.title+" ["+maTask.status+"]":"Not issued"),"RO Informed: "+(roInformed?"Yes":"Not recorded"),"Company Unresponsive: "+(isUnresponsive?"YES":"No"),"",
-                  "EVP Q&A:","",
-                  ...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"\n   A: "+q.a),"","RECOMMENDATIONS:","",
-                  v.finalRecommendations||((v.gaps||[]).map(g=>"• "+g.title).join("\n"))].join("\n");const b=new Blob([txt],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="EVP_Report_"+v.name+"_"+v.imo+".txt";a.click();}} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Report</button>
+                {/* Header */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
+                  <div>
+                    <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",letterSpacing:".02em"}}>Final Case Summary</div>
+                    <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                  </div>
+                  <button onClick={()=>{
+                    const carStatus = carChain.map(c=>c.step+": "+(c.done?"Done":"Pending")+(c.note?" ("+c.note+")":"")).join(" | ");
+                    const txt = [
+                      "LISCR FINAL CASE SUMMARY","=".repeat(60),
+                      "Vessel: "+v.name+" | IMO: "+v.imo,
+                      "Port: "+(v.port||"—")+" | MoU: "+(v.mou||"—"),
+                      "Detention Date: "+(v.detentionDate||"—")+(daysDetained?" ("+daysDetained+" days)":""),
+                      "Status: "+(v.detained?"DETAINED":"ACTIVE/RELEASED"),
+                      "Company: "+(v.company||"—"),
+                      "RO / Class: "+(v.ro||"—"),
+                      "PSCO: "+(v.psco||"—"),
+                      "FSI Case Owner: "+(v.fsiCaseOwner||"—"),
+                      "PSC Case Owner: "+(v.pscOwner||"—"),
+                      "","=".repeat(60),
+                      "DEFICIENCY OVERVIEW",
+                      "Total Deficiencies: "+allDefs.length+" | Detainable (Code 30): "+detainableDefs.length,
+                      "","DETAINABLE DEFICIENCIES:",
+                      ...detainableDefs.slice(0,5).map((d,i)=>(i+1)+". "+d.code+" — "+d.desc),
+                      "","=".repeat(60),
+                      "CAR STATUS CHAIN",
+                      carStatus,
+                      "","=".repeat(60),
+                      "FLAG STATE ACTIONS",
+                      "ASI: "+(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"),
+                      "Marine Advisory: "+(maTask?maTask.title+" ["+maTask.status+"]":"Not issued"),
+                      "RO Informed: "+(roInformed?"Yes":"Not recorded"),
+                      "Company Unresponsive: "+(isUnresponsive?"YES — Flagged":"No"),
+                      "","=".repeat(60),
+                      "EVP Q&A","",...(v.evpQA||[]).map((q,i)=>(i+1)+". Q: "+q.q+"
+   A: "+q.a),
+                      "","=".repeat(60),
+                      "FINAL RECOMMENDATIONS","",
+                      v.finalRecommendations||(v.gaps||[]).map(g=>"• "+g.title).join("
+")||"None recorded",
+                    ].join("
+");
+                    const b=new Blob([txt],{type:"text/plain"});
+                    const a=document.createElement("a");
+                    a.href=URL.createObjectURL(b);
+                    a.download="FinalSummary_"+v.name+"_"+v.imo+".txt";
+                    a.click();
+                  }} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Summary</button>
                 </div>
 
-                <S title="Case Details"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}}>
-                  {[["Vessel",v.name],["IMO",v.imo],["MoU",v.mou||"—"],["Port",v.port||"—"],["Detention Date",(v.detentionDate||"—")+(daysDetained?" ("+daysDetained+"d ago)":"")],["Status",v.detained?"DETAINED":"ACTIVE"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Company",v.company||"—"],["CAR Status",v.carStatus||"—"]].map(([l,val])=>(<div key={l} style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"130px",flexShrink:0}}>{l}</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{val}</div></div>))}
-                </div></S>
+                {/* Case Details */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Details</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                    <Row label="Vessel" value={v.name} />
+                    <Row label="IMO" value={v.imo} />
+                    <Row label="Port" value={v.port} />
+                    <Row label="MoU" value={v.mou} />
+                    <Row label="Detention Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
+                    <Row label="Status" value={v.detained?"DETAINED":"ACTIVE / RELEASED"} red={v.detained} />
+                    <Row label="Company" value={v.company} />
+                    <Row label="RO / Class" value={v.ro} />
+                    <Row label="PSCO" value={v.psco} />
+                    <Row label="Release Condition" value={v.release} />
+                    <Row label="FSI Case Owner" value={v.fsiCaseOwner} />
+                    <Row label="PSC Case Owner" value={v.pscOwner} />
+                  </div>
+                </div>
 
-                <S title={"Detainable Deficiencies — Code 30 ("+detainableDefs.length+")"} red={true}>
-                  {detainableDefs.length>0?detainableDefs.map((d,i)=>(<div key={i} style={{padding:"10px 12px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A",marginBottom:"8px"}}><div style={{display:"flex",gap:"6px",marginBottom:"4px"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>Code 30</span><span style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{d.code}</span><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontWeight:700,border:"1px solid #3D1A1A",marginLeft:"auto"}}>DETAINABLE</span></div><div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.6}}>{d.desc}</div></div>)):<div style={{fontSize:"11px",color:"var(--text3)"}}>No detainable deficiencies. Upload PSC Form A+B to extract.</div>}
-                </S>
+                {/* Deficiency Overview */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Deficiency Overview</div>
+                  <div style={{display:"flex",gap:"16px",marginBottom:"12px"}}>
+                    <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 16px",textAlign:"center"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Total</div>
+                      <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{allDefs.length}</div>
+                    </div>
+                    <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 16px",textAlign:"center"}}>
+                      <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",marginBottom:"2px"}}>Detainable</div>
+                      <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--red2)"}}>{detainableDefs.length}</div>
+                    </div>
+                    <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 16px",textAlign:"center",flex:1}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Non-detainable</div>
+                      <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{allDefs.length-detainableDefs.length}</div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Detainable Deficiencies (Code 30){detainableDefs.length>5?" — Top 5":""}</div>
+                  {detainableDefs.length>0?detainableDefs.slice(0,5).map((d,i)=>(
+                    <div key={i} style={{display:"flex",gap:"10px",padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"9px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginTop:"1px"}}>30</span>
+                      <div>
+                        <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{d.code}</div>
+                        <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.55}}>{d.desc}</div>
+                      </div>
+                    </div>
+                  )):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload PSC Form A+B to extract deficiencies.</div>}
+                </div>
 
-                <S title="CAR & Client Follow-up"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                  <StatusBox label="CAR Status" value={v.carStatus||"—"} color={v.carStatus==="Not Received"?"var(--red2)":v.carStatus==="Complete"?"var(--green2)":"var(--amber2)"} border={v.carStatus==="Not Received"?"#3D1A1A":"var(--border)"} />
-                  <StatusBox label="CAR Task" value={carTask?carTask.title+" ["+carTask.status+"]":"No CAR task assigned"} color={carTask?"var(--text)":"var(--text3)"} />
-                  <StatusBox label="Email / Notification to Client" value={emailTask?emailTask.title+" ["+emailTask.status+"]":"Not recorded in tasks"} color={emailTask?"var(--text)":"var(--amber2)"} />
-                  <StatusBox label="Company Responsiveness" value={isUnresponsive?"UNRESPONSIVE — Flagged":"No issues recorded"} color={isUnresponsive?"var(--red2)":"var(--green2)"} border={isUnresponsive?"#3D1A1A":"var(--border)"} />
-                </div></S>
+                {/* CAR Status Chain */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>CAR Status Chain</div>
+                  <div style={{display:"flex",alignItems:"center",gap:"0"}}>
+                    {carChain.map((c,i)=>(
+                      <React.Fragment key={i}>
+                        <div style={{flex:1,textAlign:"center"}}>
+                          <div style={{width:"32px",height:"32px",borderRadius:"50%",background:c.done?"var(--green)":"var(--bg3)",border:"2px solid "+(c.done?"var(--green)":"var(--border)"),margin:"0 auto 6px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <span style={{color:c.done?"#fff":"var(--text3)",fontSize:"14px"}}>{c.done?"✓":"○"}</span>
+                          </div>
+                          <div style={{fontSize:"10px",fontWeight:600,color:c.done?"var(--green2)":"var(--text3)",marginBottom:"2px"}}>{c.step}</div>
+                          {c.date&&<div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.date}</div>}
+                          {c.note&&<div style={{fontSize:"9px",color:c.done?"var(--text3)":"var(--amber2)"}}>{c.note}</div>}
+                        </div>
+                        {i<carChain.length-1&&<div style={{width:"40px",height:"2px",background:carChain[i+1].done?"var(--green)":"var(--border)",flexShrink:0,marginBottom:"26px"}}></div>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
 
-                <S title="Flag State Actions"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                  {[{l:"ASI / Preemptive Inspection",t:asiTask},{l:"Marine Advisory (MA)",t:maTask}].map(({l,t})=>(<div key={l} style={{padding:"10px 12px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid "+(t&&t.status==="Executed"?"rgba(34,197,94,0.3)":t?"var(--amber)":"#3D1A1A")}}><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{l}</div>{t?<div><div style={{fontSize:"11px",color:"var(--text)",marginBottom:"3px"}}>{t.title}</div><span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:t.status==="Executed"?"rgba(34,197,94,0.1)":"var(--amber-bg)",color:t.status==="Executed"?"var(--green2)":"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{t.status}</span></div>:<div style={{fontSize:"11px",color:"var(--red2)",fontWeight:500}}>Not recorded</div>}</div>))}
-                  <StatusBox label="RO Informed" value={roInformed?"Yes — RO notified":"Not recorded"} color={roInformed?"var(--green2)":"var(--text3)"} />
-                  <StatusBox label="Flag State Informed" value={flagStateInformed?"Yes — Notified":"Not recorded"} color={flagStateInformed?"var(--green2)":"var(--text3)"} />
-                </div></S>
+                {/* Flag State Actions */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag State Actions</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                    <Row label="ASI / Preemptive Insp." value={asiTask?asiTask.title+" ["+asiTask.status+"]":"Not scheduled"} red={!asiTask} />
+                    <Row label="Marine Advisory" value={maTask?maTask.title+" ["+maTask.status+"]":"Not issued"} red={!maTask} />
+                    <Row label="Email / Client Notif." value={emailTask?emailTask.title+" ["+emailTask.status+"]":"Not recorded"} />
+                    <Row label="RO Informed" value={roInformed?"Yes — RO notified":"Not recorded"} />
+                    <Row label="Flag State Informed" value={flagStateInformed?"Yes":"Not recorded"} />
+                    <Row label="Company Response" value={isUnresponsive?"UNRESPONSIVE — Flagged":"No issues recorded"} red={isUnresponsive} />
+                  </div>
+                </div>
 
-                {v.evpQA?.length>0&&(<S title={"EVP Q&A ("+v.evpQA.length+" questions)"}><div style={{display:"flex",flexDirection:"column",gap:"10px"}}>{v.evpQA.map((qa,i)=>(<div key={i} style={{borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}><div style={{fontSize:"10px",fontWeight:600,color:"var(--blue)",marginBottom:"4px"}}>{i+1}. {qa.q}</div><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>{qa.a}</div></div>))}</div></S>)}
+                {/* EVP Q&A */}
+                {v.evpQA?.length>0&&(
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>EVP Q&A ({v.evpQA.length} questions)</div>
+                    {v.evpQA.map((qa,i)=>(
+                      <div key={i} style={{marginBottom:"10px",paddingBottom:"10px",borderBottom:"1px solid var(--border)"}}>
+                        <div style={{fontSize:"10px",fontWeight:600,color:"var(--blue)",marginBottom:"4px"}}>{i+1}. {qa.q}</div>
+                        <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,paddingLeft:"12px"}}>{qa.a}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                {(v.finalRecommendations||(v.gaps||[]).length>0)&&(<S title="Final Recommendations">{v.finalRecommendations?<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations}</div>:<div>{(v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)"}}>&#x2022;</span><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}</div>}</S>)}
+                {/* Recommendations */}
+                {(v.finalRecommendations||(v.gaps||[]).length>0)&&(
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
+                    {v.finalRecommendations?<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations}</div>:
+                    (v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)",flexShrink:0}}>•</span><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}
+                  </div>
+                )}
               </div>
             );
           })()}
