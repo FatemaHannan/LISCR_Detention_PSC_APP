@@ -1384,8 +1384,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                   const pscCats = [...new Set(pscDefs.map(d=>catDef(d.desc)).filter(Boolean))];
                   const flagNote = lastFlag?.finding_note||"";
-                  const flagCats = flagNote?[...new Set(flagNote.split(/[;,
-]/).map(n=>catDef(n)).filter(Boolean))]:[];
+                  const flagCats = flagNote?[...new Set(flagNote.split(/[;,\n]/).map(n=>catDef(n)).filter(Boolean))]:[];
                   const matchingCats = pscCats.filter(c=>flagCats.includes(c));
 
                   const carClosed = lastFlag?.car_status&&(lastFlag.car_status.toLowerCase().includes("closed")||lastFlag.car_status.toLowerCase().includes("complete")||lastFlag.car_status.toLowerCase().includes("approved"));
