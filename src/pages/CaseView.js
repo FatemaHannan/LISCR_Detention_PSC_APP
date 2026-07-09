@@ -168,7 +168,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
       supabase.from("flag_psc_findings").select("*").eq("imo", String(imo)).order("insp_date",{ascending:false}),
     ]);
-    const [vRes2,cRes2,dRes2,iRes2,mRes2,pRes2,vipRes2,fpRes] = [vRes,cRes,dRes,iRes,mRes,pRes,vipRes,arguments[7]];
     setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], loading:false});
   }
 
