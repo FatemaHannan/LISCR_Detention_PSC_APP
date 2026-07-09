@@ -370,6 +370,13 @@ export default function WeeklyData({ currentUser }) {
       });
       setCounts(c);
     });
+    // Load last upload dates from localStorage
+    const savedStatus = {};
+    UPLOADS.forEach(u => {
+      const saved = localStorage.getItem("liscr_upload_"+u.key);
+      if (saved) savedStatus[u.key] = {state:"done", msg:"Last uploaded: "+saved, time:saved};
+    });
+    if (Object.keys(savedStatus).length) setStatus(savedStatus);
   }, []);
 
   const isAdmin = currentUser?.role === "Super Admin" || currentUser?.role === "Admin";
@@ -568,6 +575,7 @@ export default function WeeklyData({ currentUser }) {
         : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote;
       const finalState = saved===0&&skipped>0?"error":"done";
       const finalMsg = saved===0&&skipped>0 ? msg+" ⚠️ All rows failed — table may not exist in Supabase. Run the CREATE TABLE SQL first." : msg;
+      localStorage.setItem("liscr_upload_"+cfg.key, uploadTime);
       setStatus(p => ({...p, [cfg.key]: {state:finalState, msg:finalMsg, count:saved, time:uploadTime}}));
       setCounts(p => ({...p, [cfg.table]: saved}));
       setUploading(p => ({...p, [cfg.key]: false}));
@@ -622,7 +630,16 @@ export default function WeeklyData({ currentUser }) {
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                     {counts[cfg.table]>0&&<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]} rows in DB</span>}
-                    {st?.state==="done"&&<span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>✓ {st.time}</span>}
+                    {st?.state==="done"&&(()=>{
+                      const lastUpload = st.time?new Date(st.time):null;
+                      const daysSince = lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
+                      const nextDue = daysSince!=null&&daysSince>=7;
+                      return (
+                        <span style={{fontSize:"10px",fontFamily:"var(--mono)",color:nextDue?"var(--amber2)":"var(--green2)"}}>
+                          {nextDue?"⚠ ":"✓ "}Last: {st.time}{daysSince!=null?" ("+daysSince+"d ago)":""}{nextDue?" — UPDATE DUE":""}
+                        </span>
+                      );
+                    })()}
                     {counts[cfg.table]>0&&<button onClick={()=>handleExport(cfg)} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>↓ Export</button>}
                     <div style={{display:"flex",alignItems:"center",gap:"4px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",padding:"2px"}}>
                       {["upsert","replace"].map(m=>(
