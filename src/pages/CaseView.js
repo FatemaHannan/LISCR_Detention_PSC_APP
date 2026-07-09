@@ -138,7 +138,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [analyzing, setAnalyzing] = useState({});
   const [gapStates, setGapStates] = useState({});
   const [saving, setSaving] = useState(false);
-  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], vip:null, loading:false});
+  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], vip:null, findings:[], loading:false});
   const [modalVessel, setModalVessel] = useState(null);
   const [modalFull, setModalFull] = useState(false);
   const [page, setPage] = useState(1);
@@ -158,7 +158,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
@@ -166,8 +166,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
       supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
+      supabase.from("flag_psc_findings").select("*").eq("imo", String(imo)).order("insp_date",{ascending:false}),
     ]);
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, loading:false});
+    const [vRes2,cRes2,dRes2,iRes2,mRes2,pRes2,vipRes2,fpRes] = [vRes,cRes,dRes,iRes,mRes,pRes,vipRes,arguments[7]];
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], loading:false});
   }
 
   async function refreshVessels() {
@@ -1364,32 +1366,54 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Pre-Detention Intelligence Analysis */}
                 {(()=>{
-                  const flagInsps = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
-                  const lastFlag = flagInsps[0];
                   const detDate = v.detentionDate?new Date(v.detentionDate):new Date();
-                  const daysBefore = lastFlag?.inspection_date?Math.floor((detDate-new Date(lastFlag.inspection_date))/86400000):null;
                   const pscDefs = v.deficiencies||[];
 
+                  // Use flag_psc_findings table for rich analysis
+                  const allFindings = intel?.findings||[];
+                  const flagFindings = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+                  const pscFindings = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+
+                  // Get last flag inspection before detention
+                  const lastFlagFindings = flagFindings.filter(f=>!f.insp_date||new Date(f.insp_date)<=detDate);
+                  const lastFlagDate = lastFlagFindings[0]?.insp_date;
+                  const daysBefore = lastFlagDate?Math.floor((detDate-new Date(lastFlagDate))/86400000):null;
+                  const lastFlagGroup = lastFlagDate?lastFlagFindings.filter(f=>f.insp_date===lastFlagDate):[];
+
+                  // Get PSC findings at detention
+                  const detPscFindings = pscFindings.filter(f=>f.insp_date===v.detentionDate);
+
+                  // Category matching
                   function catDef(desc) {
                     const d = String(desc||"").toLowerCase();
-                    if(d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM/Safety Mgmt";
+                    if(d.includes("ism")||d.includes("safety management")||d.includes("sms")||d.includes("safety management system")) return "ISM/Safety Mgmt";
                     if(d.includes("fire")) return "Fire Safety";
-                    if(d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")) return "LSA/Life Saving";
-                    if(d.includes("marpol")||d.includes("pollut")||d.includes("oil")) return "MARPOL/Pollution";
-                    if(d.includes("mlc")||d.includes("manning")||d.includes("crew")) return "MLC/Manning";
-                    if(d.includes("navig")||d.includes("chart")) return "Navigation";
-                    if(d.includes("corros")||d.includes("mainte")||d.includes("hull")) return "Hull/Maintenance";
-                    return null;
+                    if(d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue")) return "LSA/Life Saving";
+                    if(d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")) return "MARPOL/Pollution";
+                    if(d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC/Manning";
+                    if(d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
+                    if(d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull/Maintenance";
+                    if(d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
+                    if(d.includes("radio")||d.includes("gmdss")) return "Radio/GMDSS";
+                    return "Other";
                   }
 
-                  const pscCats = [...new Set(pscDefs.map(d=>catDef(d.desc)).filter(Boolean))];
-                  const flagNote = lastFlag?.finding_note||"";
-                  const flagCats = flagNote?[...new Set(flagNote.split(/[;,\n]/).map(n=>catDef(n)).filter(Boolean))]:[];
-                  const matchingCats = pscCats.filter(c=>flagCats.includes(c));
+                  const flagCats = [...new Set(lastFlagGroup.map(f=>catDef(f.main_defect_text||f.full_description)).filter(c=>c!=="Other"))];
+                  const pscCats = [...new Set((detPscFindings.length>0?detPscFindings:pscDefs.map(d=>({main_defect_text:d.desc}))).map(f=>catDef(f.main_defect_text||f.full_description||f.desc)).filter(c=>c!=="Other"))];
+                  const matchingCats = flagCats.filter(c=>pscCats.includes(c));
 
+                  // Also match by defect code
+                  const flagCodes = new Set(lastFlagGroup.map(f=>f.defect_code).filter(Boolean));
+                  const pscCodes = new Set(detPscFindings.map(f=>f.defect_code).filter(Boolean));
+                  const matchingCodes = [...flagCodes].filter(c=>pscCodes.has(c));
+
+                  // Use inspection_history for CAR status if no findings data
+                  const flagInsps = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
+                  const lastFlag = flagInsps[0];
                   const carClosed = lastFlag?.car_status&&(lastFlag.car_status.toLowerCase().includes("closed")||lastFlag.car_status.toLowerCase().includes("complete")||lastFlag.car_status.toLowerCase().includes("approved"));
                   const carOpen = lastFlag?.car_status&&!carClosed&&lastFlag.car_status!=="No Deficiencies"&&lastFlag.car_status!=="";
                   const sameIssuesAfterCAR = carClosed&&matchingCats.length>0;
+                  const hasFindings = allFindings.length>0;
 
                   const asiTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/asi|preemptive/));
 
@@ -1398,16 +1422,16 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{fontSize:"11px",fontWeight:700,color:sameIssuesAfterCAR||carOpen?"var(--red2)":"var(--text)",textTransform:"uppercase",letterSpacing:".05em",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>Pre-Detention Intelligence Analysis</div>
                       <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"12px",fontStyle:"italic"}}>Was this detention foreseeable? Could earlier action have prevented it?</div>
 
-                      {lastFlag?(
+                      {(lastFlagGroup.length>0||lastFlag)?(
                         <div style={{marginBottom:"12px"}}>
                           <div style={{fontSize:"10px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Last Flag State Inspection</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
-                            <Row label="Inspection Date" value={lastFlag.inspection_date||"—"} />
+                            <Row label="Inspection Date" value={lastFlagDate||lastFlag?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBefore!=null?daysBefore+" days before detention":"—"} red={daysBefore!=null&&daysBefore<90} />
-                            <Row label="Port" value={lastFlag.port||"—"} />
-                            <Row label="Inspection Type" value={lastFlag.inspection_type||"—"} />
-                            <Row label="Deficiencies Found" value={(lastFlag.num_findings||0)+" deficiencies"} red={(lastFlag.num_findings||0)>=10} />
-                            <Row label="CAR Status at Detention" value={lastFlag.car_status||"Unknown"} red={carOpen} />
+                            <Row label="Flag Findings Count" value={lastFlagGroup.length>0?lastFlagGroup.length+" findings":(lastFlag?.num_findings||0)+" findings"} red={(lastFlagGroup.length||lastFlag?.num_findings||0)>=10} />
+                            <Row label="PSC Findings Count" value={detPscFindings.length>0?detPscFindings.length+" findings":pscDefs.length+" (from PSC report)"} red={pscDefs.length>=10} />
+                            <Row label="Matching Defect Codes" value={matchingCodes.length>0?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
+                            <Row label="CAR Status at Detention" value={lastFlag?.car_status||"Unknown"} red={carOpen} />
                           </div>
 
                           {carOpen&&(

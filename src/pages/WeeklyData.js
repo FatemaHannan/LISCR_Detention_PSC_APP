@@ -321,6 +321,37 @@ const UPLOADS = [
         psc_followup_rcm: ns(r["PSC Follow-Up RCM"]),
       };
     },
+  },,
+  {
+    key: "flag_psc_findings",
+    onConflictKey: "imo,flag_psc,insp_date,defect_code",
+    color: "#6366F1",
+    bg: "rgba(99,102,241,0.1)",
+    label: "Flag & PSC Findings",
+    icon: "ti-search",
+    table: "flag_psc_findings",
+    filter: (r) => (r["IMO#"]||r["imo"]) && (r["Flag/PSC"]||r["flag_psc"]),
+    map: (r) => {
+      const rawImo = r["IMO#"]||r["imo"]||"";
+      const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
+      const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
+      if (!imoStr||imoStr.length<6) return null;
+      const vessel_raw = String(r["VSL Search"]||r["vessel"]||"");
+      const vessel = vessel_raw.includes(" - ")?vessel_raw.split(" - ")[0].trim():vessel_raw.trim();
+      let insp_date = null;
+      const d = r["Insp Date"]||r["insp_date"];
+      if (d instanceof Date) insp_date = d.toISOString().slice(0,10);
+      else if (d) insp_date = String(d).slice(0,10);
+      return {
+        imo: imoStr,
+        vessel: vessel||null,
+        flag_psc: String(r["Flag/PSC"]||r["flag_psc"]||"").trim(),
+        insp_date: insp_date,
+        defect_code: String(r["Defect Code"]||r["defect_code"]||"").trim()||null,
+        main_defect_text: String(r["Main Defect Text"]||r["main_defect_text"]||"").trim()||null,
+        full_description: String(r["Full Description"]||r["full_description"]||"").trim().slice(0,500)||null,
+      };
+    },
   },
 ];
 
