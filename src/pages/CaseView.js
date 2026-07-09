@@ -1379,8 +1379,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const daysBefore = lastFlagDate?Math.floor((detDate-new Date(lastFlagDate))/86400000):null;
                   const lastFlagGroup = lastFlagDate?lastFlagFindings.filter(f=>f.insp_date===lastFlagDate):[];
 
-                  // Get PSC findings at detention
-                  const detPscFindings = pscFindings.filter(f=>f.insp_date===v.detentionDate);
+                  // Get PSC findings around detention date (within 7 days)
+                  const detPscFindings = pscFindings.filter(f=>{
+                    if (!f.insp_date||!v.detentionDate) return false;
+                    const diff = Math.abs(new Date(f.insp_date)-new Date(v.detentionDate));
+                    return diff <= 7*24*60*60*1000; // within 7 days
+                  });
+                  const pscFindingsToUse = detPscFindings.length>0?detPscFindings:pscFindings.slice(0,20);
 
                   // Category matching
                   function catDef(desc) {
@@ -1398,12 +1403,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   }
 
                   const flagCats = [...new Set(lastFlagGroup.map(f=>catDef(f.main_defect_text||f.full_description)).filter(c=>c!=="Other"))];
-                  const pscCats = [...new Set((detPscFindings.length>0?detPscFindings:pscDefs.map(d=>({main_defect_text:d.desc}))).map(f=>catDef(f.main_defect_text||f.full_description||f.desc)).filter(c=>c!=="Other"))];
+                  const pscCats = [...new Set((pscFindingsToUse.length>0?pscFindingsToUse:pscDefs.map(d=>({main_defect_text:d.desc}))).map(f=>catDef(f.main_defect_text||f.full_description||f.desc)).filter(c=>c!=="Other"))];
                   const matchingCats = flagCats.filter(c=>pscCats.includes(c));
 
                   // Also match by defect code
                   const flagCodes = new Set(lastFlagGroup.map(f=>f.defect_code).filter(Boolean));
-                  const pscCodes = new Set(detPscFindings.map(f=>f.defect_code).filter(Boolean));
+                  const pscCodes = new Set(pscFindingsToUse.map(f=>f.defect_code).filter(Boolean));
                   const matchingCodes = [...flagCodes].filter(c=>pscCodes.has(c));
 
                   // Use inspection_history for CAR status if no findings data
@@ -1428,7 +1433,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <Row label="Inspection Date" value={lastFlagDate||lastFlag?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBefore!=null?daysBefore+" days before detention":"—"} red={daysBefore!=null&&daysBefore<90} />
                             <Row label="Flag Findings Count" value={lastFlagGroup.length>0?lastFlagGroup.length+" findings":(lastFlag?.num_findings||0)+" findings"} red={(lastFlagGroup.length||lastFlag?.num_findings||0)>=10} />
-                            <Row label="PSC Findings Count" value={detPscFindings.length>0?detPscFindings.length+" findings":pscDefs.length+" (from PSC report)"} red={pscDefs.length>=10} />
+                            <Row label="PSC Findings Count" value={pscFindingsToUse.length>0?pscFindingsToUse.length+" findings":pscDefs.length+" (from PSC report)"} red={(pscFindingsToUse.length||pscDefs.length)>=10} />
                             <Row label="Matching Defect Codes" value={matchingCodes.length>0?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
                             <Row label="CAR Status at Detention" value={lastFlag?.car_status||"Unknown"} red={carOpen} />
                           </div>
