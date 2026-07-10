@@ -146,7 +146,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [analyzing, setAnalyzing] = useState({});
   const [gapStates, setGapStates] = useState({});
   const [saving, setSaving] = useState(false);
-  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], vip:null, findings:[], loading:false});
+  const [intel, setIntel] = useState({vessel:null, client:null, dpp:[], inspections:[], mlc:[], psc:[], vip:null, findings:[], cars:[], loading:false});
   const [modalVessel, setModalVessel] = useState(null);
   const [modalFull, setModalFull] = useState(false);
   const [page, setPage] = useState(1);
@@ -166,7 +166,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
@@ -175,8 +175,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
       supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
       supabase.from("flag_psc_findings").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
+      supabase.from("car_status_report").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
     ]);
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], loading:false});
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], cars:carRes?.data||[], loading:false});
   }
 
   async function refreshVessels() {
@@ -877,6 +878,75 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         </div>
                       </div>
                     )}
+
+                    {/* CAR Quality Analysis */}
+                    {(()=>{
+                      const cars = intel?.cars||[];
+                      // Find CAR for last flag inspection
+                      const lastFlagCAR = lastFlagDate?cars.find(c=>c.insp_date===lastFlagDate):cars[0];
+                      if (!lastFlagCAR) return null;
+
+                      const carClosed = lastFlagCAR.car_status&&(
+                        lastFlagCAR.car_status.toLowerCase().includes("complete")||
+                        lastFlagCAR.car_status.toLowerCase().includes("closed")||
+                        lastFlagCAR.car_status.toLowerCase().includes("approved")
+                      );
+                      const carOpen = !carClosed;
+                      const hasReoccurrence = matchedCodes.length>0;
+                      const dueDate = lastFlagCAR.close_or_due_date;
+                      const closedBy = lastFlagCAR.closed_by;
+                      const daysOpen = lastFlagCAR.days_open;
+                      const wasOverdue = dueDate&&detDateStr&&dueDate<detDateStr&&carOpen;
+
+                      return (
+                        <div style={{background:"var(--bg2)",border:"1px solid "+(hasReoccurrence&&carClosed?"#3D1A1A":carOpen?"#3D1A1A":"rgba(34,197,94,0.3)"),borderRadius:"8px",padding:"14px",marginTop:"4px"}}>
+                          <div style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px",color:hasReoccurrence&&carClosed?"var(--red2)":carOpen?"var(--amber2)":"var(--green2)"}}>
+                            CAR Quality Analysis
+                          </div>
+
+                          {/* CAR Summary */}
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"12px"}}>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Flag Inspection</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.insp_date||"—"} — {lastFlagCAR.insp_type||"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Findings in CAR</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.num_findings||0} findings</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Status</div><div style={{fontSize:"11px",fontWeight:600,color:carClosed?"var(--green2)":"var(--amber2)"}}>{lastFlagCAR.car_status||"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Days Open</div><div style={{fontSize:"11px",color:daysOpen>60?"var(--red2)":"var(--text)",fontWeight:500}}>{daysOpen!=null?daysOpen+" days":"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Due / Closed Date</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{dueDate||"—"}{wasOverdue?" — OVERDUE":""}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Assigned To</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.assigned_to||"—"}</div></div>
+                            {carClosed&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Closed By</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{closedBy||"—"}</div></div>}
+                            {lastFlagCAR.car_link&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)",gridColumn:"span 2"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Link</div><a href={lastFlagCAR.car_link} target="_blank" rel="noreferrer" style={{fontSize:"11px",color:"var(--blue)"}}>View in Waypoint</a></div>}
+                          </div>
+
+                          {/* Verdict */}
+                          {carOpen&&(
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"8px"}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>⚠ CAR Open at Time of PSC Detention</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                                The CAR from the last Flag inspection ({lastFlagCAR.insp_date}) was <strong style={{color:"var(--amber2)"}}>{lastFlagCAR.car_status}</strong> when this PSC detention occurred{daysOpen?" ("+daysOpen+" days open)":""}. Outstanding corrective actions had not been resolved before PSC boarded the vessel.
+                                {wasOverdue?" The CAR was also past its due date of "+dueDate+".":""}
+                              </div>
+                            </div>
+                          )}
+
+                          {carClosed&&hasReoccurrence&&(
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"8px"}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Deficiency Reoccurrence Post-CAR</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                                The CAR was marked <strong style={{color:"var(--green2)"}}>{lastFlagCAR.car_status}</strong> by {closedBy||"unknown"} on {dueDate||"unknown date"}. However, <strong style={{color:"var(--red2)"}}>{matchedCodes.length} matching deficiency code{matchedCodes.length>1?"s":""}</strong> ({matchedCodes.join(", ")}) reappeared at this PSC detention. The corrective actions may not have been effectively implemented before closure.
+                              </div>
+                            </div>
+                          )}
+
+                          {carClosed&&!hasReoccurrence&&(
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--green-bg)",border:"1px solid rgba(34,197,94,0.3)",marginBottom:"8px"}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--green2)",marginBottom:"4px"}}>✓ No Deficiency Reoccurrence</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                                CAR was <strong style={{color:"var(--green2)"}}>{lastFlagCAR.car_status}</strong> by {closedBy||"unknown"} on {dueDate||"unknown date"}. No matching deficiency codes were found at the PSC detention — corrective actions appear to have been effectively implemented.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {matchedCodes.length===0&&pscOnlyCodes.length===0&&flagOnlyCodes.length===0&&(
                       <div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>

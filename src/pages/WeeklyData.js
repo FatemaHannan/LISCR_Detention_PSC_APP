@@ -352,6 +352,42 @@ const UPLOADS = [
         full_description: String(r["Full Description"]||r["full_description"]||"").trim().slice(0,500)||null,
       };
     },
+  },,
+  {
+    key: "car_status_report",
+    onConflictKey: "imo,insp_date",
+    color: "#F59E0B",
+    bg: "rgba(245,158,11,0.1)",
+    label: "CAR Status Report",
+    icon: "ti-clipboard-check",
+    table: "car_status_report",
+    filter: (r) => (r["IMO"]||r["imo"]) && (r["Vessel"]||r["vessel"]),
+    map: (r) => {
+      const rawImo = r["IMO"]||r["imo"]||"";
+      const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
+      const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
+      if (!imoStr||imoStr.length<6) return null;
+      const fmtDate = (d) => { if(!d) return null; if(d instanceof Date) return d.toISOString().slice(0,10); return String(d).slice(0,10)||null; };
+      return {
+        imo: imoStr,
+        vessel: s(r["Vessel"]||r["vessel"]),
+        insp_date: fmtDate(r["Insp Date"]||r["insp_date"]),
+        insp_type: s(r["Insp Types"]||r["insp_type"]),
+        car_type: s(r["CAR Type"]||r["car_type"]),
+        car_status: s(r["CAR Status"]||r["car_status"]),
+        num_findings: r["#F"]!=null?parseInt(r["#F"])||null:null,
+        days_open: r["Days"]!=null?parseInt(r["Days"])||null:null,
+        assigned_to: s(r["Assigned to"]||r["assigned_to"]),
+        close_or_due_date: fmtDate(r["Close or Due Date"]||r["close_or_due_date"]),
+        created_date: s(r["Created"]||r["created_date"]),
+        last_updated: s(r["Last Updated"]||r["last_updated"]),
+        closed_by: s(r["Last Updated (Closed By)"]||r["closed_by"]),
+        port: s(r["Port"]||r["port"]),
+        ism_client: s(r["ISM Client"]||r["ism_client"]),
+        car_link: s(r["CAR Link"]||r["car_link"]),
+        dpa_email: String(r["DPAEmailAddress"]||r["dpa_email"]||"").trim().slice(0,300)||null,
+      };
+    },
   },
 ];
 
