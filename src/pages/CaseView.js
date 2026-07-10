@@ -696,124 +696,228 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           {/* DEFICIENCIES TAB */}
-          {tab==="deficiencies"&&(
-            <div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px",gap:"10px",flexWrap:"wrap"}}>
-                <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",flex:1}}>
-                  Code 30 = detention · Code 17 = rectify before departure · Code 35 = allowed to sail after detention · Code 15 = rectify at next port · Code 50 = flag state informed
+          {tab==="deficiencies"&&(()=>{
+            // Priority 1: use flag_psc_findings table
+            // Priority 2: fall back to AI-extracted deficiencies from PSC report
+            const allFindings = intel?.findings||[];
+            const pscFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+            const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+
+            // Get PSC findings near detention date (within 7 days)
+            const detDate = v.detentionDate?new Date(v.detentionDate):null;
+            const pscFindings = detDate?pscFromTable.filter(f=>{
+              if(!f.insp_date) return false;
+              return Math.abs(new Date(f.insp_date)-detDate)<=7*24*60*60*1000;
+            }):[];
+
+            // Get last flag inspection before detention
+            const flagFindings = detDate?flagFromTable.filter(f=>f.insp_date&&new Date(f.insp_date)<=detDate):flagFromTable;
+            const lastFlagDate = flagFindings[0]?.insp_date;
+            const lastFlagFindings = lastFlagDate?flagFindings.filter(f=>f.insp_date===lastFlagDate):flagFindings.slice(0,20);
+
+            // Use PSC report AI deficiencies as fallback
+            const pscReportDefs = v.deficiencies||[];
+            const usePscTable = pscFindings.length>0;
+            const pscToShow = usePscTable?pscFindings:pscReportDefs.map(d=>({defect_code:d.code,main_defect_text:d.desc,full_description:d.desc,action:d.action,detainable:d.detainable,flag_psc:"PSC",insp_date:v.detentionDate}));
+
+            // Match analysis
+            const pscCodes = new Set(pscToShow.map(f=>f.defect_code).filter(Boolean));
+            const flagCodes = new Set(lastFlagFindings.map(f=>f.defect_code).filter(Boolean));
+            const matchedCodes = [...pscCodes].filter(c=>flagCodes.has(c));
+            const pscOnlyCodes = [...pscCodes].filter(c=>!flagCodes.has(c));
+            const flagOnlyCodes = [...flagCodes].filter(c=>!pscCodes.has(c));
+
+            const [defView, setDefView] = React.useState("psc");
+
+            return (
+              <div>
+                {/* Source indicator */}
+                <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
+                  <div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:usePscTable?"rgba(34,197,94,0.1)":"rgba(59,130,246,0.1)",color:usePscTable?"var(--green2)":"var(--blue)",border:"1px solid "+(usePscTable?"rgba(34,197,94,0.3)":"var(--blue)"),fontWeight:500}}>
+                    PSC: {usePscTable?"From Flag & PSC Findings report ("+pscFindings.length+" findings)":"From uploaded PSC report ("+pscReportDefs.length+" findings)"}
+                  </div>
+                  {lastFlagFindings.length>0&&<div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:"rgba(245,158,11,0.1)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:500}}>
+                    Flag: {lastFlagDate} — {lastFlagFindings.length} findings
+                  </div>}
+                  {matchedCodes.length>0&&<div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontWeight:600}}>
+                    ⚠ {matchedCodes.length} matching codes
+                  </div>}
                 </div>
-                {canEdit&&v.deficiencies?.length>0&&(
-                  <button onClick={()=>{
-                    const idx = prompt("Enter deficiency number to edit (1-"+v.deficiencies.length+"):");
-                    if (!idx) return;
-                    const i = parseInt(idx)-1;
-                    if (i<0||i>=v.deficiencies.length) return;
-                    const d = v.deficiencies[i];
-                    setEditModal({type:"deficiency",index:i,data:{...d}});
-                  }} style={{padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"11px",whiteSpace:"nowrap"}}>
-                    Edit deficiency
-                  </button>
+
+                {/* View tabs */}
+                <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
+                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length)+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"}].map(t=>(
+                    <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"11px",fontWeight:defView===t.id?600:400}}>
+                      {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
+                    </button>
+                  ))}
+                </div>
+
+                {/* PSC Findings */}
+                {defView==="psc"&&(
+                  <div>
+                    <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",marginBottom:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span>Code 30 = detention · Code 17 = rectify before departure · Code 35 = allowed to sail</span>
+                      {canEdit&&pscReportDefs.length>0&&<button onClick={()=>{const idx=prompt("Enter deficiency number to edit (1-"+pscReportDefs.length+"):");if(!idx)return;const i=parseInt(idx)-1;if(i<0||i>=pscReportDefs.length)return;setEditModal({type:"deficiency",index:i,data:{...pscReportDefs[i]}});}} style={{padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>Edit</button>}
+                    </div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["#","Code","Description","Action","Detainable","Match?"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{pscToShow.map((d,i)=>{
+                        const isMatch = d.defect_code&&flagCodes.has(d.defect_code);
+                        const detainable = d.detainable||String(d.action).trim()==="30"||d.action===30;
+                        return (
+                          <tr key={i} style={{background:isMatch?"rgba(239,68,68,0.04)":detainable?"rgba(239,68,68,0.02)":"",borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{i+1}</td>
+                            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text2)",whiteSpace:"nowrap"}}>{d.defect_code||d.code}</td>
+                            <td style={{padding:"8px 10px",color:"var(--text2)",lineHeight:1.4,maxWidth:"320px"}}>{d.main_defect_text||d.full_description||d.desc}</td>
+                            <td style={{padding:"8px 10px"}}><span style={{fontFamily:"var(--mono)",fontSize:"11px",fontWeight:600,color:AC[String(d.action)]||"var(--text3)"}}>{d.action}</span></td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:""}</td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ In Flag</span>:<span style={{fontSize:"9px",color:"var(--text3)"}}>New</span>}</td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                    {pscToShow.length===0&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No PSC findings found. Upload Flag & PSC Findings report or PSC Form A+B.</div>}
+                  </div>
                 )}
-              </div>
-              {v.deficiencies?.length>0?(
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                  <thead><tr>{["#","Code","Description","Action","RO","Detainable",""].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {v.deficiencies.map((d,i)=>(
-                      <tr key={i} style={{background:d.detainable?"rgba(239,68,68,0.04)":""}}>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)"}}>{d.n||i+1}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text2)"}}>{d.code}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text2)",lineHeight:1.4,maxWidth:"300px"}}>{d.desc}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)"}}><span style={{fontFamily:"var(--mono)",fontSize:"11px",fontWeight:600,color:AC[String(d.action)]||"var(--text3)"}}>{d.action}</span></td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",textAlign:"center"}}>{d.ro?"Yes":""}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{d.detainable?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:""}</td>
-                        <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
-                          {canEdit&&<button onClick={()=>setEditModal({type:"deficiency",index:i,data:{...d}})} style={{fontSize:"9px",padding:"2px 8px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ):(
-                <div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>Upload PSC Form A+B and click Analyze to extract deficiencies automatically</div>
-              )}
-              {/* Deficiency edit modal */}
-              {editModal?.type==="deficiency"&&(
-                <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10001,padding:"20px"}}>
-                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"560px",maxHeight:"90vh",overflow:"auto"}}>
-                    <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Edit Deficiency #{(editModal.index||0)+1}</div>
-                      <button onClick={()=>setEditModal(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>{"×"}</button>
+
+                {/* Flag Findings */}
+                {defView==="flag"&&(
+                  <div>
+                    {lastFlagDate&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",color:"var(--amber2)",marginBottom:"10px"}}>Last Flag inspection: {lastFlagDate} — {lastFlagFindings.length} findings</div>}
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["#","Code","Category","Description","Match with PSC?"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{lastFlagFindings.map((d,i)=>{
+                        const isMatch = d.defect_code&&pscCodes.has(d.defect_code);
+                        return (
+                          <tr key={i} style={{background:isMatch?"rgba(239,68,68,0.04)":"",borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{i+1}</td>
+                            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text2)",whiteSpace:"nowrap"}}>{d.defect_code}</td>
+                            <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"10px",fontWeight:500,whiteSpace:"nowrap"}}>{d.main_defect_text}</td>
+                            <td style={{padding:"8px 10px",color:"var(--text2)",lineHeight:1.4,maxWidth:"300px"}}>{d.full_description}</td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ Found in PSC</span>:<span style={{fontSize:"9px",color:"var(--text3)"}}>Flag only</span>}</td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                    {lastFlagFindings.length===0&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No Flag findings found. Upload Flag & PSC Findings report.</div>}
+                  </div>
+                )}
+
+                {/* Match Analysis */}
+                {defView==="match"&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"}}>
+                      {[
+                        {l:"Matching Codes",v:matchedCodes.length,c:"var(--red2)",s:"Found in both Flag & PSC",bg:"var(--red-bg)",b:"#3D1A1A"},
+                        {l:"PSC Only",v:pscOnlyCodes.length,c:"var(--amber2)",s:"New at PSC detention",bg:"var(--amber-bg)",b:"var(--amber)"},
+                        {l:"Flag Only",v:flagOnlyCodes.length,c:"var(--text3)",s:"Flag found, PSC missed",bg:"var(--bg3)",b:"var(--border)"},
+                      ].map(s=>(
+                        <div key={s.l} style={{background:s.bg,border:"1px solid "+s.b,borderRadius:"8px",padding:"12px 14px"}}>
+                          <div style={{fontSize:"9px",color:s.c,textTransform:"uppercase",marginBottom:"4px",opacity:0.8}}>{s.l}</div>
+                          <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                          <div style={{fontSize:"9px",color:s.c,opacity:0.7,marginTop:"2px"}}>{s.s}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
-                      <div>
-                        <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>PSC Code</div>
-                        <input value={editModal.data.code||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,code:e.target.value}}))}
-                          style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+
+                    {matchedCodes.length>0&&(
+                      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+                        <div style={{fontSize:"11px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Known Issues — Found in Both Flag & PSC ({matchedCodes.length})</div>
+                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"10px"}}>These deficiencies were identified in the last Flag inspection AND reappeared at PSC detention — known issues not resolved</div>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                          <thead><tr>{["Code","Category (Flag)","Description (Flag)","Description (PSC)"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <tbody>{matchedCodes.map((code,i)=>{
+                            const flagDef = lastFlagFindings.find(f=>f.defect_code===code);
+                            const pscDef = pscToShow.find(f=>(f.defect_code||f.code)===code);
+                            return (
+                              <tr key={i} style={{background:"rgba(239,68,68,0.04)",borderBottom:"1px solid var(--border)"}}>
+                                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--red2)",fontWeight:700}}>{code}</td>
+                                <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"10px",fontWeight:500}}>{flagDef?.main_defect_text||"—"}</td>
+                                <td style={{padding:"8px 10px",color:"var(--text3)",fontSize:"10px",maxWidth:"200px"}}>{flagDef?.full_description?.slice(0,80)||"—"}</td>
+                                <td style={{padding:"8px 10px",color:"var(--text2)",fontSize:"10px",maxWidth:"200px"}}>{pscDef?.full_description?.slice(0,80)||pscDef?.desc?.slice(0,80)||"—"}</td>
+                              </tr>
+                            );
+                          })}</tbody>
+                        </table>
                       </div>
-                      <div>
-                        <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Description</div>
-                        <textarea value={editModal.data.desc||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,desc:e.target.value}}))} rows={5}
-                          style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
+                    )}
+
+                    {pscOnlyCodes.length>0&&(
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
+                        <div style={{fontSize:"11px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>New at PSC — Not in Last Flag Inspection ({pscOnlyCodes.length})</div>
+                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>These issues were not found in the last Flag inspection — new deficiencies or deterioration since last Flag visit</div>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
+                          {pscOnlyCodes.map(code=>{
+                            const d = pscToShow.find(f=>(f.defect_code||f.code)===code);
+                            return <span key={code} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
+                          })}
+                        </div>
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
-                        <div>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
-                          <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))}
-                            style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    )}
+
+                    {flagOnlyCodes.length>0&&(
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                        <div style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",marginBottom:"4px"}}>Flag Only — Not Found at PSC ({flagOnlyCodes.length})</div>
+                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>These Flag findings did not appear at PSC detention — may have been resolved or PSC did not inspect those areas</div>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
+                          {flagOnlyCodes.map(code=>{
+                            const d = lastFlagFindings.find(f=>f.defect_code===code);
+                            return <span key={code} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",border:"1px solid var(--border)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {matchedCodes.length===0&&pscOnlyCodes.length===0&&flagOnlyCodes.length===0&&(
+                      <div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Deficiency edit modal */}
+                {editModal?.type==="deficiency"&&(
+                  <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10001,padding:"20px"}}>
+                    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",width:"100%",maxWidth:"560px",maxHeight:"90vh",overflow:"auto"}}>
+                      <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Edit Deficiency #{(editModal.index||0)+1}</div>
+                        <button onClick={()=>setEditModal(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>{"×"}</button>
+                      </div>
+                      <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
+                        <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>PSC Code</div>
+                        <input value={editModal.data.code||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,code:e.target.value}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} /></div>
+                        <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Description</div>
+                        <textarea value={editModal.data.desc||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,desc:e.target.value}}))} rows={5} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} /></div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
+                          <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
+                          <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
                             <option value="">— Select code —</option>
-                            <option value="10">10 — Deficiency rectified</option>
-                            <option value="15">15 — Rectify at next port</option>
-                            <option value="16">16 — Rectify within 14 days</option>
-                            <option value="17">17 — Rectify before departure</option>
-                            <option value="18">18 — Rectify within 3 months</option>
-                            <option value="19">19 — Rectify major non-conformity before departure</option>
-                            <option value="30">30 — Ground for detention</option>
-                            <option value="35">35 — Allowed to sail after detention</option>
-                            <option value="40">40 — Next port informed</option>
-                            <option value="45">45 — Next port informed to re-detain</option>
-                            <option value="50">50 — Flag State/Consul informed</option>
-                            <option value="55">55 — Flag State consulted</option>
-                            <option value="70">70 — Recognized Organization informed</option>
-                            <option value="80">80 — Temporary exemption/repair accepted</option>
-                            <option value="85">85 — Investigation of MARPOL discharge</option>
-                            <option value="95">95 — Letter of warning issued</option>
-                            <option value="99">99 — Other action taken</option>
-                            <option value="other">Other (type manually below)</option>
-                          </select>
-                          {editModal.data.action==="other"&&(
-                            <input placeholder="Enter action code manually" value={editModal.data.actionManual||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,actionManual:e.target.value}}))}
-                              style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box",marginTop:"6px"}} />
-                          )}
-                        </div>
-                        <div>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
-                          <div style={{padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:editModal.data.action==="30"?"var(--red2)":"var(--text3)",fontSize:"12px",fontWeight:editModal.data.action==="30"?600:400}}>
-                            {editModal.data.action==="30"?"YES — Detainable":"No"}
-                          </div>
+                            {["10","15","16","17","18","19","30","35","40","45","50","55","70","80","85","95","99"].map(c=><option key={c} value={c}>{c}</option>)}
+                          </select></div>
+                          <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
+                          <div style={{padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:editModal.data.action==="30"?"var(--red2)":"var(--text3)",fontSize:"12px",fontWeight:editModal.data.action==="30"?600:400}}>{editModal.data.action==="30"?"YES — Detainable":"No"}</div></div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
-                      <button onClick={()=>setEditModal(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-                      <button onClick={async()=>{
-                        const updated = [...(v.deficiencies||[])];
-                        updated[editModal.index] = {...editModal.data, detainable: editModal.data.action==="30"||editModal.data.action===30};
-                        const newDetainable = updated.filter(d=>d.detainable).length;
-                        const updates = {deficiencies: updated, detainable: newDetainable};
-                        await updateVesselFields(v.imo, v.detentionDate, updates);
-                        setSel(p=>({...p,...updates}));
-                        if(modalVessel) setModalVessel(p=>({...p,...updates}));
-                        setEditModal(null);
-                      }} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save changes</button>
+                      <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
+                        <button onClick={()=>setEditModal(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+                        <button onClick={async()=>{
+                          const updated=[...(v.deficiencies||[])];
+                          updated[editModal.index]={...editModal.data,detainable:editModal.data.action==="30"||editModal.data.action===30};
+                          const newDet=updated.filter(d=>d.detainable).length;
+                          const updates={deficiencies:updated,detainable:newDet};
+                          await updateVesselFields(v.imo,v.detentionDate,updates);
+                          setSel(p=>({...p,...updates}));
+                          if(modalVessel)setModalVessel(p=>({...p,...updates}));
+                          setEditModal(null);
+                        }} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save changes</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
 
-          {/* GAPS TAB */}
           {tab==="gaps"&&(
             <div>
               {v.gaps?.map((g,i)=>(
