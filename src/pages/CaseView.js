@@ -704,6 +704,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const pscFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
             const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
 
+            const detDateStr = v.detentionDate||"";
             // Get PSC findings near detention date (within 7 days)
             const pscFindings = detDateStr?pscFromTable.filter(f=>{
               if(!f.insp_date) return false;
@@ -712,7 +713,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             }):[];
 
             // Get last flag inspection before detention
-            const detDateStr = v.detentionDate||"";
             const flagFindings = flagFromTable.filter(f=>f.insp_date&&f.insp_date<=detDateStr);
             const lastFlagDate = flagFindings[0]?.insp_date;
             const lastFlagFindings = lastFlagDate?flagFindings.filter(f=>f.insp_date===lastFlagDate):flagFromTable.slice(0,20);
