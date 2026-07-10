@@ -705,17 +705,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
 
             // Get PSC findings near detention date (within 7 days)
-            const detDate = v.detentionDate?new Date(v.detentionDate):null;
-            const pscFindings = detDate?pscFromTable.filter(f=>{
+            const pscFindings = detDateStr?pscFromTable.filter(f=>{
               if(!f.insp_date) return false;
-              return Math.abs(new Date(f.insp_date)-detDate)<=7*24*60*60*1000;
+              const diff = Math.abs(new Date(f.insp_date)-new Date(detDateStr));
+              return diff <= 7*24*60*60*1000;
             }):[];
 
             // Get last flag inspection before detention
-            const flagFindings = detDate?flagFromTable.filter(f=>f.insp_date&&new Date(f.insp_date)<=detDate):flagFromTable;
+            const detDateStr = v.detentionDate||"";
+            const flagFindings = flagFromTable.filter(f=>f.insp_date&&f.insp_date<=detDateStr);
             const lastFlagDate = flagFindings[0]?.insp_date;
-            const lastFlagFindings = lastFlagDate?flagFindings.filter(f=>f.insp_date===lastFlagDate):flagFindings.slice(0,20);
-
+            const lastFlagFindings = lastFlagDate?flagFindings.filter(f=>f.insp_date===lastFlagDate):flagFromTable.slice(0,20);
             // Use PSC report AI deficiencies as fallback
             const pscReportDefs = v.deficiencies||[];
             const usePscTable = pscFindings.length>0;
