@@ -167,7 +167,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
       supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
-      supabase.from("flag_psc_findings").select("*").eq("imo", String(imo)).order("insp_date",{ascending:false}),
+      supabase.from("flag_psc_findings").select("*").or(`imo.eq.${String(imo)},imo.eq.${String(imo).padStart(7,"0")}`).order("insp_date",{ascending:false}),
     ]);
     setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], loading:false});
   }
