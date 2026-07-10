@@ -891,8 +891,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* CAR Quality sub-tab */}
                 {defView==="cqa"&&(
                   <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                    {/* Debug info */}
+                    <div style={{fontSize:"12px",color:"var(--text3)",padding:"6px 10px",background:"var(--bg3)",borderRadius:"4px",border:"1px solid var(--border)"}}>
+                      Flag findings: {flagFromTable.length} | Flag before detention: {flagBeforeDetention.length} | CAR records: {(intel?.cars||[]).length} | Detention date: {detDateStr||"not set"}
+                    </div>
                     {(intel?.cars||[]).length===0&&(
-                      <div style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No CAR data found. Upload CAR Status Report in Weekly Data.</div>
+                      <div style={{textAlign:"center",padding:"20px",color:"var(--text3)",fontSize:"13px"}}>No CAR data found. Upload CAR Status Report in Weekly Data.</div>
+                    )}
+                    {flagBeforeDetention.length===0&&flagFromTable.length===0&&(
+                      <div style={{textAlign:"center",padding:"20px",color:"var(--text3)",fontSize:"13px"}}>No Flag findings found for this vessel. Upload Flag & PSC Findings report in Weekly Data.</div>
+                    )}
+                    {flagBeforeDetention.length===0&&flagFromTable.length>0&&(
+                      <div style={{textAlign:"center",padding:"20px",color:"var(--amber2)",fontSize:"13px"}}>Flag findings exist but all are after detention date ({detDateStr}). Check detention date is set correctly.</div>
                     )}
                     {flagBeforeDetention.map(flagDate=>{
                       const flagGroup = lastFlagFindings.filter?lastFlagFindings:flagFromTable.filter(f=>f.insp_date===flagDate);
