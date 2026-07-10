@@ -8,13 +8,28 @@ export async function getVessels() {
 
 export async function upsertVessel(vessel) {
   const row = toRow(vessel);
+  // If vessel has an id, update by id to prevent duplicates when detention_date is null
+  if (vessel.id) {
+    const { data, error } = await supabase.from("vessels").update(row).eq("id", vessel.id).select();
+    if (error) { console.error("upsertVessel update:", error); return null; }
+    return data?.[0] ? mapVessel(data[0]) : null;
+  }
+  // New vessel - use imo+detention_date conflict resolution
   const { data, error } = await supabase.from("vessels").upsert(row, {onConflict:"imo,detention_date"}).select();
   if (error) { console.error("upsertVessel:", error); return null; }
   return data?.[0] ? mapVessel(data[0]) : null;
 }
 
-export async function updateVesselFields(imo, detentionDate, fields) {
-  const { error } = await supabase.from("vessels").update({...fields, updated_at: new Date().toISOString()}).eq("imo", imo).eq("detention_date", detentionDate||"");
+export async function updateVesselFields(imo, detentionDate, fields, id) {
+  let query = supabase.from("vessels").update({...fields, updated_at: new Date().toISOString()});
+  if (id) {
+    query = query.eq("id", id);
+  } else if (detentionDate) {
+    query = query.eq("imo", imo).eq("detention_date", detentionDate);
+  } else {
+    query = query.eq("imo", imo);
+  }
+  const { error } = await query;
   if (error) console.error("updateVesselFields:", error);
 }
 
