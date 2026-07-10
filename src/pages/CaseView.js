@@ -88,13 +88,13 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
       <div style={{height:"3px",background:isDet?"var(--red)":v.defs>=10?"var(--amber)":"var(--green)"}}></div>
       <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:"8px",position:"relative"}}>
         {onCheck&&<div onClick={e=>{e.stopPropagation();onCheck();}} style={{position:"absolute",top:8,right:8,width:"16px",height:"16px",borderRadius:"3px",border:"1px solid "+(isChecked?"var(--blue)":"var(--border2)"),background:isChecked?"var(--blue)":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
-          {isChecked&&<span style={{color:"#fff",fontSize:"10px"}}>{"\u2713"}</span>}
+          {isChecked&&<span style={{color:"#fff",fontSize:"13px"}}>{"\u2713"}</span>}
         </div>}
         <div>
           <div style={{fontSize:"13px",fontWeight:700,color:isDet?"var(--red2)":"var(--text)",lineHeight:1.3,paddingRight:onCheck?"22px":"0"}}>{v.name}</div>
-          <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginTop:"2px"}}>{v.imo}{v.mou?" · "+v.mou:""}</div>
+          <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginTop:"2px"}}>{v.imo}{v.mou?" · "+v.mou:""}</div>
         </div>
-        {v.port&&<div style={{fontSize:"10px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port}</div>}
+        {v.port&&<div style={{fontSize:"13px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port}</div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"5px"}}>
           {[["Defs",v.defs||0,defsColor],["Detainable",v.detainable||0,v.detainable>0?"var(--red2)":"var(--text3)"],["Days",daysSince!=null?daysSince:"-",daysSince>30?"var(--red2)":daysSince>14?"var(--amber2)":"var(--text)"]].map(([l,val,c])=>(
             <div key={l} style={{background:"var(--bg3)",borderRadius:"5px",padding:"5px 6px",textAlign:"center"}}>
@@ -103,11 +103,11 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
             </div>
           ))}
         </div>
-        {v.detentionDate&&<div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate}</div>}
-        {carLabel&&<div style={{display:"inline-block",padding:"2px 8px",borderRadius:"4px",fontSize:"9px",fontWeight:600,background:carBg,color:carColor,border:"1px solid "+carBorder,alignSelf:"flex-start"}}>{carLabel}</div>}
+        {v.detentionDate&&<div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate}</div>}
+        {carLabel&&<div style={{display:"inline-block",padding:"2px 8px",borderRadius:"4px",fontSize:"13px",fontWeight:600,background:carBg,color:carColor,border:"1px solid "+carBorder,alignSelf:"flex-start"}}>{carLabel}</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:isDet?"var(--red-bg)":"rgba(34,197,94,0.08)",color:isDet?"var(--red2)":"var(--green2)",border:"1px solid "+(isDet?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{isDet?"DETAINED":"ACTIVE"}</span>
-          <span style={{fontSize:"9px",color:"var(--blue)",fontWeight:500}}>View case →</span>
+          <span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:isDet?"var(--red-bg)":"rgba(34,197,94,0.08)",color:isDet?"var(--red2)":"var(--green2)",border:"1px solid "+(isDet?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{isDet?"DETAINED":"ACTIVE"}</span>
+          <span style={{fontSize:"13px",color:"var(--blue)",fontWeight:500}}>View case →</span>
         </div>
       </div>
     </div>
@@ -457,7 +457,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===("Jun 2026")).length,c:"var(--blue)"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
-            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
           </div>
         ))}
@@ -465,33 +465,33 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       {/* Filters */}
       <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
         <div style={{display:"flex",gap:"6px",border:"1px solid var(--border)",borderRadius:"6px",overflow:"hidden"}}>
-          <button onClick={()=>setViewMode("active")} style={{padding:"6px 12px",border:"none",background:viewMode==="active"?"var(--blue)":"var(--bg3)",color:viewMode==="active"?"#fff":"var(--text3)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>Active</button>
-          <button onClick={()=>setViewMode("archive")} style={{padding:"6px 12px",border:"none",background:viewMode==="archive"?"var(--amber)":"var(--bg3)",color:viewMode==="archive"?"#fff":"var(--text3)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>Archive</button>
+          <button onClick={()=>setViewMode("active")} style={{padding:"6px 12px",border:"none",background:viewMode==="active"?"var(--blue)":"var(--bg3)",color:viewMode==="active"?"#fff":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>Active</button>
+          <button onClick={()=>setViewMode("archive")} style={{padding:"6px 12px",border:"none",background:viewMode==="archive"?"var(--amber)":"var(--bg3)",color:viewMode==="archive"?"#fff":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>Archive</button>
         </div>
-        <button onClick={()=>setShowNewCase(true)} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>+ New case</button>
+        <button onClick={()=>setShowNewCase(true)} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500}}>+ New case</button>
         <CaseImport onImported={refreshVessels} />
-        <button onClick={()=>{setSelectMode(s=>!s);setSelectedVessels([]);}} style={{padding:"7px 14px",border:"1px solid "+(selectMode?"var(--amber)":"var(--border)"),borderRadius:"6px",background:selectMode?"var(--amber-bg)":"var(--bg3)",color:selectMode?"var(--amber2)":"var(--text3)",cursor:"pointer",fontSize:"12px"}}>
+        <button onClick={()=>{setSelectMode(s=>!s);setSelectedVessels([]);}} style={{padding:"7px 14px",border:"1px solid "+(selectMode?"var(--amber)":"var(--border)"),borderRadius:"6px",background:selectMode?"var(--amber-bg)":"var(--bg3)",color:selectMode?"var(--amber2)":"var(--text3)",cursor:"pointer",fontSize:"13px"}}>
           {selectMode?"✓ Selecting":"Select"}
         </button>
-        <select value={month} onChange={e=>{setMonth(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+        <select value={month} onChange={e=>{setMonth(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {MONTHS.map(m=><option key={m}>{m}</option>)}
         </select>
-        <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+        <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {["All","Detained","Active"].map(s=><option key={s}>{s}</option>)}
         </select>
-        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel or IMO..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none",width:"180px"}} />
-        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}} />
-        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}} />
-        {(search||fromDate||toDate||month!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setMonth("All");setStatusFilter("All");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>Clear</button>}
-        <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} vessels{detained.length>0&&<span style={{color:"var(--red2)"}}> · {detained.length} detained</span>}{loading&&" · Loading..."}{saving&&" · Saving..."}</span>
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel or IMO..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",width:"180px"}} />
+        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
+        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
+        {(search||fromDate||toDate||month!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setMonth("All");setStatusFilter("All");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} vessels{detained.length>0&&<span style={{color:"var(--red2)"}}> · {detained.length} detained</span>}{loading&&" · Loading..."}{saving&&" · Saving..."}</span>
       </div>
 
       {/* Select bulk action bar */}
       {selectMode&&selectedVessels.length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"10px 14px",marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
-          <span style={{fontSize:"11px",color:"var(--amber2)",fontFamily:"var(--mono)"}}>{selectedVessels.length} vessel{selectedVessels.length>1?"s":""} selected</span>
-          <button onClick={()=>setSelectedVessels([])} style={{fontSize:"10px",padding:"3px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Clear</button>
-          {canDelete&&<button onClick={deleteSelectedVessels} style={{fontSize:"10px",padding:"3px 10px",border:"1px solid var(--red)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontWeight:600}}>Delete selected</button>}
+          <span style={{fontSize:"13px",color:"var(--amber2)",fontFamily:"var(--mono)"}}>{selectedVessels.length} vessel{selectedVessels.length>1?"s":""} selected</span>
+          <button onClick={()=>setSelectedVessels([])} style={{fontSize:"13px",padding:"3px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Clear</button>
+          {canDelete&&<button onClick={deleteSelectedVessels} style={{fontSize:"13px",padding:"3px 10px",border:"1px solid var(--red)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontWeight:600}}>Delete selected</button>}
         </div>
       )}
 
@@ -506,7 +506,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             return (<>
               {pageDetained.length>0&&(
                 <div style={{marginBottom:"10px"}}>
-                  <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--red2)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Detained</div>
+                  <div style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--red2)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Detained</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
                     {pageDetained.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;})}
                   </div>
@@ -514,25 +514,25 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               )}
               {pageActive.length>0&&(
                 <div style={{marginBottom:"10px"}}>
-                  <div style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--text3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Active / released</div>
+                  <div style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--text3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Active / released</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
                     {pageActive.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;})}
                   </div>
                 </div>
               )}
-              {filtered.length===0&&!loading&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"16px 0",fontFamily:"var(--mono)"}}>No vessels match filters.</div>}
+              {filtered.length===0&&!loading&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"16px 0",fontFamily:"var(--mono)"}}>No vessels match filters.</div>}
               {totalPages>1&&(
                 <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",marginTop:"16px",paddingTop:"12px",borderTop:"1px solid var(--border)"}}>
-                  <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>«</button>
-                  <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>‹</button>
+                  <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"13px"}}>«</button>
+                  <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"13px"}}>‹</button>
                   {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>p===1||p===totalPages||Math.abs(p-page)<=1).reduce((acc,p,idx,arr)=>{if(idx>0&&p-arr[idx-1]>1)acc.push("...");acc.push(p);return acc;},[]).map((p,i)=>(
                     p==="..."
-                      ?<span key={i} style={{padding:"5px 4px",color:"var(--text3)",fontSize:"11px"}}>…</span>
-                      :<button key={i} onClick={()=>setPage(p)} style={{padding:"5px 10px",border:"1px solid "+(page===p?"var(--blue)":"var(--border)"),borderRadius:"5px",background:page===p?"var(--blue)":"var(--bg3)",color:page===p?"#fff":"var(--text2)",cursor:"pointer",fontSize:"11px",fontWeight:page===p?600:400,minWidth:"32px"}}>{p}</button>
+                      ?<span key={i} style={{padding:"5px 4px",color:"var(--text3)",fontSize:"13px"}}>…</span>
+                      :<button key={i} onClick={()=>setPage(p)} style={{padding:"5px 10px",border:"1px solid "+(page===p?"var(--blue)":"var(--border)"),borderRadius:"5px",background:page===p?"var(--blue)":"var(--bg3)",color:page===p?"#fff":"var(--text2)",cursor:"pointer",fontSize:"13px",fontWeight:page===p?600:400,minWidth:"32px"}}>{p}</button>
                   ))}
-                  <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>›</button>
-                  <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>»</button>
-                  <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>Page {page} of {totalPages} · {allCards.length} cases</span>
+                  <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"13px"}}>›</button>
+                  <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"13px"}}>»</button>
+                  <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>Page {page} of {totalPages} · {allCards.length} cases</span>
                 </div>
               )}
             </>);
@@ -542,8 +542,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
       {viewMode==="archive"&&(
         <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"10px",padding:"16px",marginBottom:"14px"}}>
-          <div style={{fontSize:"12px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>Archive folder</div>
-          <div style={{fontSize:"11px",color:"var(--text3)"}}>Vessels you archive will appear here. No archived vessels yet.</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px"}}>Archive folder</div>
+          <div style={{fontSize:"13px",color:"var(--text3)"}}>Vessels you archive will appear here. No archived vessels yet.</div>
         </div>
       )}
 
@@ -552,9 +552,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{setModalVessel(null);setSel(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(960px,75vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s",position:"relative",zIndex:10000}}>
             <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)",position:"sticky",top:0,zIndex:10}}>
-              <div style={{fontSize:"11px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
+              <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
               <div style={{display:"flex",gap:"6px"}}>
-                <button onClick={()=>setModalFull(f=>!f)} title={modalFull?"Minimize":"Fullscreen"} style={{border:"1px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"12px",padding:"3px 9px",borderRadius:"4px"}}>{modalFull?"⭳":"⛶"}</button>
+                <button onClick={()=>setModalFull(f=>!f)} title={modalFull?"Minimize":"Fullscreen"} style={{border:"1px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px",padding:"3px 9px",borderRadius:"4px"}}>{modalFull?"⭳":"⛶"}</button>
                 <button onClick={()=>{setModalVessel(null);setSel(null);}} title="Close" style={{border:"none",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"20px",lineHeight:1,padding:"0px 8px",borderRadius:"4px",fontWeight:300}}>{"×"}</button>
               </div>
             </div>
@@ -566,21 +566,21 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>{v.name}</div>
                 {v.detentionDate&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)",borderLeft:"2px solid var(--border2)",paddingLeft:"10px"}}>{v.detentionDate}</div>}
               </div>
-              <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port}</div>
-              <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>Case Owner: <strong style={{color:"var(--text2)"}}>{v.caseOwner}</strong> · Task Owners: <strong style={{color:"var(--text2)"}}>{v.taskOwners?.join(", ")||"—"}</strong></div>
+              <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port}</div>
+              <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>Case Owner: <strong style={{color:"var(--text2)"}}>{v.caseOwner}</strong> · Task Owners: <strong style={{color:"var(--text2)"}}>{v.taskOwners?.join(", ")||"—"}</strong></div>
               {/* Smart auto-generated alerts */}
               {(()=>{const alerts=getSmartAlerts(v,intel,vesselTasks);return alerts.length>0&&(
                 <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginTop:"8px"}}>
                   {alerts.map((a,i)=>(
-                    <div key={i} style={{padding:"4px 10px",borderRadius:"5px",background:a.sev==="red"?"var(--red-bg)":"var(--amber-bg)",border:"1px solid "+(a.sev==="red"?"#3D1A1A":"var(--amber)"),fontSize:"10px",fontWeight:600,color:a.sev==="red"?"var(--red2)":"var(--amber2)",fontFamily:"var(--mono)"}}>{a.msg}</div>
+                    <div key={i} style={{padding:"4px 10px",borderRadius:"5px",background:a.sev==="red"?"var(--red-bg)":"var(--amber-bg)",border:"1px solid "+(a.sev==="red"?"#3D1A1A":"var(--amber)"),fontSize:"13px",fontWeight:600,color:a.sev==="red"?"var(--red2)":"var(--amber2)",fontFamily:"var(--mono)"}}>{a.msg}</div>
                   ))}
                 </div>
               );})()}
             </div>
             <div style={{display:"flex",gap:"7px",flexWrap:"wrap"}}>
-              {canDownload&&<button onClick={downloadSummary} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download summary</button>}
-              {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer"}}>Edit vessel</button>}
-              {canDelete&&<button onClick={()=>setShowDeleteConfirm(v)} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Delete</button>}
+              {canDownload&&<button onClick={downloadSummary} style={{fontSize:"13px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download summary</button>}
+              {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"6px 12px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer"}}>Edit vessel</button>}
+              {canDelete&&<button onClick={()=>setShowDeleteConfirm(v)} style={{fontSize:"13px",padding:"6px 12px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Delete</button>}
             </div>
           </div>
 
@@ -589,7 +589,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
             {[{l:"Status",v2:v.detained?"DETAINED":"ACTIVE",c:v.detained?"var(--red2)":"var(--amber2)",bold:true},{l:"Deficiencies",v2:v.defs||v.deficiencies?.length||0,c:"var(--text)",bold:false},{l:"Detainable",v2:v.detainable||0,c:"var(--red2)",bold:false},{l:"MoU",v2:v.mou,c:"var(--text2)",bold:false},{l:"Detention Date",v2:v.detentionDate,c:"var(--text)",bold:true}].map(m=>(
               <div key={m.l} style={{background:"var(--bg2)",border:"1px solid "+(m.bold&&m.l==="Detention Date"?"var(--border2)":"var(--border)"),borderRadius:"8px",padding:"10px 12px"}}>
-                <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>{m.l}</div>
+                <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>{m.l}</div>
                 <div style={{fontSize:m.bold?"15px":"13px",fontWeight:m.bold?700:500,color:m.c,fontFamily:m.l==="Detention Date"?"var(--mono)":"inherit"}}>{m.v2}</div>
               </div>
             ))}
@@ -597,7 +597,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px",overflowX:"auto"}}>
             {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"Case Documents"},{id:"intelligence",l:"Vessel History"},{id:"timeline",l:"Timeline"},{id:"summary",l:"Summary"},{id:"report",l:"EVP Report"},{id:"cqa",l:"CAR Quality"}].map(t=>(
-              <div key={t.id} onClick={()=>{setTab(t.id);if(t.id==="intelligence"&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"11px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
+              <div key={t.id} onClick={()=>{setTab(t.id);if(t.id==="intelligence"&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
             ))}
           </div>
 
@@ -606,11 +606,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:"9px"}}>
-                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
-                  {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
+                  {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
                 {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
-                  <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"11px"}}>
+                  <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
                   </div>
@@ -618,19 +618,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               </div>
               <div>
                 <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"13px",marginBottom:"10px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Release condition</div>
-                  <div style={{fontSize:"11px",color:"var(--red2)",lineHeight:1.6}}>{v.release||"Upload PSC Form A+B to extract release conditions"}</div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Release condition</div>
+                  <div style={{fontSize:"13px",color:"var(--red2)",lineHeight:1.6}}>{v.release||"Upload PSC Form A+B to extract release conditions"}</div>
                 </div>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                  <div style={{fontSize:"12px",fontWeight:600,marginBottom:"9px",color:"var(--text)"}}>Open tasks ({vesselTasks.filter(t=>t.status!=="Executed").length})</div>
+                  <div style={{fontSize:"13px",fontWeight:600,marginBottom:"9px",color:"var(--text)"}}>Open tasks ({vesselTasks.filter(t=>t.status!=="Executed").length})</div>
                   {vesselTasks.slice(0,4).map((t,i)=>(
-                    <div key={i} style={{display:"flex",gap:"8px",padding:"6px 0",borderBottom:"1px solid var(--border)",fontSize:"11px"}}>
-                      <span className={"badge "+PRI[t.priority]} style={{fontSize:"9px",flexShrink:0}}>{t.priority}</span>
+                    <div key={i} style={{display:"flex",gap:"8px",padding:"6px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
+                      <span className={"badge "+PRI[t.priority]} style={{fontSize:"13px",flexShrink:0}}>{t.priority}</span>
                       <span style={{color:"var(--text2)",lineHeight:1.4}}>{t.title.slice(0,70)}{t.title.length>70?"...":""}</span>
                     </div>
                   ))}
-                  {vesselTasks.length===0&&<div style={{fontSize:"11px",color:"var(--text3)"}}>No tasks — import PDAIP CSV to link tasks</div>}
-                  {vesselTasks.length>4&&<button onClick={()=>setTab("tasks")} style={{marginTop:"8px",fontSize:"10px",padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>See all {vesselTasks.length} tasks</button>}
+                  {vesselTasks.length===0&&<div style={{fontSize:"13px",color:"var(--text3)"}}>No tasks — import PDAIP CSV to link tasks</div>}
+                  {vesselTasks.length>4&&<button onClick={()=>setTab("tasks")} style={{marginTop:"8px",fontSize:"13px",padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>See all {vesselTasks.length} tasks</button>}
                 </div>
               </div>
             </div>
@@ -640,11 +640,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {tab==="documents"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",gap:"10px"}}>
-                <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 13px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",flex:1}}>
+                <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 13px",fontSize:"13px",border:"1px solid var(--border)",color:"var(--text2)",flex:1}}>
                   Upload documents per slot. AI reads PDFs and DOCX files and auto-populates deficiencies, gaps, EVP Q&A. Documents saved permanently to Supabase.
                 </div>
                 {dbDocs.filter(d=>!d.analyzed).length>0&&(
-                  <button onClick={analyzeAllDocuments} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"11px",fontWeight:500,flexShrink:0}}>
+                  <button onClick={analyzeAllDocuments} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500,flexShrink:0}}>
                     Analyze all ({dbDocs.filter(d=>!d.analyzed).length} pending)
                   </button>
                 )}
@@ -657,10 +657,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"8px",marginBottom:"8px"}}>
                         <div>
                           <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"}}>
-                            <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>{docType.label}</div>
-                            {docType.required&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--blue-bg)",color:"var(--blue)",fontFamily:"var(--mono)",fontWeight:600}}>REQUIRED</span>}
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>{docType.label}</div>
+                            {docType.required&&<span style={{fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--blue-bg)",color:"var(--blue)",fontFamily:"var(--mono)",fontWeight:600}}>REQUIRED</span>}
                           </div>
-                          <div style={{fontSize:"10px",color:"var(--text3)"}}>{docType.desc}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)"}}>{docType.desc}</div>
                         </div>
                         <div style={{width:"10px",height:"10px",borderRadius:"50%",background:typeDocs.length>0?"var(--green)":"var(--border2)",flexShrink:0,marginTop:"4px"}}></div>
                       </div>
@@ -669,21 +669,21 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{marginBottom:"8px"}}>
                           {typeDocs.map(doc=>(
                             <div key={doc.id} style={{background:doc.analyzed?"var(--green-bg)":"var(--bg3)",border:"1px solid "+(doc.analyzed?"#1A3016":"var(--border)"),borderRadius:"6px",padding:"8px 10px",marginBottom:"6px"}}>
-                              <div style={{fontSize:"10px",color:doc.analyzed?"var(--green2)":"var(--text2)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{doc.file_name}</div>
-                              <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"6px"}}>{(doc.file_size/1024).toFixed(0)} KB · {doc.analyzed?"Analyzed":"Ready to analyze"}</div>
+                              <div style={{fontSize:"13px",color:doc.analyzed?"var(--green2)":"var(--text2)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{doc.file_name}</div>
+                              <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"6px"}}>{(doc.file_size/1024).toFixed(0)} KB · {doc.analyzed?"Analyzed":"Ready to analyze"}</div>
                               <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
                                 {!doc.analyzed&&(
                                   <button onClick={()=>analyzeDocument(doc)} disabled={analyzing[doc.id]}
-                                    style={{fontSize:"9px",padding:"2px 8px",border:"1px solid var(--blue)",borderRadius:"3px",background:"var(--blue-bg)",color:analyzing[doc.id]?"var(--text3)":"var(--blue)",cursor:"pointer"}}>
+                                    style={{fontSize:"13px",padding:"2px 8px",border:"1px solid var(--blue)",borderRadius:"3px",background:"var(--blue-bg)",color:analyzing[doc.id]?"var(--text3)":"var(--blue)",cursor:"pointer"}}>
                                     {analyzing[doc.id]?"Analyzing...":"Analyze"}
                                   </button>
                                 )}
-                                {doc.analyzed&&<span style={{fontSize:"9px",color:"var(--green2)",fontFamily:"var(--mono)",alignSelf:"center"}}>✓ Done</span>}
+                                {doc.analyzed&&<span style={{fontSize:"13px",color:"var(--green2)",fontFamily:"var(--mono)",alignSelf:"center"}}>✓ Done</span>}
                                 {canDownload&&doc.storage_path&&(
-                                  <button onClick={()=>handleDownloadDoc(doc)} style={{fontSize:"9px",padding:"2px 8px",border:"1px solid var(--green)",borderRadius:"3px",background:"transparent",color:"var(--green2)",cursor:"pointer"}}>↓ Download</button>
+                                  <button onClick={()=>handleDownloadDoc(doc)} style={{fontSize:"13px",padding:"2px 8px",border:"1px solid var(--green)",borderRadius:"3px",background:"transparent",color:"var(--green2)",cursor:"pointer"}}>↓ Download</button>
                                 )}
                                 {canDelete&&(
-                                  <button onClick={()=>handleDeleteDoc(doc)} style={{fontSize:"9px",padding:"2px 8px",border:"1px solid var(--red-bg)",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Delete</button>
+                                  <button onClick={()=>handleDeleteDoc(doc)} style={{fontSize:"13px",padding:"2px 8px",border:"1px solid var(--red-bg)",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer"}}>Delete</button>
                                 )}
                               </div>
                             </div>
@@ -692,7 +692,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       )}
 
                       {canEdit&&(
-                        <label style={{display:"block",padding:"8px",border:"1px dashed var(--border2)",borderRadius:"6px",textAlign:"center",cursor:"pointer",fontSize:"11px",color:"var(--text3)"}}>
+                        <label style={{display:"block",padding:"8px",border:"1px dashed var(--border2)",borderRadius:"6px",textAlign:"center",cursor:"pointer",fontSize:"13px",color:"var(--text3)"}}>
                           <input type="file" style={{display:"none"}} accept=".pdf,.docx,.doc" multiple={docType.multiple} onChange={e=>e.target.files.length>0&&handleDocUpload(docType.key,e.target.files)} />
                           + {typeDocs.length>0?"Add more":"Upload"} {docType.label}
                         </label>
@@ -708,7 +708,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {tab==="deficiencies"&&(()=>{
             // Priority 1: use flag_psc_findings table
             // Priority 2: fall back to AI-extracted deficiencies from PSC report
-            if (intel.loading) return <div style={{padding:"30px",textAlign:"center",color:"var(--text3)",fontSize:"12px"}}>Loading findings data...</div>;
+            if (intel.loading) return <div style={{padding:"30px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading findings data...</div>;
             const allFindings = intel?.findings||[];
             const pscFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
             const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
@@ -746,13 +746,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <div>
                 {/* Source indicator */}
                 <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
-                  <div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:usePscTable?"rgba(34,197,94,0.1)":"rgba(59,130,246,0.1)",color:usePscTable?"var(--green2)":"var(--blue)",border:"1px solid "+(usePscTable?"rgba(34,197,94,0.3)":"var(--blue)"),fontWeight:500}}>
+                  <div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:usePscTable?"rgba(34,197,94,0.1)":"rgba(59,130,246,0.1)",color:usePscTable?"var(--green2)":"var(--blue)",border:"1px solid "+(usePscTable?"rgba(34,197,94,0.3)":"var(--blue)"),fontWeight:500}}>
                     PSC: {usePscTable?"From Flag & PSC Findings report ("+pscFindings.length+" findings)":"From uploaded PSC report ("+pscReportDefs.length+" findings)"}
                   </div>
-                  {lastFlagFindings.length>0&&<div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:"rgba(245,158,11,0.1)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:500}}>
+                  {lastFlagFindings.length>0&&<div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:"rgba(245,158,11,0.1)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:500}}>
                     Flag: {lastFlagDate} — {lastFlagFindings.length} findings
                   </div>}
-                  {matchedCodes.length>0&&<div style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontWeight:600}}>
+                  {matchedCodes.length>0&&<div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontWeight:600}}>
                     ⚠ {matchedCodes.length} matching codes
                   </div>}
                 </div>
@@ -760,8 +760,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* View tabs */}
                 <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
                   {[{id:"psc",l:"PSC Findings ("+(pscToShow.length)+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"},{id:"cqa",l:"CAR Quality"}].map(t=>(
-                    <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"11px",fontWeight:defView===t.id?600:400}}>
-                      {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
+                    <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:defView===t.id?600:400}}>
+                      {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
                     </button>
                   ))}
                 </div>
@@ -769,12 +769,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* PSC Findings */}
                 {defView==="psc"&&(
                   <div>
-                    <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",border:"1px solid var(--border)",color:"var(--text2)",marginBottom:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",fontSize:"13px",border:"1px solid var(--border)",color:"var(--text2)",marginBottom:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <span>Code 30 = detention · Code 17 = rectify before departure · Code 35 = allowed to sail</span>
-                      {canEdit&&pscReportDefs.length>0&&<button onClick={()=>{const idx=prompt("Enter deficiency number to edit (1-"+pscReportDefs.length+"):");if(!idx)return;const i=parseInt(idx)-1;if(i<0||i>=pscReportDefs.length)return;setEditModal({type:"deficiency",index:i,data:{...pscReportDefs[i]}});}} style={{padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>Edit</button>}
+                      {canEdit&&pscReportDefs.length>0&&<button onClick={()=>{const idx=prompt("Enter deficiency number to edit (1-"+pscReportDefs.length+"):");if(!idx)return;const i=parseInt(idx)-1;if(i<0||i>=pscReportDefs.length)return;setEditModal({type:"deficiency",index:i,data:{...pscReportDefs[i]}});}} style={{padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Edit</button>}
                     </div>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["#","Code","Description","Action","Detainable","Match?"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                      <thead><tr>{["#","Code","Description","Action","Detainable","Match?"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{pscToShow.map((d,i)=>{
                         const isMatch = d.defect_code&&flagCodes.has(d.defect_code);
                         const detainable = d.detainable||String(d.action).trim()==="30"||d.action===30;
@@ -783,37 +783,37 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{i+1}</td>
                             <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text2)",whiteSpace:"nowrap"}}>{d.defect_code||d.code}</td>
                             <td style={{padding:"8px 10px",color:"var(--text2)",lineHeight:1.4,maxWidth:"320px"}}>{d.main_defect_text||d.full_description||d.desc}</td>
-                            <td style={{padding:"8px 10px"}}><span style={{fontFamily:"var(--mono)",fontSize:"11px",fontWeight:600,color:AC[String(d.action)]||"var(--text3)"}}>{d.action}</span></td>
-                            <td style={{padding:"8px 10px",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:""}</td>
-                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ In Flag</span>:<span style={{fontSize:"9px",color:"var(--text3)"}}>New</span>}</td>
+                            <td style={{padding:"8px 10px"}}><span style={{fontFamily:"var(--mono)",fontSize:"13px",fontWeight:600,color:AC[String(d.action)]||"var(--text3)"}}>{d.action}</span></td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"13px"}}>YES</span>:""}</td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ In Flag</span>:<span style={{fontSize:"13px",color:"var(--text3)"}}>New</span>}</td>
                           </tr>
                         );
                       })}</tbody>
                     </table>
-                    {pscToShow.length===0&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No PSC findings found. Upload Flag & PSC Findings report or PSC Form A+B.</div>}
+                    {pscToShow.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No PSC findings found. Upload Flag & PSC Findings report or PSC Form A+B.</div>}
                   </div>
                 )}
 
                 {/* Flag Findings */}
                 {defView==="flag"&&(
                   <div>
-                    {lastFlagDate&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"8px 12px",fontSize:"11px",color:"var(--amber2)",marginBottom:"10px"}}>Last Flag inspection: {lastFlagDate} — {lastFlagFindings.length} findings</div>}
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["#","Code","Category","Description","Match with PSC?"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    {lastFlagDate&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"8px 12px",fontSize:"13px",color:"var(--amber2)",marginBottom:"10px"}}>Last Flag inspection: {lastFlagDate} — {lastFlagFindings.length} findings</div>}
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                      <thead><tr>{["#","Code","Category","Description","Match with PSC?"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{lastFlagFindings.map((d,i)=>{
                         const isMatch = d.defect_code&&pscCodes.has(d.defect_code);
                         return (
                           <tr key={i} style={{background:isMatch?"rgba(239,68,68,0.04)":"",borderBottom:"1px solid var(--border)"}}>
                             <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{i+1}</td>
                             <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text2)",whiteSpace:"nowrap"}}>{d.defect_code}</td>
-                            <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"10px",fontWeight:500,whiteSpace:"nowrap"}}>{d.main_defect_text}</td>
+                            <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"13px",fontWeight:500,whiteSpace:"nowrap"}}>{d.main_defect_text}</td>
                             <td style={{padding:"8px 10px",color:"var(--text2)",lineHeight:1.4,maxWidth:"300px"}}>{d.full_description}</td>
-                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ Found in PSC</span>:<span style={{fontSize:"9px",color:"var(--text3)"}}>Flag only</span>}</td>
+                            <td style={{padding:"8px 10px",textAlign:"center"}}>{isMatch?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ Found in PSC</span>:<span style={{fontSize:"13px",color:"var(--text3)"}}>Flag only</span>}</td>
                           </tr>
                         );
                       })}</tbody>
                     </table>
-                    {lastFlagFindings.length===0&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No Flag findings found. Upload Flag & PSC Findings report.</div>}
+                    {lastFlagFindings.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No Flag findings found. Upload Flag & PSC Findings report.</div>}
                   </div>
                 )}
 
@@ -827,28 +827,28 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {l:"Flag Only",v:flagOnlyCodes.length,c:"var(--text3)",s:"Flag found, PSC missed",bg:"var(--bg3)",b:"var(--border)"},
                       ].map(s=>(
                         <div key={s.l} style={{background:s.bg,border:"1px solid "+s.b,borderRadius:"8px",padding:"12px 14px"}}>
-                          <div style={{fontSize:"9px",color:s.c,textTransform:"uppercase",marginBottom:"4px",opacity:0.8}}>{s.l}</div>
+                          <div style={{fontSize:"13px",color:s.c,textTransform:"uppercase",marginBottom:"4px",opacity:0.8}}>{s.l}</div>
                           <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-                          <div style={{fontSize:"9px",color:s.c,opacity:0.7,marginTop:"2px"}}>{s.s}</div>
+                          <div style={{fontSize:"13px",color:s.c,opacity:0.7,marginTop:"2px"}}>{s.s}</div>
                         </div>
                       ))}
                     </div>
 
                     {matchedCodes.length>0&&(
                       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-                        <div style={{fontSize:"11px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Known Issues — Found in Both Flag & PSC ({matchedCodes.length})</div>
-                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"10px"}}>These deficiencies were identified in the last Flag inspection AND reappeared at PSC detention — known issues not resolved</div>
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                          <thead><tr>{["Code","Category (Flag)","Description (Flag)","Description (PSC)"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Known Issues — Found in Both Flag & PSC ({matchedCodes.length})</div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>These deficiencies were identified in the last Flag inspection AND reappeared at PSC detention — known issues not resolved</div>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                          <thead><tr>{["Code","Category (Flag)","Description (Flag)","Description (PSC)"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                           <tbody>{matchedCodes.map((code,i)=>{
                             const flagDef = lastFlagFindings.find(f=>f.defect_code===code);
                             const pscDef = pscToShow.find(f=>(f.defect_code||f.code)===code);
                             return (
                               <tr key={i} style={{background:"rgba(239,68,68,0.04)",borderBottom:"1px solid var(--border)"}}>
                                 <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--red2)",fontWeight:700}}>{code}</td>
-                                <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"10px",fontWeight:500}}>{flagDef?.main_defect_text||"—"}</td>
-                                <td style={{padding:"8px 10px",color:"var(--text3)",fontSize:"10px",maxWidth:"200px"}}>{flagDef?.full_description?.slice(0,80)||"—"}</td>
-                                <td style={{padding:"8px 10px",color:"var(--text2)",fontSize:"10px",maxWidth:"200px"}}>{pscDef?.full_description?.slice(0,80)||pscDef?.desc?.slice(0,80)||"—"}</td>
+                                <td style={{padding:"8px 10px",color:"var(--amber2)",fontSize:"13px",fontWeight:500}}>{flagDef?.main_defect_text||"—"}</td>
+                                <td style={{padding:"8px 10px",color:"var(--text3)",fontSize:"13px",maxWidth:"200px"}}>{flagDef?.full_description?.slice(0,80)||"—"}</td>
+                                <td style={{padding:"8px 10px",color:"var(--text2)",fontSize:"13px",maxWidth:"200px"}}>{pscDef?.full_description?.slice(0,80)||pscDef?.desc?.slice(0,80)||"—"}</td>
                               </tr>
                             );
                           })}</tbody>
@@ -858,12 +858,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                     {pscOnlyCodes.length>0&&(
                       <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-                        <div style={{fontSize:"11px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>New at PSC — Not in Last Flag Inspection ({pscOnlyCodes.length})</div>
-                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>These issues were not found in the last Flag inspection — new deficiencies or deterioration since last Flag visit</div>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>New at PSC — Not in Last Flag Inspection ({pscOnlyCodes.length})</div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"8px"}}>These issues were not found in the last Flag inspection — new deficiencies or deterioration since last Flag visit</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
                           {pscOnlyCodes.map(code=>{
                             const d = pscToShow.find(f=>(f.defect_code||f.code)===code);
-                            return <span key={code} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
+                            return <span key={code} style={{fontSize:"13px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
                           })}
                         </div>
                       </div>
@@ -871,12 +871,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                     {flagOnlyCodes.length>0&&(
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                        <div style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",marginBottom:"4px"}}>Flag Only — Not Found at PSC ({flagOnlyCodes.length})</div>
-                        <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>These Flag findings did not appear at PSC detention — may have been resolved or PSC did not inspect those areas</div>
+                        <div style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",marginBottom:"4px"}}>Flag Only — Not Found at PSC ({flagOnlyCodes.length})</div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"8px"}}>These Flag findings did not appear at PSC detention — may have been resolved or PSC did not inspect those areas</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
                           {flagOnlyCodes.map(code=>{
                             const d = lastFlagFindings.find(f=>f.defect_code===code);
-                            return <span key={code} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",border:"1px solid var(--border)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
+                            return <span key={code} style={{fontSize:"13px",padding:"2px 8px",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",border:"1px solid var(--border)",fontFamily:"var(--mono)"}}>{code}{d?.main_defect_text?" — "+d.main_defect_text:""}</span>;
                           })}
                         </div>
                       </div>
@@ -903,27 +903,27 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                       return (
                         <div style={{background:"var(--bg2)",border:"1px solid "+(hasReoccurrence&&carClosed?"#3D1A1A":carOpen?"#3D1A1A":"rgba(34,197,94,0.3)"),borderRadius:"8px",padding:"14px",marginTop:"4px"}}>
-                          <div style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px",color:hasReoccurrence&&carClosed?"var(--red2)":carOpen?"var(--amber2)":"var(--green2)"}}>
+                          <div style={{fontSize:"13px",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px",color:hasReoccurrence&&carClosed?"var(--red2)":carOpen?"var(--amber2)":"var(--green2)"}}>
                             CAR Quality Analysis
                           </div>
 
                           {/* CAR Summary */}
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"12px"}}>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Flag Inspection</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.insp_date||"—"} — {lastFlagCAR.insp_type||"—"}</div></div>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Findings in CAR</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.num_findings||0} findings</div></div>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Status</div><div style={{fontSize:"11px",fontWeight:600,color:carClosed?"var(--green2)":"var(--amber2)"}}>{lastFlagCAR.car_status||"—"}</div></div>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Days Open</div><div style={{fontSize:"11px",color:daysOpen>60?"var(--red2)":"var(--text)",fontWeight:500}}>{daysOpen!=null?daysOpen+" days":"—"}</div></div>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Due / Closed Date</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{dueDate||"—"}{wasOverdue?" — OVERDUE":""}</div></div>
-                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Assigned To</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.assigned_to||"—"}</div></div>
-                            {carClosed&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>Closed By</div><div style={{fontSize:"11px",color:"var(--text)",fontWeight:500}}>{closedBy||"—"}</div></div>}
-                            {lastFlagCAR.car_link&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)",gridColumn:"span 2"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Link</div><a href={lastFlagCAR.car_link} target="_blank" rel="noreferrer" style={{fontSize:"11px",color:"var(--blue)"}}>View in Waypoint</a></div>}
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Flag Inspection</div><div style={{fontSize:"13px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.insp_date||"—"} — {lastFlagCAR.insp_type||"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Findings in CAR</div><div style={{fontSize:"13px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.num_findings||0} findings</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Status</div><div style={{fontSize:"13px",fontWeight:600,color:carClosed?"var(--green2)":"var(--amber2)"}}>{lastFlagCAR.car_status||"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Days Open</div><div style={{fontSize:"13px",color:daysOpen>60?"var(--red2)":"var(--text)",fontWeight:500}}>{daysOpen!=null?daysOpen+" days":"—"}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Due / Closed Date</div><div style={{fontSize:"13px",color:"var(--text)",fontWeight:500}}>{dueDate||"—"}{wasOverdue?" — OVERDUE":""}</div></div>
+                            <div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Assigned To</div><div style={{fontSize:"13px",color:"var(--text)",fontWeight:500}}>{lastFlagCAR.assigned_to||"—"}</div></div>
+                            {carClosed&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>Closed By</div><div style={{fontSize:"13px",color:"var(--text)",fontWeight:500}}>{closedBy||"—"}</div></div>}
+                            {lastFlagCAR.car_link&&<div style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)",gridColumn:"span 2"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0}}>CAR Link</div><a href={lastFlagCAR.car_link} target="_blank" rel="noreferrer" style={{fontSize:"13px",color:"var(--blue)"}}>View in Waypoint</a></div>}
                           </div>
 
                           {/* Verdict */}
                           {carOpen&&(
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"8px"}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>⚠ CAR Open at Time of PSC Detention</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                              <div style={{fontSize:"13px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>⚠ CAR Open at Time of PSC Detention</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
                                 The CAR from the last Flag inspection ({lastFlagCAR.insp_date}) was <strong style={{color:"var(--amber2)"}}>{lastFlagCAR.car_status}</strong> when this PSC detention occurred{daysOpen?" ("+daysOpen+" days open)":""}. Outstanding corrective actions had not been resolved before PSC boarded the vessel.
                                 {wasOverdue?" The CAR was also past its due date of "+dueDate+".":""}
                               </div>
@@ -932,8 +932,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                           {carClosed&&hasReoccurrence&&(
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"8px"}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Deficiency Reoccurrence Post-CAR</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                              <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Deficiency Reoccurrence Post-CAR</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
                                 The CAR was marked <strong style={{color:"var(--green2)"}}>{lastFlagCAR.car_status}</strong> by {closedBy||"unknown"} on {dueDate||"unknown date"}. However, <strong style={{color:"var(--red2)"}}>{matchedCodes.length} matching deficiency code{matchedCodes.length>1?"s":""}</strong> ({matchedCodes.join(", ")}) reappeared at this PSC detention. The corrective actions may not have been effectively implemented before closure.
                               </div>
                             </div>
@@ -941,8 +941,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                           {carClosed&&!hasReoccurrence&&(
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--green-bg)",border:"1px solid rgba(34,197,94,0.3)",marginBottom:"8px"}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--green2)",marginBottom:"4px"}}>✓ No Deficiency Reoccurrence</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                              <div style={{fontSize:"13px",fontWeight:700,color:"var(--green2)",marginBottom:"4px"}}>✓ No Deficiency Reoccurrence</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
                                 CAR was <strong style={{color:"var(--green2)"}}>{lastFlagCAR.car_status}</strong> by {closedBy||"unknown"} on {dueDate||"unknown date"}. No matching deficiency codes were found at the PSC detention — corrective actions appear to have been effectively implemented.
                               </div>
                             </div>
@@ -952,7 +952,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     })()}
 
                     {matchedCodes.length===0&&pscOnlyCodes.length===0&&flagOnlyCodes.length===0&&(
-                      <div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>
+                      <div style={{textAlign:"center",color:"var(--text3)",fontSize:"13px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>
                     )}
                   </div>
                 )}
@@ -961,7 +961,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {defView==="cqa"&&(
                   <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
                     {(intel?.cars||[]).length===0&&(
-                      <div style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"12px"}}>No CAR data found. Upload CAR Status Report in Weekly Data.</div>
+                      <div style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No CAR data found. Upload CAR Status Report in Weekly Data.</div>
                     )}
                     {flagBeforeDetention.map(flagDate=>{
                       const flagGroup = lastFlagFindings.filter?lastFlagFindings:flagFromTable.filter(f=>f.insp_date===flagDate);
@@ -981,24 +981,24 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div key={flagDate} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",overflow:"hidden"}}>
                           <div style={{padding:"10px 14px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
                             <div>
-                              <span style={{fontSize:"12px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
-                              <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
-                              <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{daysB} days before detention</span>
+                              <span style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
+                              <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
+                              <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{daysB} days before detention</span>
                             </div>
-                            <span style={{fontSize:"10px",padding:"3px 10px",borderRadius:"4px",background:vbg,color:vc,border:"1px solid "+vb,fontWeight:600}}>{verdict}</span>
+                            <span style={{fontSize:"13px",padding:"3px 10px",borderRadius:"4px",background:vbg,color:vc,border:"1px solid "+vb,fontWeight:600}}>{verdict}</span>
                           </div>
                           <div style={{padding:"12px 14px"}}>
                             {car?(
                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
                                 {[["CAR Status",car.car_status,open,closed&&!reoccurred],["Findings",car.num_findings||flagGrp.length+" (from findings)",false,false],["Assigned To",car.assigned_to,false,false],["Days Open",car.days_open!=null?car.days_open+"d":"—",car.days_open>60,false],["Due/Closed",car.close_or_due_date,false,false],["Closed By",car.closed_by,false,closed&&!reoccurred]].map(([l,val,r,g])=>(
-                                  <div key={l} style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"120px",flexShrink:0}}>{l}</div><div style={{fontSize:"11px",color:r?"var(--amber2)":g?"var(--green2)":"var(--text)",fontWeight:r||g?600:500}}>{val||"—"}</div></div>
+                                  <div key={l} style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"120px",flexShrink:0}}>{l}</div><div style={{fontSize:"13px",color:r?"var(--amber2)":g?"var(--green2)":"var(--text)",fontWeight:r||g?600:500}}>{val||"—"}</div></div>
                                 ))}
                               </div>
-                            ):<div style={{fontSize:"11px",color:"var(--text3)",padding:"8px",marginBottom:"8px"}}>No CAR record found for this inspection.</div>}
-                            {car?.car_link&&<a href={car.car_link} target="_blank" rel="noreferrer" style={{fontSize:"10px",color:"var(--blue)",display:"block",marginBottom:"10px"}}>View CAR in Waypoint →</a>}
+                            ):<div style={{fontSize:"13px",color:"var(--text3)",padding:"8px",marginBottom:"8px"}}>No CAR record found for this inspection.</div>}
+                            {car?.car_link&&<a href={car.car_link} target="_blank" rel="noreferrer" style={{fontSize:"13px",color:"var(--blue)",display:"block",marginBottom:"10px"}}>View CAR in Waypoint →</a>}
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:vbg,border:"1px solid "+vb}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:vc,marginBottom:"4px"}}>{open?"⚠ ":reoccurred?"⚠ ":"✓ "}{verdict}</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                              <div style={{fontSize:"13px",fontWeight:700,color:vc,marginBottom:"4px"}}>{open?"⚠ ":reoccurred?"⚠ ":"✓ "}{verdict}</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
                                 {open&&`CAR was ${car.car_status} when PSC detained the vessel. Corrective actions from the ${flagDate} Flag inspection were not resolved before PSC boarding.`}
                                 {closed&&reoccurred&&`CAR marked ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. However ${matched.length} deficiency code${matched.length>1?"s":""} (${matched.join(", ")}) reappeared at PSC detention — corrective actions may not have been effectively implemented.`}
                                 {closed&&!reoccurred&&`CAR ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. No matching deficiency codes found at PSC detention — corrective actions appear to have been effectively implemented.`}
@@ -1007,20 +1007,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             </div>
                             {matched.length>0&&(
                               <div style={{marginTop:"10px"}}>
-                                <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Reoccurring Codes ({matched.length})</div>
+                                <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Reoccurring Codes ({matched.length})</div>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
                                   {matched.map(code=>{
                                     const fd=flagGrp.find(f=>f.defect_code===code);
                                     const pd=pscToShow.find(f=>f.defect_code===code);
-                                    return <div key={code} style={{padding:"6px 10px",borderRadius:"5px",background:"var(--red-bg)",border:"1px solid #3D1A1A",fontSize:"10px"}}><div style={{fontFamily:"var(--mono)",fontWeight:700,color:"var(--red2)",marginBottom:"2px"}}>{code}</div><div style={{color:"var(--text3)"}}>Flag: {fd?.main_defect_text?.slice(0,50)||"—"}</div><div style={{color:"var(--text2)"}}>PSC: {pd?.main_defect_text?.slice(0,50)||"—"}</div></div>;
+                                    return <div key={code} style={{padding:"6px 10px",borderRadius:"5px",background:"var(--red-bg)",border:"1px solid #3D1A1A",fontSize:"13px"}}><div style={{fontFamily:"var(--mono)",fontWeight:700,color:"var(--red2)",marginBottom:"2px"}}>{code}</div><div style={{color:"var(--text3)"}}>Flag: {fd?.main_defect_text?.slice(0,50)||"—"}</div><div style={{color:"var(--text2)"}}>PSC: {pd?.main_defect_text?.slice(0,50)||"—"}</div></div>;
                                   })}
                                 </div>
                               </div>
                             )}
                             <details style={{marginTop:"10px"}}>
-                              <summary style={{fontSize:"10px",color:"var(--text3)",cursor:"pointer"}}>Flag findings on {flagDate} ({flagGrp.length})</summary>
+                              <summary style={{fontSize:"13px",color:"var(--text3)",cursor:"pointer"}}>Flag findings on {flagDate} ({flagGrp.length})</summary>
                               <div style={{marginTop:"6px",display:"flex",flexDirection:"column",gap:"3px"}}>
-                                {flagGrp.map((f,i)=><div key={i} style={{display:"flex",gap:"8px",padding:"4px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"10px"}}><span style={{fontFamily:"var(--mono)",color:"var(--text3)",width:"50px",flexShrink:0}}>{f.defect_code}</span><span style={{color:pscCodes.has(f.defect_code)?"var(--red2)":"var(--text2)",flex:1}}>{f.main_defect_text}{f.full_description&&f.full_description!==f.main_defect_text?" — "+f.full_description.slice(0,80):""}</span>{pscCodes.has(f.defect_code)&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ PSC</span>}</div>)}
+                                {flagGrp.map((f,i)=><div key={i} style={{display:"flex",gap:"8px",padding:"4px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"13px"}}><span style={{fontFamily:"var(--mono)",color:"var(--text3)",width:"50px",flexShrink:0}}>{f.defect_code}</span><span style={{color:pscCodes.has(f.defect_code)?"var(--red2)":"var(--text2)",flex:1}}>{f.main_defect_text}{f.full_description&&f.full_description!==f.main_defect_text?" — "+f.full_description.slice(0,80):""}</span>{pscCodes.has(f.defect_code)&&<span style={{fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ PSC</span>}</div>)}
                               </div>
                             </details>
                           </div>
@@ -1039,22 +1039,22 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <button onClick={()=>setEditModal(null)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"18px"}}>{"×"}</button>
                       </div>
                       <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:"12px"}}>
-                        <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>PSC Code</div>
-                        <input value={editModal.data.code||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,code:e.target.value}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} /></div>
-                        <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Description</div>
-                        <textarea value={editModal.data.desc||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,desc:e.target.value}}))} rows={5} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} /></div>
+                        <div><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>PSC Code</div>
+                        <input value={editModal.data.code||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,code:e.target.value}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",boxSizing:"border-box"}} /></div>
+                        <div><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Description</div>
+                        <textarea value={editModal.data.desc||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,desc:e.target.value}}))} rows={5} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",resize:"vertical",boxSizing:"border-box"}} /></div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
-                          <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
-                          <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                          <div><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Action Code</div>
+                          <select value={editModal.data.action||""} onChange={e=>setEditModal(p=>({...p,data:{...p.data,action:e.target.value,detainable:e.target.value==="30"}}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
                             <option value="">— Select code —</option>
                             {["10","15","16","17","18","19","30","35","40","45","50","55","70","80","85","95","99"].map(c=><option key={c} value={c}>{c}</option>)}
                           </select></div>
-                          <div><div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
-                          <div style={{padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:editModal.data.action==="30"?"var(--red2)":"var(--text3)",fontSize:"12px",fontWeight:editModal.data.action==="30"?600:400}}>{editModal.data.action==="30"?"YES — Detainable":"No"}</div></div>
+                          <div><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Detainable</div>
+                          <div style={{padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:editModal.data.action==="30"?"var(--red2)":"var(--text3)",fontSize:"13px",fontWeight:editModal.data.action==="30"?600:400}}>{editModal.data.action==="30"?"YES — Detainable":"No"}</div></div>
                         </div>
                       </div>
                       <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
-                        <button onClick={()=>setEditModal(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+                        <button onClick={()=>setEditModal(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
                         <button onClick={async()=>{
                           const updated=[...(v.deficiencies||[])];
                           updated[editModal.index]={...editModal.data,detainable:editModal.data.action==="30"||editModal.data.action===30};
@@ -1064,7 +1064,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           setSel(p=>({...p,...updates}));
                           if(modalVessel)setModalVessel(p=>({...p,...updates}));
                           setEditModal(null);
-                        }} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Save changes</button>
+                        }} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500}}>Save changes</button>
                       </div>
                     </div>
                   </div>
@@ -1080,23 +1080,23 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px"}}>
                     <div style={{flex:1}}>
                       <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"5px"}}>
-                        <span className={"badge "+(g.severity==="Critical"?"b-r":g.severity==="High"?"b-a":"b-b")} style={{fontSize:"9px"}}>{g.severity}</span>
-                        <strong style={{fontSize:"11px",color:"var(--text)"}}>{g.title}</strong>
+                        <span className={"badge "+(g.severity==="Critical"?"b-r":g.severity==="High"?"b-a":"b-b")} style={{fontSize:"13px"}}>{g.severity}</span>
+                        <strong style={{fontSize:"13px",color:"var(--text)"}}>{g.title}</strong>
                       </div>
-                      <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.55,marginBottom:"5px"}}>{g.desc}</div>
-                      {g.source&&<div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>Source: {g.source}</div>}
+                      <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.55,marginBottom:"5px"}}>{g.desc}</div>
+                      {g.source&&<div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>Source: {g.source}</div>}
                     </div>
                     <div style={{display:"flex",gap:"5px",flexShrink:0}}>
                       {gapStates[i]!=="reviewed"?(
-                        <button onClick={()=>setGapStates(p=>({...p,[i]:"reviewed"}))} style={{fontSize:"9px",padding:"3px 8px",border:"1px solid var(--green)",borderRadius:"4px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer"}}>Mark reviewed</button>
+                        <button onClick={()=>setGapStates(p=>({...p,[i]:"reviewed"}))} style={{fontSize:"13px",padding:"3px 8px",border:"1px solid var(--green)",borderRadius:"4px",background:"var(--green-bg)",color:"var(--green2)",cursor:"pointer"}}>Mark reviewed</button>
                       ):(
-                        <span style={{fontSize:"10px",color:"var(--green2)",fontFamily:"var(--mono)"}}>Reviewed</span>
+                        <span style={{fontSize:"13px",color:"var(--green2)",fontFamily:"var(--mono)"}}>Reviewed</span>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
-              {(!v.gaps||v.gaps.length===0)&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>Upload detention analysis to detect gaps automatically</div>}
+              {(!v.gaps||v.gaps.length===0)&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>Upload detention analysis to detect gaps automatically</div>}
             </div>
           )}
 
@@ -1104,32 +1104,32 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {tab==="tasks"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                <div style={{fontSize:"11px",color:"var(--text2)"}}>Tasks linked by IMO {v.imo}</div>
+                <div style={{fontSize:"13px",color:"var(--text2)"}}>Tasks linked by IMO {v.imo}</div>
                 {canDownload&&(
                   <button onClick={()=>{
                     const rows=[["Vessel","IMO","Task","Task Owner","FSI Case Owner","PSC Case Owner","Priority","Status","Due","Actions"]];
                     vesselTasks.forEach(t=>rows.push([t.vessel,t.imo,t.title,t.taskOwner,t.fsiCaseOwner||"",t.pscOwner||"",t.priority,t.status,t.due,t.actions]));
                     const blob=new Blob([rows.map(r=>r.map(c=>`"${String(c||"").replace(/"/g,"\"")}"`).join(",")).join("\n")],{type:"text/csv"});
                     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=v.name+"_tasks.csv";a.click();
-                  }} style={{fontSize:"11px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download tasks</button>
+                  }} style={{fontSize:"13px",padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Download tasks</button>
                 )}
               </div>
               {vesselTasks.map((t,i)=>(
                 <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginBottom:"8px",borderLeft:"3px solid "+(t.priority==="Critical"||t.priority==="Urgent"?"var(--red)":t.priority==="High"?"var(--amber)":"var(--border)")}}>
                   <div style={{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"7px"}}>
-                    <span className={"badge "+PRI[t.priority]} style={{fontSize:"9px",flexShrink:0}}>{t.priority}</span>
-                    <div style={{fontSize:"11px",fontWeight:500,color:"var(--text)",flex:1,lineHeight:1.4}}>{t.title}</div>
-                    <span className={"badge "+(t.status==="Executed"?"b-g":t.status==="In Progress"?"b-a":"b-r")} style={{fontSize:"9px",flexShrink:0}}>{t.status}</span>
+                    <span className={"badge "+PRI[t.priority]} style={{fontSize:"13px",flexShrink:0}}>{t.priority}</span>
+                    <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)",flex:1,lineHeight:1.4}}>{t.title}</div>
+                    <span className={"badge "+(t.status==="Executed"?"b-g":t.status==="In Progress"?"b-a":"b-r")} style={{fontSize:"13px",flexShrink:0}}>{t.status}</span>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",fontSize:"10px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",fontSize:"13px"}}>
                     <div><span style={{color:"var(--text3)"}}>Task Owner: </span><span style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{t.taskOwner}</span></div>
                     <div><span style={{color:"var(--text3)"}}>FSI: </span><span style={{color:"var(--text2)"}}>{t.fsiCaseOwner||"—"}</span><span style={{color:"var(--text3)",marginLeft:"8px"}}>PSC: </span><span style={{color:"var(--text2)"}}>{t.pscOwner||"—"}</span></div>
                     <div><span style={{color:"var(--text3)"}}>Due: </span><span style={{color:new Date(t.due)<new Date()&&t.status!=="Executed"?"var(--red2)":"var(--text2)",fontFamily:"var(--mono)"}}>{t.due}</span></div>
                   </div>
-                  {t.actions&&<div style={{fontSize:"10px",color:"var(--text3)",marginTop:"5px",fontStyle:"italic"}}>Actions: {t.actions}</div>}
+                  {t.actions&&<div style={{fontSize:"13px",color:"var(--text3)",marginTop:"5px",fontStyle:"italic"}}>Actions: {t.actions}</div>}
                 </div>
               ))}
-              {vesselTasks.length===0&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>No tasks — import PDAIP CSV to link tasks to this vessel</div>}
+              {vesselTasks.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No tasks — import PDAIP CSV to link tasks to this vessel</div>}
             </div>
           )}
 
@@ -1140,21 +1140,21 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"14px"}}>
                     {v.evpQA.map((_,i)=>(
-                      <button key={i} onClick={()=>setEvpQ(i)} style={{fontSize:"10px",padding:"4px 10px",borderRadius:"4px",border:"1px solid "+(evpQ===i?"var(--blue)":"var(--border)"),background:evpQ===i?"var(--blue-bg)":"var(--bg3)",color:evpQ===i?"var(--blue)":"var(--text3)",cursor:"pointer",fontFamily:"var(--mono)"}}>Q{i+1}</button>
+                      <button key={i} onClick={()=>setEvpQ(i)} style={{fontSize:"13px",padding:"4px 10px",borderRadius:"4px",border:"1px solid "+(evpQ===i?"var(--blue)":"var(--border)"),background:evpQ===i?"var(--blue-bg)":"var(--bg3)",color:evpQ===i?"var(--blue)":"var(--text3)",cursor:"pointer",fontFamily:"var(--mono)"}}>Q{i+1}</button>
                     ))}
                   </div>
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"16px"}}>
-                    <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"4px"}}>Q{evpQ+1} of {v.evpQA.length}</div>
+                    <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"4px"}}>Q{evpQ+1} of {v.evpQA.length}</div>
                     <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>{v.evpQA[evpQ]?.q}</div>
-                    <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.75,whiteSpace:"pre-line",background:"var(--bg3)",padding:"13px",borderRadius:"8px",border:"1px solid var(--border)",marginBottom:"12px"}}>{v.evpQA[evpQ]?.a}</div>
+                    <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.75,whiteSpace:"pre-line",background:"var(--bg3)",padding:"13px",borderRadius:"8px",border:"1px solid var(--border)",marginBottom:"12px"}}>{v.evpQA[evpQ]?.a}</div>
                     <div style={{display:"flex",gap:"8px"}}>
-                      {evpQ>0&&<button onClick={()=>setEvpQ(evpQ-1)} style={{fontSize:"11px",padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Previous</button>}
-                      {evpQ<v.evpQA.length-1&&<button onClick={()=>setEvpQ(evpQ+1)} style={{fontSize:"11px",padding:"6px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer"}}>Next</button>}
+                      {evpQ>0&&<button onClick={()=>setEvpQ(evpQ-1)} style={{fontSize:"13px",padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Previous</button>}
+                      {evpQ<v.evpQA.length-1&&<button onClick={()=>setEvpQ(evpQ+1)} style={{fontSize:"13px",padding:"6px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer"}}>Next</button>}
                     </div>
                   </div>
                 </div>
               )}
-              {(!v.evpQA||v.evpQA.length===0)&&<div style={{color:"var(--text3)",fontSize:"11px",padding:"20px",textAlign:"center"}}>Upload detention analysis and click Analyze to generate EVP Q&A automatically</div>}
+              {(!v.evpQA||v.evpQA.length===0)&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>Upload detention analysis and click Analyze to generate EVP Q&A automatically</div>}
             </div>
           )}
 
@@ -1164,64 +1164,64 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
               {/* RO / Class Survey */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>RO / Class Survey</div>
                 {v.roSurveyDate?(
                   <div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
                       {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
                         <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
                           <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
                         </div>
                       ))}
                     </div>
-                    {v.roNotes&&<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
+                    {v.roNotes&&<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
                   </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey date, findings, and notes automatically.</div>}
+                ):<div style={{fontSize:"13px",color:"var(--text3)"}}>Upload RO / Class Survey document to extract survey date, findings, and notes automatically.</div>}
               </div>
 
               {/* CAR Document */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Corrective Action Report (CAR)</div>
                 {v.carNotes?(
                   <div>
                     {v.carStatus&&(
-                      <div style={{display:"inline-block",padding:"3px 10px",borderRadius:"4px",fontSize:"10px",fontWeight:600,marginBottom:"10px",background:v.carStatus==="Complete"?"rgba(34,197,94,0.1)":v.carStatus==="Not Received"?"var(--red-bg)":"var(--amber-bg)",color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>
+                      <div style={{display:"inline-block",padding:"3px 10px",borderRadius:"4px",fontSize:"13px",fontWeight:600,marginBottom:"10px",background:v.carStatus==="Complete"?"rgba(34,197,94,0.1)":v.carStatus==="Not Received"?"var(--red-bg)":"var(--amber-bg)",color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>
                         CAR Status: {v.carStatus}
                       </div>
                     )}
-                    <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                    <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
                       {v.carNotes}
                     </div>
                   </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
+                ):<div style={{fontSize:"13px",color:"var(--text3)"}}>Upload CAR Document to extract corrective actions, submission dates, and acceptance status automatically.</div>}
               </div>
 
               {/* PSC Correspondence & Other Documents */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Correspondence & Other Documents</div>
                 {v.otherNotes?(
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
+                  <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)"}}>
                     {v.otherNotes}
                   </div>
-                ):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, detention timeline, and other correspondence under Other Documents — key details will appear here.</div>}
+                ):<div style={{fontSize:"13px",color:"var(--text3)"}}>Upload NOC, COM, appeal submissions, detention timeline, and other correspondence under Other Documents — key details will appear here.</div>}
               </div>
 
               {/* PSC Inspection History from weekly data */}
               {v.history?.length>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Prior PSC Inspection Records</div>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                    <thead><tr>{["Date","Port","MoU","Deficiencies","Detained","Note"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Prior PSC Inspection Records</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                    <thead><tr>{["Date","Port","MoU","Deficiencies","Detained","Note"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"var(--mono)"}}>{h}</th>)}</tr></thead>
                     <tbody>
                       {v.history.map((h,i)=>(
                         <tr key={i} style={{background:h.detained?"rgba(239,68,68,0.04)":""}}>
-                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{h.date}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{h.date}</td>
                           <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text2)"}}>{h.port}</td>
-                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.mou}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{h.mou}</td>
                           <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:h.defs>=10?"var(--red2)":h.defs>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",textAlign:"center"}}>{h.defs||"—"}</td>
                           <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{h.detained?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
-                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{h.note||""}</td>
+                          <td style={{padding:"8px 10px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{h.note||""}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1235,25 +1235,25 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {/* TIMELINE TAB */}
           {tab==="intelligence"&&(
             <div style={{display:"grid",gap:"12px"}}>
-              {intel.loading&&<div style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>Loading intelligence data...</div>}
+              {intel.loading&&<div style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading intelligence data...</div>}
               {!intel.loading&&(<>
                 {/* LISCR Inspection History */}
                 <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)"}}>LISCR Inspection History <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.inspections.length} records — Consolidated Inspection History)</span></div>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>LISCR Inspection History <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({intel.inspections.length} records — Consolidated Inspection History)</span></div>
                     {intel.inspections.length>0&&(
                       <div style={{display:"flex",gap:"8px"}}>
-                        <span style={{background:"rgba(239,68,68,0.1)",color:"var(--red2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>{intel.inspections.filter(h=>String(h.was_detained).toLowerCase()==="true"||h.was_detained===true).length} Detained</span>
-                        <span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>{intel.inspections.filter(h=>String(h.target_vessel).toLowerCase()==="true"||h.target_vessel===true||String(h.target_vessel).toLowerCase()==="yes").length} Target Vsl</span>
+                        <span style={{background:"rgba(239,68,68,0.1)",color:"var(--red2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>{intel.inspections.filter(h=>String(h.was_detained).toLowerCase()==="true"||h.was_detained===true).length} Detained</span>
+                        <span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>{intel.inspections.filter(h=>String(h.target_vessel).toLowerCase()==="true"||h.target_vessel===true||String(h.target_vessel).toLowerCase()==="yes").length} Target Vsl</span>
                       </div>
                     )}
                   </div>
                   {intel.inspections.length>0?(
                     <div id="inspection-scroll" style={{overflowX:"scroll",overflowY:"visible",paddingBottom:"4px",scrollbarWidth:"auto",scrollbarColor:"#f5a623 #2a2a2a",WebkitOverflowScrolling:"touch"}}>
-                      <table style={{borderCollapse:"collapse",fontSize:"10px",width:"1800px"}}>
+                      <table style={{borderCollapse:"collapse",fontSize:"13px",width:"1800px"}}>
                         <thead>
                           <tr>{["Date","Port","MoU","Flag/PSC","Type","Findings","Detainable","Detained","Risk","CAR Status","Days Since Last","Last Onboard","Auditor","Finding Note"].map(h=>(
-                            <th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                            <th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                           ))}</tr>
                         </thead>
                         <tbody>{intel.inspections.map((h,i)=>{
@@ -1269,9 +1269,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.flag_psc||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.inspection_type||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:h.num_findings>=10?"var(--red2)":h.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:h.num_findings>=5?600:400}}>{h.num_findings||0}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"11px"}}>✓</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{detainable?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"13px"}}>✓</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{detained?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}>{h.risk_level?<span style={{background:riskBg,color:riskColor,padding:"1px 6px",borderRadius:"3px",fontWeight:600,fontSize:"9px"}}>{h.risk_level}</span>:"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}>{h.risk_level?<span style={{background:riskBg,color:riskColor,padding:"1px 6px",borderRadius:"3px",fontWeight:600,fontSize:"13px"}}>{h.risk_level}</span>:"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.car_status||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",fontFamily:"var(--mono)",color:h.days_since_last>365?"var(--red2)":h.days_since_last>180?"var(--amber2)":"var(--text2)"}}>{h.days_since_last||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.last_onboard||"—"}</td>
@@ -1282,31 +1282,31 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         })}</tbody>
                       </table>
                     </div>
-                  ):<div style={{color:"var(--text3)",fontSize:"11px"}}>No inspection history found. Upload weekly Consolidated Inspection History report.</div>}
+                  ):<div style={{color:"var(--text3)",fontSize:"13px"}}>No inspection history found. Upload weekly Consolidated Inspection History report.</div>}
                 </div>
                 {/* Vessel Risk Profile */}
                 <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Vessel Risk Profile <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>(Client Vessel Details)</span></div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Vessel Risk Profile <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>(Client Vessel Details)</span></div>
                   {intel.vessel?(
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
                       {[["RO",intel.vessel.ro],["Type",intel.vessel.vsl_type],["Age",intel.vessel.age+" yrs"],["FSC Score",intel.vessel.fsc||"—"],["PSC Inspections",intel.vessel.psc_insps||0],["PSC Finding Avg",intel.vessel.psc_finding_avg||"—"],["Detentions",intel.vessel.num_detentions||0],["Det %",(intel.vessel.psc_det_pct*100||0).toFixed(1)+"%"],["Status",intel.vessel.vsl_status||"—"]].map(([l,v])=>(
                         <div key={l} style={{background:"var(--bg2)",borderRadius:"6px",padding:"8px 10px"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
-                          <div style={{fontSize:"12px",color:"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
+                          <div style={{fontSize:"13px",color:"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
                         </div>
                       ))}
                     </div>
-                  ):<div style={{color:"var(--text3)",fontSize:"11px"}}>No vessel profile found. Upload weekly Client Vessel Details report.</div>}
+                  ):<div style={{color:"var(--text3)",fontSize:"13px"}}>No vessel profile found. Upload weekly Client Vessel Details report.</div>}
                 </div>
                 {/* ISM Client Benchmark */}
                 {intel.client&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>ISM Client: <span style={{color:"var(--blue)"}}>{intel.client.ism_client}</span></div>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>ISM Client: <span style={{color:"var(--blue)"}}>{intel.client.ism_client}</span></div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
                       {[["Peer Rank",intel.client.peer_rank],["Fleet Size",intel.client.vsls_with_insps+" vsls"],["Detentions",intel.client.num_dets||0],["PSC Det %",(intel.client.psc_det_pct*100||0).toFixed(2)+"%"],["PSC Finding Avg",intel.client.psc_finding_avg||"—"],["FSC Score",intel.client.fsc||"—"]].map(([l,v])=>(
                         <div key={l} style={{background:"var(--bg2)",borderRadius:"6px",padding:"8px 10px",border:l==="Peer Rank"&&String(v).includes("Bottom")?"1px solid var(--red)":"1px solid transparent"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
-                          <div style={{fontSize:"12px",color:l==="Peer Rank"&&String(v).includes("Bottom")?"var(--red2)":l==="Peer Rank"&&String(v).includes("Top")?"var(--green2)":"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{l}</div>
+                          <div style={{fontSize:"13px",color:l==="Peer Rank"&&String(v).includes("Bottom")?"var(--red2)":l==="Peer Rank"&&String(v).includes("Top")?"var(--green2)":"var(--text)",fontFamily:"var(--mono)"}}>{v||"—"}</div>
                         </div>
                       ))}
                     </div>
@@ -1314,27 +1314,27 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 )}
                 {/* MLC Complaints */}
                 <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>MLC Complaints <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.mlc.length} records)</span></div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>MLC Complaints <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({intel.mlc.length} records)</span></div>
                   {intel.mlc.length>0?(
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["Date","Status","Type","Inspector","Risk"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                      <thead><tr>{["Date","Status","Type","Inspector","Risk"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{intel.mlc.map((m,i)=>(
                         <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{m.reported_date||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontSize:"10px",fontWeight:600}}>{m.mlc_status||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{m.inspection_type||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{m.last_onboard||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",fontSize:"10px"}}>{m.risk_level||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{m.reported_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontSize:"13px",fontWeight:600}}>{m.mlc_status||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{m.inspection_type||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{m.last_onboard||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",fontSize:"13px"}}>{m.risk_level||"—"}</td>
                         </tr>
                       ))}</tbody>
                     </table>
-                  ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No MLC complaints found. Upload weekly MLC Complaints report to populate.</div>}
+                  ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No MLC complaints found. Upload weekly MLC Complaints report to populate.</div>}
                 </div>
                 {/* PSC Detention Summary */}
                 {/* Vessel Casualty */}
                 {intel.vip&&(intel.vip.vsl_casualty>0||intel.vip.mlc_compl>0||intel.vip.tech_disp_365>0)&&(
                   <div style={{marginBottom:"16px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
                       {[
                         {l:"VSL Casualty",v:intel.vip.vsl_casualty||0,c:intel.vip.vsl_casualty>0?"var(--red2)":"var(--text3)"},
@@ -1343,7 +1343,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {l:"Flag Control/Det 365",v:intel.vip.flag_control_det_365||0,c:intel.vip.flag_control_det_365>0?"var(--amber2)":"var(--text3)"},
                       ].map(s=>(
                         <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px",border:"1px solid var(--border)"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{s.l}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{s.l}</div>
                           <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
                         </div>
                       ))}
@@ -1358,7 +1358,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {l:"VSL Insp. Performance",v:intel.vip.vsl_insp_perf||"—"},
                       ].map(s=>(
                         <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px",border:"1px solid var(--border)"}}>
-                          <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
                           <div style={{fontSize:"13px",fontWeight:500,fontFamily:"var(--mono)",color:"var(--text)"}}>{s.v}</div>
                         </div>
                       ))}
@@ -1368,19 +1368,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {intel.psc&&intel.psc.length>0&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Detention Summary <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.psc.length} records)</span></div>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>PSC Detention Summary <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({intel.psc.length} records)</span></div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                      <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{intel.psc.map((p,i)=>(
                         <tr key={i} style={{background:p.was_detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"10px",color:"var(--text3)"}}>{p.inspection_date||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"10px"}}>{p.port||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.mou||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.inspection_type||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{p.inspection_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"13px"}}>{p.port||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{p.mou||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{p.inspection_type||"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",color:p.num_findings>=10?"var(--red2)":p.num_findings>=5?"var(--amber2)":"var(--text2)",fontFamily:"var(--mono)",fontWeight:p.num_findings>=5?600:400}}>{p.num_findings||0}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{p.was_detained?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"10px"}}>YES</span>:<span style={{color:"var(--text3)",fontSize:"10px"}}>No</span>}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:p.risk_level==="High"?"var(--red2)":p.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontSize:"10px"}}>{p.risk_level||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"10px"}}>{p.ism_client||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{p.was_detained?<span style={{color:"var(--red2)",fontWeight:600,fontSize:"13px"}}>YES</span>:<span style={{color:"var(--text3)",fontSize:"13px"}}>No</span>}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:p.risk_level==="High"?"var(--red2)":p.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontSize:"13px"}}>{p.risk_level||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{p.ism_client||"—"}</td>
                         </tr>
                       ))}</tbody>
                     </table>
@@ -1390,15 +1390,15 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {intel.dpp&&intel.dpp.length>0&&(
                   <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
-                      <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)"}}>DPP Case Files <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
+                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>DPP Case Files <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
                       <div style={{display:"flex",gap:"8px"}}>
-                        {intel.dpp.some(d=>d.action_status==="Pending Review")&&<span style={{background:"rgba(245,158,11,0.1)",color:"var(--amber2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>⚠ Pending Review</span>}
-                        {intel.dpp.some(d=>d.action_status==="Requested")&&<span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"9px"}}>CAR Requested</span>}
+                        {intel.dpp.some(d=>d.action_status==="Pending Review")&&<span style={{background:"rgba(245,158,11,0.1)",color:"var(--amber2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>⚠ Pending Review</span>}
+                        {intel.dpp.some(d=>d.action_status==="Requested")&&<span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>CAR Requested</span>}
                       </div>
                     </div>
                     <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px",minWidth:"900px"}}>
-                        <thead><tr>{["Detention Date","Port","MoU","Findings","Detained","PSC Owner","Report Status","Inspection Type","CAR Status","Action Type","Action Status","Flag"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"900px"}}>
+                        <thead><tr>{["Detention Date","Port","MoU","Findings","Detained","PSC Owner","Report Status","Inspection Type","CAR Status","Action Type","Action Status","Flag"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                         <tbody>{intel.dpp.map((d,i)=>{
                           const statusColor = d.action_status==="Pending Review"?"var(--amber2)":d.action_status==="Close Case"?"var(--green2)":d.action_status==="Requested"?"var(--blue)":"var(--text2)";
                           return (
@@ -1423,7 +1423,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 )}
                 {!intel.vessel&&!intel.inspections.length&&!intel.psc.length&&!intel.dpp.length&&!intel.mlc.length&&(
-                  <div style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontSize:"11px"}}>
+                  <div style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>
                     No intelligence data found for this vessel. Upload weekly reports in Weekly Data to populate this tab.
                   </div>
                 )}
@@ -1433,7 +1433,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
           {tab==="timeline"&&(
             <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"16px"}}>
-              <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"16px"}}>Case Timeline</div>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"16px"}}>Case Timeline</div>
               <div style={{position:"relative",paddingLeft:"28px"}}>
                 <div style={{position:"absolute",left:"9px",top:0,bottom:0,width:"2px",background:"var(--border)"}}></div>
                 {[
@@ -1448,9 +1448,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 ].filter(Boolean).map((item,i)=>(
                   <div key={i} style={{position:"relative",marginBottom:"18px",paddingLeft:"18px"}}>
                     <div style={{position:"absolute",left:"-22px",top:"3px",width:"12px",height:"12px",borderRadius:"50%",background:item.type==="r"?"var(--red)":item.type==="a"?"var(--amber)":item.type==="b"?"var(--blue)":"var(--green)",border:"2px solid var(--bg)",boxShadow:"0 0 0 3px "+(item.type==="r"?"rgba(239,68,68,0.15)":item.type==="a"?"rgba(245,158,11,0.15)":item.type==="b"?"rgba(59,130,246,0.15)":"rgba(34,197,94,0.15)")}}></div>
-                    <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
-                    <div style={{fontSize:"12px",color:"var(--text)",fontWeight:600,marginBottom:"2px"}}>{item.label}</div>
-                    {item.sub&&<div style={{fontSize:"11px",color:"var(--text3)",lineHeight:1.5}}>{item.sub}</div>}
+                    <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{item.date}</div>
+                    <div style={{fontSize:"13px",color:"var(--text)",fontWeight:600,marginBottom:"2px"}}>{item.label}</div>
+                    {item.sub&&<div style={{fontSize:"13px",color:"var(--text3)",lineHeight:1.5}}>{item.sub}</div>}
                   </div>
                 ))}
               </div>
@@ -1477,17 +1477,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const flagDates = [...new Set(flagFromTable.map(f=>f.insp_date).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
             const flagBeforeDetention = flagDates.filter(d=>d<=detDateStr);
 
-            const Row = ({label,value,red,green})=>(<div style={{display:"flex",gap:"12px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"150px",flexShrink:0}}>{label}</div><div style={{fontSize:"11px",color:red?"var(--red2)":green?"var(--green2)":"var(--text)",fontWeight:red||green?600:500}}>{value||"—"}</div></div>);
+            const Row = ({label,value,red,green})=>(<div style={{display:"flex",gap:"12px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"150px",flexShrink:0}}>{label}</div><div style={{fontSize:"13px",color:red?"var(--red2)":green?"var(--green2)":"var(--text)",fontWeight:red||green?600:500}}>{value||"—"}</div></div>);
 
             return (
               <div>
                 <div style={{marginBottom:"16px"}}>
                   <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>CAR Quality Analysis</div>
-                  <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>Reviewing corrective action reports against PSC detention findings</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>Reviewing corrective action reports against PSC detention findings</div>
                 </div>
 
                 {flagBeforeDetention.length===0&&cars.length===0&&(
-                  <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"12px"}}>
+                  <div style={{textAlign:"center",padding:"40px",color:"var(--text3)",fontSize:"13px"}}>
                     No Flag inspection or CAR data found for this vessel. Upload Flag & PSC Findings and CAR Status reports in Weekly Data.
                   </div>
                 )}
@@ -1512,13 +1512,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       {/* Header */}
                       <div style={{padding:"10px 14px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
                         <div>
-                          <span style={{fontSize:"12px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
-                          <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
-                          <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{daysBeforeDetention} days before detention</span>
+                          <span style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
+                          <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
+                          <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{daysBeforeDetention} days before detention</span>
                         </div>
                         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                          <span style={{fontSize:"10px",color:"var(--text3)"}}>{flagGroup.length} findings</span>
-                          <span style={{fontSize:"10px",padding:"3px 10px",borderRadius:"4px",background:verdictBg,color:verdictColor,border:"1px solid "+verdictBorder,fontWeight:600}}>{verdict}</span>
+                          <span style={{fontSize:"13px",color:"var(--text3)"}}>{flagGroup.length} findings</span>
+                          <span style={{fontSize:"13px",padding:"3px 10px",borderRadius:"4px",background:verdictBg,color:verdictColor,border:"1px solid "+verdictBorder,fontWeight:600}}>{verdict}</span>
                         </div>
                       </div>
 
@@ -1534,19 +1534,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                               <Row label="Due / Closed Date" value={car.close_or_due_date} />
                               {carClosed&&<Row label="Closed By" value={car.closed_by} />}
                             </div>
-                            {car.car_link&&<a href={car.car_link} target="_blank" rel="noreferrer" style={{fontSize:"10px",color:"var(--blue)",display:"inline-flex",alignItems:"center",gap:"4px",marginBottom:"10px"}}>View CAR in Waypoint →</a>}
+                            {car.car_link&&<a href={car.car_link} target="_blank" rel="noreferrer" style={{fontSize:"13px",color:"var(--blue)",display:"inline-flex",alignItems:"center",gap:"4px",marginBottom:"10px"}}>View CAR in Waypoint →</a>}
                           </div>
                         ):(
-                          <div style={{padding:"8px 10px",background:"var(--bg3)",borderRadius:"6px",fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>No CAR record found for this inspection date.</div>
+                          <div style={{padding:"8px 10px",background:"var(--bg3)",borderRadius:"6px",fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No CAR record found for this inspection date.</div>
                         )}
 
                         {/* Verdict panel */}
                         <div style={{padding:"10px 12px",borderRadius:"6px",background:verdictBg,border:"1px solid "+verdictBorder,marginBottom:"10px"}}>
-                          {carOpen&&<div style={{fontSize:"10px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>⚠ CAR Open at Time of PSC Detention</div>}
-                          {carClosed&&hasReoccurrence&&<div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Deficiency Reoccurrence Post-CAR</div>}
-                          {carClosed&&!hasReoccurrence&&<div style={{fontSize:"10px",fontWeight:700,color:"var(--green2)",marginBottom:"4px"}}>✓ No Deficiency Reoccurrence</div>}
-                          {!car&&<div style={{fontSize:"10px",fontWeight:600,color:"var(--text3)",marginBottom:"4px"}}>No CAR Data Available</div>}
-                          <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                          {carOpen&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--amber2)",marginBottom:"4px"}}>⚠ CAR Open at Time of PSC Detention</div>}
+                          {carClosed&&hasReoccurrence&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Deficiency Reoccurrence Post-CAR</div>}
+                          {carClosed&&!hasReoccurrence&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--green2)",marginBottom:"4px"}}>✓ No Deficiency Reoccurrence</div>}
+                          {!car&&<div style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",marginBottom:"4px"}}>No CAR Data Available</div>}
+                          <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
                             {carOpen&&`CAR was ${car.car_status} when PSC detained the vessel. Outstanding corrective actions from the ${flagDate} Flag inspection were not resolved before PSC boarding.`}
                             {carClosed&&hasReoccurrence&&`CAR was marked ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"unknown date"}. However ${matchedCodes.length} deficiency code${matchedCodes.length>1?"s":""} (${matchedCodes.join(", ")}) reappeared at PSC detention — corrective actions may not have been effectively implemented.`}
                             {carClosed&&!hasReoccurrence&&`CAR was ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"unknown date"}. No matching deficiency codes found at PSC detention — corrective actions appear to have been effectively implemented.`}
@@ -1557,13 +1557,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {/* Matching codes */}
                         {matchedCodes.length>0&&(
                           <div style={{marginTop:"8px"}}>
-                            <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Reoccurring Deficiency Codes ({matchedCodes.length})</div>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Reoccurring Deficiency Codes ({matchedCodes.length})</div>
                             <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
                               {matchedCodes.map(code=>{
                                 const flagDef = flagGroup.find(f=>f.defect_code===code);
                                 const pscDef = pscToUse.find(f=>f.defect_code===code);
                                 return (
-                                  <div key={code} style={{padding:"6px 10px",borderRadius:"5px",background:"var(--red-bg)",border:"1px solid #3D1A1A",fontSize:"10px"}}>
+                                  <div key={code} style={{padding:"6px 10px",borderRadius:"5px",background:"var(--red-bg)",border:"1px solid #3D1A1A",fontSize:"13px"}}>
                                     <div style={{fontFamily:"var(--mono)",fontWeight:700,color:"var(--red2)",marginBottom:"3px"}}>{code}</div>
                                     <div style={{color:"var(--text3)"}}>Flag: {flagDef?.main_defect_text?.slice(0,40)||"—"}</div>
                                     <div style={{color:"var(--text2)"}}>PSC: {pscDef?.main_defect_text?.slice(0,40)||"—"}</div>
@@ -1576,13 +1576,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                         {/* Flag findings list */}
                         <details style={{marginTop:"10px"}}>
-                          <summary style={{fontSize:"10px",color:"var(--text3)",cursor:"pointer",userSelect:"none"}}>Flag findings on {flagDate} ({flagGroup.length} total)</summary>
+                          <summary style={{fontSize:"13px",color:"var(--text3)",cursor:"pointer",userSelect:"none"}}>Flag findings on {flagDate} ({flagGroup.length} total)</summary>
                           <div style={{marginTop:"8px",display:"flex",flexDirection:"column",gap:"4px"}}>
                             {flagGroup.map((f,i)=>(
-                              <div key={i} style={{display:"flex",gap:"8px",padding:"5px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"10px"}}>
+                              <div key={i} style={{display:"flex",gap:"8px",padding:"5px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"13px"}}>
                                 <span style={{fontFamily:"var(--mono)",color:"var(--text3)",flexShrink:0,width:"50px"}}>{f.defect_code}</span>
                                 <span style={{color:pscCodes.has(f.defect_code)?"var(--red2)":"var(--text2)",flex:1}}>{f.main_defect_text}{f.full_description&&f.full_description!==f.main_defect_text?" — "+f.full_description.slice(0,80):""}</span>
-                                {pscCodes.has(f.defect_code)&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0}}>⚠ PSC</span>}
+                                {pscCodes.has(f.defect_code)&&<span style={{fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0}}>⚠ PSC</span>}
                               </div>
                             ))}
                           </div>
@@ -1616,7 +1616,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               {step:"CAR Accepted",done:v.carStatus==="Complete",date:null,note:v.carStatus==="Rejected"?"Rejected by PSC":v.carStatus==="Complete"?"Accepted":"Pending"},
             ];
 
-            const Row = ({label,value,red})=>(<div style={{display:"flex",gap:"12px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"140px",flexShrink:0,paddingTop:"1px"}}>{label}</div><div style={{fontSize:"11px",color:red?"var(--red2)":"var(--text)",fontWeight:red?600:500,lineHeight:1.5}}>{value||"—"}</div></div>);
+            const Row = ({label,value,red})=>(<div style={{display:"flex",gap:"12px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"13px",color:"var(--text3)",width:"140px",flexShrink:0,paddingTop:"1px"}}>{label}</div><div style={{fontSize:"13px",color:red?"var(--red2)":"var(--text)",fontWeight:red?600:500,lineHeight:1.5}}>{value||"—"}</div></div>);
 
             return (
               <div>
@@ -1624,7 +1624,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
                   <div>
                     <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",letterSpacing:".02em"}}>Final Case Summary</div>
-                    <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                    <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
                   </div>
                   <button onClick={()=>{
                     const carStatus = carChain.map(c=>c.step+": "+(c.done?"Done":"Pending")+(c.note?" ("+c.note+")":"")).join(" | ");
@@ -1663,12 +1663,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     a.href=URL.createObjectURL(b);
                     a.download="FinalSummary_"+v.name+"_"+v.imo+".txt";
                     a.click();
-                  }} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"11px",fontWeight:500}}>↓ Download Summary</button>
+                  }} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Download Summary</button>
                 </div>
 
                 {/* Case Details */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Details</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Details</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                     <Row label="Vessel" value={v.name} />
                     <Row label="IMO" value={v.imo} />
@@ -1687,36 +1687,36 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Deficiency Overview */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Deficiency Overview</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Deficiency Overview</div>
                   <div style={{display:"flex",gap:"16px",marginBottom:"12px"}}>
                     <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 16px",textAlign:"center"}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Total</div>
+                      <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Total</div>
                       <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{allDefs.length}</div>
                     </div>
                     <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 16px",textAlign:"center"}}>
-                      <div style={{fontSize:"9px",color:"var(--red2)",textTransform:"uppercase",marginBottom:"2px"}}>Detainable</div>
+                      <div style={{fontSize:"13px",color:"var(--red2)",textTransform:"uppercase",marginBottom:"2px"}}>Detainable</div>
                       <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--red2)"}}>{detainableDefs.length}</div>
                     </div>
                     <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 16px",textAlign:"center",flex:1}}>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Non-detainable</div>
+                      <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Non-detainable</div>
                       <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{allDefs.length-detainableDefs.length}</div>
                     </div>
                   </div>
-                  <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Detainable Deficiencies (Code 30){detainableDefs.length>5?" — Top 5":""}</div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Detainable Deficiencies (Code 30){detainableDefs.length>5?" — Top 5":""}</div>
                   {detainableDefs.length>0?detainableDefs.slice(0,5).map((d,i)=>(
                     <div key={i} style={{display:"flex",gap:"10px",padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"flex-start"}}>
-                      <span style={{fontSize:"9px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginTop:"1px"}}>30</span>
+                      <span style={{fontSize:"13px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginTop:"1px"}}>30</span>
                       <div>
-                        <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{d.code}</div>
-                        <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.55}}>{d.desc}</div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginBottom:"2px"}}>{d.code}</div>
+                        <div style={{fontSize:"13px",color:"var(--text)",lineHeight:1.55}}>{d.desc}</div>
                       </div>
                     </div>
-                  )):<div style={{fontSize:"11px",color:"var(--text3)"}}>Upload PSC Form A+B to extract deficiencies.</div>}
+                  )):<div style={{fontSize:"13px",color:"var(--text3)"}}>Upload PSC Form A+B to extract deficiencies.</div>}
                 </div>
 
                 {/* CAR Status Chain */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>CAR Status Chain</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>CAR Status Chain</div>
                   <div style={{display:"flex",alignItems:"center",gap:"0"}}>
                     {carChain.map((c,i)=>(
                       <React.Fragment key={i}>
@@ -1724,9 +1724,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <div style={{width:"32px",height:"32px",borderRadius:"50%",background:c.done?"var(--green)":"var(--bg3)",border:"2px solid "+(c.done?"var(--green)":"var(--border)"),margin:"0 auto 6px",display:"flex",alignItems:"center",justifyContent:"center"}}>
                             <span style={{color:c.done?"#fff":"var(--text3)",fontSize:"14px"}}>{c.done?"✓":"○"}</span>
                           </div>
-                          <div style={{fontSize:"10px",fontWeight:600,color:c.done?"var(--green2)":"var(--text3)",marginBottom:"2px"}}>{c.step}</div>
-                          {c.date&&<div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.date}</div>}
-                          {c.note&&<div style={{fontSize:"9px",color:c.done?"var(--text3)":"var(--amber2)"}}>{c.note}</div>}
+                          <div style={{fontSize:"13px",fontWeight:600,color:c.done?"var(--green2)":"var(--text3)",marginBottom:"2px"}}>{c.step}</div>
+                          {c.date&&<div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.date}</div>}
+                          {c.note&&<div style={{fontSize:"13px",color:c.done?"var(--text3)":"var(--amber2)"}}>{c.note}</div>}
                         </div>
                         {i<carChain.length-1&&<div style={{width:"40px",height:"2px",background:carChain[i+1].done?"var(--green)":"var(--border)",flexShrink:0,marginBottom:"26px"}}></div>}
                       </React.Fragment>
@@ -1736,7 +1736,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Flag State Actions */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag State Actions</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag State Actions</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                     <Row label="ASI / Preemptive Insp." value={asiTask?(asiTask.title+" ["+asiTask.status+"]"+(asiTask.due?" | Due: "+asiTask.due+(new Date(asiTask.due)<new Date()?" — OVERDUE":""):"")):"Not scheduled"} red={!asiTask} />
                     <Row label="Email / Client Notif." value={emailTask?emailTask.title+" ["+emailTask.status+"]":"Not recorded"} />
@@ -1749,11 +1749,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* EVP Q&A */}
                 {v.evpQA?.length>0&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>EVP Q&A ({v.evpQA.length} questions)</div>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>EVP Q&A ({v.evpQA.length} questions)</div>
                     {v.evpQA.map((qa,i)=>(
                       <div key={i} style={{marginBottom:"10px",paddingBottom:"10px",borderBottom:"1px solid var(--border)"}}>
-                        <div style={{fontSize:"10px",fontWeight:600,color:"var(--blue)",marginBottom:"4px"}}>{i+1}. {qa.q}</div>
-                        <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65,paddingLeft:"12px"}}>{qa.a}</div>
+                        <div style={{fontSize:"13px",fontWeight:600,color:"var(--blue)",marginBottom:"4px"}}>{i+1}. {qa.q}</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,paddingLeft:"12px"}}>{qa.a}</div>
                       </div>
                     ))}
                   </div>
@@ -1819,12 +1819,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                   return (
                     <div style={{background:"var(--bg2)",border:"1px solid "+(sameIssuesAfterCAR||carOpen?"#3D1A1A":"var(--border)"),borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                      <div style={{fontSize:"11px",fontWeight:700,color:sameIssuesAfterCAR||carOpen?"var(--red2)":"var(--text)",textTransform:"uppercase",letterSpacing:".05em",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>Pre-Detention Intelligence Analysis</div>
-                      <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"12px",fontStyle:"italic"}}>Was this detention foreseeable? Could earlier action have prevented it?</div>
+                      <div style={{fontSize:"13px",fontWeight:700,color:sameIssuesAfterCAR||carOpen?"var(--red2)":"var(--text)",textTransform:"uppercase",letterSpacing:".05em",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>Pre-Detention Intelligence Analysis</div>
+                      <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"12px",fontStyle:"italic"}}>Was this detention foreseeable? Could earlier action have prevented it?</div>
 
                       {(lastFlagGroup.length>0||lastFlag)?(
                         <div style={{marginBottom:"12px"}}>
-                          <div style={{fontSize:"10px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Last Flag State Inspection</div>
+                          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Last Flag State Inspection</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
                             <Row label="Inspection Date" value={lastFlagDate||lastFlag?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBefore!=null?daysBefore+" days before detention":"—"} red={daysBefore!=null&&daysBefore<90} />
@@ -1836,51 +1836,51 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                           {carOpen&&(
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"10px"}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Open CAR at Time of Detention</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>The last Flag inspection CAR was <strong style={{color:"var(--red2)"}}>{lastFlag.car_status}</strong> when this PSC detention occurred. Outstanding corrective actions were not resolved before the vessel was boarded by PSC.</div>
+                              <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Open CAR at Time of Detention</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>The last Flag inspection CAR was <strong style={{color:"var(--red2)"}}>{lastFlag.car_status}</strong> when this PSC detention occurred. Outstanding corrective actions were not resolved before the vessel was boarded by PSC.</div>
                             </div>
                           )}
 
                           {sameIssuesAfterCAR&&(
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--red-bg)",border:"1px solid #3D1A1A",marginBottom:"10px"}}>
-                              <div style={{fontSize:"10px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ CAR Closed But Same Issues Reappeared at PSC</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>Previous Flag CAR was marked <strong style={{color:"var(--red2)"}}>closed/complete</strong>, but the same deficiency categories were found again at PSC detention: <strong style={{color:"var(--red2)"}}>{matchingCats.join(", ")}</strong>. This indicates corrective actions were not properly implemented or verified before closure.</div>
+                              <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ CAR Closed But Same Issues Reappeared at PSC</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>Previous Flag CAR was marked <strong style={{color:"var(--red2)"}}>closed/complete</strong>, but the same deficiency categories were found again at PSC detention: <strong style={{color:"var(--red2)"}}>{matchingCats.join(", ")}</strong>. This indicates corrective actions were not properly implemented or verified before closure.</div>
                             </div>
                           )}
 
                           {!carOpen&&!sameIssuesAfterCAR&&matchingCats.length===0&&lastFlag.num_findings>0&&(
                             <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"10px"}}>
-                              <div style={{fontSize:"10px",fontWeight:600,color:"var(--amber2)",marginBottom:"3px"}}>Note: Flag Inspection Found Deficiencies</div>
-                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>Last Flag inspection {daysBefore} days before detention found {lastFlag.num_findings} deficiencies. CAR status: {lastFlag.car_status||"Unknown"}.</div>
+                              <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"3px"}}>Note: Flag Inspection Found Deficiencies</div>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>Last Flag inspection {daysBefore} days before detention found {lastFlag.num_findings} deficiencies. CAR status: {lastFlag.car_status||"Unknown"}.</div>
                             </div>
                           )}
 
                           {pscCats.length>0&&(
                             <div style={{marginTop:"10px"}}>
-                              <div style={{fontSize:"10px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>Deficiency Category Comparison (Flag vs PSC)</div>
+                              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"6px"}}>Deficiency Category Comparison (Flag vs PSC)</div>
                               <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"6px"}}>
                                 {pscCats.map(cat=>(
-                                  <span key={cat} style={{fontSize:"9px",padding:"2px 8px",borderRadius:"4px",fontFamily:"var(--mono)",fontWeight:600,
+                                  <span key={cat} style={{fontSize:"13px",padding:"2px 8px",borderRadius:"4px",fontFamily:"var(--mono)",fontWeight:600,
                                     background:matchingCats.includes(cat)?"var(--red-bg)":"rgba(34,197,94,0.08)",
                                     color:matchingCats.includes(cat)?"var(--red2)":"var(--green2)",
                                     border:"1px solid "+(matchingCats.includes(cat)?"#3D1A1A":"rgba(34,197,94,0.3)")
                                   }}>{matchingCats.includes(cat)?"⚠ ":"✓ "}{cat}</span>
                                 ))}
                               </div>
-                              {matchingCats.length>0&&<div style={{fontSize:"9px",color:"var(--red2)",fontWeight:500}}>⚠ Red categories were found in both last Flag inspection AND this PSC detention</div>}
-                              {matchingCats.length===0&&pscCats.length>0&&<div style={{fontSize:"9px",color:"var(--green2)"}}>No category overlap detected between last Flag inspection and PSC detention</div>}
+                              {matchingCats.length>0&&<div style={{fontSize:"13px",color:"var(--red2)",fontWeight:500}}>⚠ Red categories were found in both last Flag inspection AND this PSC detention</div>}
+                              {matchingCats.length===0&&pscCats.length>0&&<div style={{fontSize:"13px",color:"var(--green2)"}}>No category overlap detected between last Flag inspection and PSC detention</div>}
                             </div>
                           )}
                         </div>
                       ):(
                         <div style={{padding:"10px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",marginBottom:"12px"}}>
-                          <div style={{fontSize:"11px",color:"var(--amber2)",fontWeight:500}}>No Flag State inspection found in history before this detention.</div>
+                          <div style={{fontSize:"13px",color:"var(--amber2)",fontWeight:500}}>No Flag State inspection found in history before this detention.</div>
                         </div>
                       )}
 
                       {/* ASI */}
                       <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
-                        <div style={{fontSize:"10px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>ASI / Preemptive Inspection</div>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>ASI / Preemptive Inspection</div>
                         {asiTask?(
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                             <Row label="ASI Task" value={asiTask.title} />
@@ -1888,7 +1888,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             {asiTask.due&&<Row label="Due Date" value={asiTask.due+(new Date(asiTask.due)<detDate?" — OVERDUE AT DETENTION":"")} red={new Date(asiTask.due)<detDate} />}
                           </div>
                         ):(
-                          <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"11px",color:"var(--amber2)",fontWeight:500}}>
+                          <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"13px",color:"var(--amber2)",fontWeight:500}}>
                             No ASI was scheduled or conducted before this detention. A preemptive inspection may have identified and corrected deficiencies before PSC boarding.
                           </div>
                         )}
@@ -1900,10 +1900,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* Case Flags */}
                 {v.flags?.length>0&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Flags ({v.flags.length})</div>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Flags ({v.flags.length})</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
                       {v.flags.map(f=>(
-                        <span key={f} style={{fontSize:"10px",padding:"4px 10px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)",fontWeight:600}}>{f}</span>
+                        <span key={f} style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)",fontWeight:600}}>{f}</span>
                       ))}
                     </div>
                   </div>
@@ -1912,9 +1912,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* Recommendations */}
                 {(v.finalRecommendations||(v.gaps||[]).length>0)&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
-                    {v.finalRecommendations?<div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations}</div>:
-                    (v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)",flexShrink:0}}>•</span><div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
+                    {v.finalRecommendations?<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations}</div>:
+                    (v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)",flexShrink:0}}>•</span><div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}
                   </div>
                 )}
               </div>
@@ -1926,9 +1926,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               {/* Case Flags */}
               {v.flags?.length>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
-                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Case Flags</div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Case Flags</div>
                   <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                    {v.flags.map(f=><div key={f} style={{padding:"5px 11px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),fontSize:"10px",fontWeight:600,color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)"}}>{f}</div>)}
+                    {v.flags.map(f=><div key={f} style={{padding:"5px 11px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),fontSize:"13px",fontWeight:600,color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)"}}>{f}</div>)}
                   </div>
                 </div>
               )}
@@ -1944,7 +1944,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   {l:"EVP Q&A",v2:v.evpQA?.length||0,c:"var(--green2)"},
                 ].map(m=>(
                   <div key={m.l} style={{background:"var(--bg2)",borderRadius:"8px",padding:"10px",border:"1px solid var(--border)"}}>
-                    <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
+                    <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{m.l}</div>
                     <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v2}</div>
                   </div>
                 ))}
@@ -1954,19 +1954,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Detention Notes</div>
-                    {canEdit&&<button onClick={()=>setEditModal("detentionNotes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Detention Notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("detentionNotes")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                  <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.detentionNotes||"Upload detention analysis to extract detention notes automatically."}
                   </div>
                 </div>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Vetting Notes</div>
-                    {canEdit&&<button onClick={()=>setEditModal("vetting")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vetting Notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("vetting")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                  <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.vettingNotes||"Upload detention analysis to extract vetting notes automatically."}
                   </div>
                 </div>
@@ -1976,19 +1976,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Final Recommendations</div>
-                    {canEdit&&<button onClick={()=>setEditModal("recommendations")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Final Recommendations</div>
+                    {canEdit&&<button onClick={()=>setEditModal("recommendations")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                  <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.finalRecommendations||"Upload detention analysis to extract final recommendations automatically."}
                   </div>
                 </div>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>FSI Notes</div>
-                    {canEdit&&<button onClick={()=>setEditModal("fsiNotes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>FSI Notes</div>
+                    {canEdit&&<button onClick={()=>setEditModal("fsiNotes")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                   </div>
-                  <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
+                  <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"120px"}}>
                     {v.fsiNotes||"Upload detention analysis or FSI reports to extract FSI notes automatically."}
                   </div>
                 </div>
@@ -1997,10 +1997,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               {/* Meeting Minutes */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                  <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)"}}>Meeting Minutes & Decisions</div>
-                  {canEdit&&<button onClick={()=>setEditModal("meetingMinutes")} style={{fontSize:"10px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Meeting Minutes & Decisions</div>
+                  {canEdit&&<button onClick={()=>setEditModal("meetingMinutes")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"100px"}}>
+                <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"12px",borderRadius:"8px",border:"1px solid var(--border)",minHeight:"100px"}}>
                   {v.meetingMinutes||"Upload Meeting Minutes document to extract decisions and action items automatically."}
                 </div>
               </div>
@@ -2025,23 +2025,23 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             <div style={{padding:"16px 20px",overflowY:"auto",flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
               {[["Vessel name","name","text"],["IMO (7 digits)","imo","text"],["Company","company","text"],["Port","port","text"],["Detention date","detentionDate","date"],["Deficiencies","defs","number"]].map(([label,key,type])=>(
                 <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
                   <input value={newCase[key]||""} onChange={e=>setNewCase(p=>({...p,[key]:e.target.value}))} type={type}
-                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}} />
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
                 </div>
               ))}
               {[["MoU","mou",["Tokyo MOU","Paris MOU","AMSA","USCG","Black Sea MOU"]],["FSI Case Owner","fsiCaseOwner",["Fatema Hannan","Cedric","Giorgio","Ankita","Rod","Chris"]],["PSC Case Owner","pscOwner",["Fatema Hannan","Cedric","Giorgio","Ankita","Rod","Chris"]]].map(([label,key,options])=>(
                 <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
                   <select value={newCase[key]||""} onChange={e=>setNewCase(p=>({...p,[key]:e.target.value}))}
-                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                    style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
                     {options.map(o=><option key={o}>{o}</option>)}
                   </select>
                 </div>
               ))}
             </div>
             <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
-              <button onClick={()=>setShowNewCase(false)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
+              <button onClick={()=>setShowNewCase(false)} style={{padding:"7px 16px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
               <button onClick={async()=>{
                 if (!newCase.name||!newCase.imo) return;
                 const vessel = {...newCase, defs:parseInt(newCase.defs)||0, detainable:parseInt(newCase.detainable)||0, detained:true, status:"active", flags:[], carStatus:"Not Received", caseStatus:"New", ro:"—", type:"—", gt:0, taskOwners:[], addedDate:new Date().toISOString().slice(0,10)};
@@ -2049,7 +2049,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 await refreshVessels();
                 setShowNewCase(false);
                 setNewCase({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",fsiCaseOwner:"",pscOwner:""});
-              }} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>Create case</button>
+              }} style={{padding:"7px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500}}>Create case</button>
             </div>
           </div>
         </div>
@@ -2061,10 +2061,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"28px",maxWidth:"400px",width:"100%",textAlign:"center"}}>
             <div style={{fontSize:"28px",marginBottom:"12px"}}>⚠</div>
             <div style={{fontSize:"14px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>Delete {showDeleteConfirm.name}?</div>
-            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>This will permanently delete the case file and all associated data.</div>
+            <div style={{fontSize:"13px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>This will permanently delete the case file and all associated data.</div>
             <div style={{display:"flex",gap:"10px",justifyContent:"center"}}>
-              <button onClick={()=>setShowDeleteConfirm(null)} style={{padding:"8px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              <button onClick={()=>deleteVessel(showDeleteConfirm)} style={{padding:"8px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:600}}>Delete permanently</button>
+              <button onClick={()=>setShowDeleteConfirm(null)} style={{padding:"8px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+              <button onClick={()=>deleteVessel(showDeleteConfirm)} style={{padding:"8px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:600}}>Delete permanently</button>
             </div>
           </div>
         </div>

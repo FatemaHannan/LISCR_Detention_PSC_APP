@@ -14,7 +14,7 @@
   --r:6px;--r2:10px;--r3:14px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg);height:100vh;overflow:hidden}
+body{font-family:var(--font);font-size:16px;color:var(--text);background:var(--bg);height:100vh;overflow:hidden}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
@@ -182,3 +182,20 @@ div[style*="overflowX"]::-webkit-scrollbar-thumb:hover { background: #FFEC6E; }
 #inspection-scroll::-webkit-scrollbar-track { background: #222; border-radius: 7px; }
 #inspection-scroll::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 7px; border: 3px solid #222; }
 #inspection-scroll::-webkit-scrollbar-thumb:hover { background: #FFEC6E; }
+
+/* Increase readability across all components */
+* { -webkit-font-smoothing: antialiased; }
+.case-tab-content, .modal-content { font-size: 13px !important; }
+table td, table th { font-size: 12px !important; }
+
+/* Global font size boost for readability */
+div, span, td, th, p, label, input, select, textarea, button, a {
+  font-size: inherit;
+}
+:root {
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 15px;
+}
