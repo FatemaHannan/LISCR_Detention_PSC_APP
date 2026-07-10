@@ -630,13 +630,16 @@ export default function WeeklyData({ currentUser }) {
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                     <span style={{fontSize:"10px",color:counts[cfg.table]>0?"var(--text3)":"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]!=null?counts[cfg.table].toLocaleString()+" rows in DB":"..."}</span>
-                    {st?.state==="done"&&(()=>{
-                      const lastUpload = st.time?new Date(st.time):null;
-                      const daysSince = lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
-                      const nextDue = daysSince!=null&&daysSince>=7;
+                    {(()=>{
+                      const saved = localStorage.getItem("liscr_upload_"+cfg.key);
+                      const uploadTime = st?.time||saved;
+                      if (!uploadTime) return counts[cfg.table]>0?<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>Uploaded (date unknown)</span>:null;
+                      const lastUpload = new Date(uploadTime);
+                      const daysSince = Math.floor((new Date()-lastUpload)/86400000);
+                      const nextDue = daysSince>=7;
                       return (
                         <span style={{fontSize:"10px",fontFamily:"var(--mono)",color:nextDue?"var(--amber2)":"var(--green2)"}}>
-                          {nextDue?"⚠ ":"✓ "}Last: {st.time}{daysSince!=null?" ("+daysSince+"d ago)":""}{nextDue?" — UPDATE DUE":""}
+                          {nextDue?"⚠ ":"✓ "}Last: {uploadTime}{daysSince>=0?" ("+daysSince+"d ago)":""}{nextDue?" — UPDATE DUE":""}
                         </span>
                       );
                     })()}
