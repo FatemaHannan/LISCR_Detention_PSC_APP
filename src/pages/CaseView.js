@@ -125,6 +125,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [tab, setTab] = useState("overview");
   const [evpQ, setEvpQ] = useState(0);
   const [editModal, setEditModal] = useState(null);
+  const [defView, setDefView] = useState("psc");
   const [showNewCase, setShowNewCase] = useState(false);
   const [newCase, setNewCase] = useState({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",caseOwner:"Case Owner A"});
   const [dbVessels, setDbVessels] = useState([]);
@@ -727,7 +728,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const pscOnlyCodes = [...pscCodes].filter(c=>!flagCodes.has(c));
             const flagOnlyCodes = [...flagCodes].filter(c=>!pscCodes.has(c));
 
-            const [defView, setDefView] = React.useState("psc");
+
 
             return (
               <div>
