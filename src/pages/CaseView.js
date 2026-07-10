@@ -736,6 +736,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const matchedCodes = [...pscCodes].filter(c=>flagCodes.has(c));
             const pscOnlyCodes = [...pscCodes].filter(c=>!flagCodes.has(c));
             const flagOnlyCodes = [...flagCodes].filter(c=>!pscCodes.has(c));
+            // All flag dates before detention for CQA tab
+            const allFlagDates = [...new Set(flagFromTable.map(f=>f.insp_date).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+            const flagBeforeDetention = allFlagDates.filter(d=>d<=detDateStr);
 
 
 
@@ -756,7 +759,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* View tabs */}
                 <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
-                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length)+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"}].map(t=>(
+                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length)+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"},{id:"cqa",l:"CAR Quality"}].map(t=>(
                     <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"11px",fontWeight:defView===t.id?600:400}}>
                       {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
                     </button>
@@ -951,6 +954,79 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     {matchedCodes.length===0&&pscOnlyCodes.length===0&&flagOnlyCodes.length===0&&(
                       <div style={{textAlign:"center",color:"var(--text3)",fontSize:"12px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>
                     )}
+                  </div>
+                )}
+
+                {/* CAR Quality sub-tab */}
+                {defView==="cqa"&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                    {(intel?.cars||[]).length===0&&(
+                      <div style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"12px"}}>No CAR data found. Upload CAR Status Report in Weekly Data.</div>
+                    )}
+                    {flagBeforeDetention.map(flagDate=>{
+                      const flagGroup = lastFlagFindings.filter?lastFlagFindings:flagFromTable.filter(f=>f.insp_date===flagDate);
+                      const flagGrp = flagFromTable.filter(f=>f.insp_date===flagDate);
+                      const flagCds = new Set(flagGrp.map(f=>f.defect_code).filter(Boolean));
+                      const matched = [...flagCds].filter(c=>pscCodes.has(c));
+                      const car = (intel?.cars||[]).find(c=>c.insp_date===flagDate)||(intel?.cars||[]).find(c=>c.insp_date&&Math.abs(new Date(c.insp_date)-new Date(flagDate))<=3*24*60*60*1000);
+                      const closed = car?.car_status&&(car.car_status.toLowerCase().includes("complete")||car.car_status.toLowerCase().includes("closed")||car.car_status.toLowerCase().includes("approved"));
+                      const open = car&&!closed;
+                      const reoccurred = matched.length>0;
+                      const daysB = Math.floor((new Date(detDateStr)-new Date(flagDate))/86400000);
+                      const verdict = !car?"No CAR Record":open?"CAR Open at Detention":reoccurred?"Deficiency Reoccurrence Post-CAR":"No Deficiency Reoccurrence";
+                      const vc = !car?"var(--text3)":open?"var(--amber2)":reoccurred?"var(--red2)":"var(--green2)";
+                      const vbg = !car?"var(--bg3)":open?"var(--amber-bg)":reoccurred?"var(--red-bg)":"var(--green-bg)";
+                      const vb = !car?"var(--border)":open?"var(--amber)":reoccurred?"#3D1A1A":"rgba(34,197,94,0.3)";
+                      return (
+                        <div key={flagDate} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",overflow:"hidden"}}>
+                          <div style={{padding:"10px 14px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+                            <div>
+                              <span style={{fontSize:"12px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
+                              <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
+                              <span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"8px"}}>{daysB} days before detention</span>
+                            </div>
+                            <span style={{fontSize:"10px",padding:"3px 10px",borderRadius:"4px",background:vbg,color:vc,border:"1px solid "+vb,fontWeight:600}}>{verdict}</span>
+                          </div>
+                          <div style={{padding:"12px 14px"}}>
+                            {car?(
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
+                                {[["CAR Status",car.car_status,open,closed&&!reoccurred],["Findings",car.num_findings||flagGrp.length+" (from findings)",false,false],["Assigned To",car.assigned_to,false,false],["Days Open",car.days_open!=null?car.days_open+"d":"—",car.days_open>60,false],["Due/Closed",car.close_or_due_date,false,false],["Closed By",car.closed_by,false,closed&&!reoccurred]].map(([l,val,r,g])=>(
+                                  <div key={l} style={{display:"flex",gap:"8px",padding:"5px 0",borderBottom:"1px solid var(--border)"}}><div style={{fontSize:"10px",color:"var(--text3)",width:"120px",flexShrink:0}}>{l}</div><div style={{fontSize:"11px",color:r?"var(--amber2)":g?"var(--green2)":"var(--text)",fontWeight:r||g?600:500}}>{val||"—"}</div></div>
+                                ))}
+                              </div>
+                            ):<div style={{fontSize:"11px",color:"var(--text3)",padding:"8px",marginBottom:"8px"}}>No CAR record found for this inspection.</div>}
+                            {car?.car_link&&<a href={car.car_link} target="_blank" rel="noreferrer" style={{fontSize:"10px",color:"var(--blue)",display:"block",marginBottom:"10px"}}>View CAR in Waypoint →</a>}
+                            <div style={{padding:"10px 12px",borderRadius:"6px",background:vbg,border:"1px solid "+vb}}>
+                              <div style={{fontSize:"10px",fontWeight:700,color:vc,marginBottom:"4px"}}>{open?"⚠ ":reoccurred?"⚠ ":"✓ "}{verdict}</div>
+                              <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.65}}>
+                                {open&&`CAR was ${car.car_status} when PSC detained the vessel. Corrective actions from the ${flagDate} Flag inspection were not resolved before PSC boarding.`}
+                                {closed&&reoccurred&&`CAR marked ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. However ${matched.length} deficiency code${matched.length>1?"s":""} (${matched.join(", ")}) reappeared at PSC detention — corrective actions may not have been effectively implemented.`}
+                                {closed&&!reoccurred&&`CAR ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. No matching deficiency codes found at PSC detention — corrective actions appear to have been effectively implemented.`}
+                                {!car&&"Upload CAR Status Report in Weekly Data to enable quality analysis."}
+                              </div>
+                            </div>
+                            {matched.length>0&&(
+                              <div style={{marginTop:"10px"}}>
+                                <div style={{fontSize:"10px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Reoccurring Codes ({matched.length})</div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
+                                  {matched.map(code=>{
+                                    const fd=flagGrp.find(f=>f.defect_code===code);
+                                    const pd=pscToShow.find(f=>f.defect_code===code);
+                                    return <div key={code} style={{padding:"6px 10px",borderRadius:"5px",background:"var(--red-bg)",border:"1px solid #3D1A1A",fontSize:"10px"}}><div style={{fontFamily:"var(--mono)",fontWeight:700,color:"var(--red2)",marginBottom:"2px"}}>{code}</div><div style={{color:"var(--text3)"}}>Flag: {fd?.main_defect_text?.slice(0,50)||"—"}</div><div style={{color:"var(--text2)"}}>PSC: {pd?.main_defect_text?.slice(0,50)||"—"}</div></div>;
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            <details style={{marginTop:"10px"}}>
+                              <summary style={{fontSize:"10px",color:"var(--text3)",cursor:"pointer"}}>Flag findings on {flagDate} ({flagGrp.length})</summary>
+                              <div style={{marginTop:"6px",display:"flex",flexDirection:"column",gap:"3px"}}>
+                                {flagGrp.map((f,i)=><div key={i} style={{display:"flex",gap:"8px",padding:"4px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"10px"}}><span style={{fontFamily:"var(--mono)",color:"var(--text3)",width:"50px",flexShrink:0}}>{f.defect_code}</span><span style={{color:pscCodes.has(f.defect_code)?"var(--red2)":"var(--text2)",flex:1}}>{f.main_defect_text}{f.full_description&&f.full_description!==f.main_defect_text?" — "+f.full_description.slice(0,80):""}</span>{pscCodes.has(f.defect_code)&&<span style={{fontSize:"9px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ PSC</span>}</div>)}
+                              </div>
+                            </details>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
