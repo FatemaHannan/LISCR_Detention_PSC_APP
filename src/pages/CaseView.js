@@ -754,6 +754,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>}
                 </div>
 
+                {/* Data source debug info */}
+                <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px",padding:"6px 10px",background:"var(--bg3)",borderRadius:"4px",border:"1px solid var(--border)"}}>
+                  Data: {allFindings.length} findings in DB ({pscFromTable.length} PSC, {flagFromTable.length} Flag) | {intel?.cars?.length||0} CAR records | PSC near detention: {pscFindings.length} | Flag before detention: {lastFlagFindings.length}
+                </div>
+
                 {/* View tabs */}
                 <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
                   {[{id:"psc",l:"PSC Findings ("+(pscToShow.length)+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"}].map(t=>(
