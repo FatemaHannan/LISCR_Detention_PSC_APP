@@ -363,10 +363,10 @@ export default function WeeklyData({ currentUser }) {
 
   useEffect(() => {
     const tables = UPLOADS.map(u => u.table);
-    Promise.allSettled(tables.map(t => supabase.from(t).select('count'))).then(results => {
+    Promise.allSettled(tables.map(t => supabase.from(t).select('*', {count:'exact', head:true}))).then(results => {
       const c = {};
       results.forEach((res, idx) => {
-        c[tables[idx]] = res.status==="fulfilled" ? (res.value?.data?.[0]?.count||0) : 0;
+        c[tables[idx]] = res.status==="fulfilled" ? (res.value?.count||0) : 0;
       });
       setCounts(c);
     });
@@ -629,7 +629,7 @@ export default function WeeklyData({ currentUser }) {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                    {counts[cfg.table]>0&&<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]} rows in DB</span>}
+                    <span style={{fontSize:"10px",color:counts[cfg.table]>0?"var(--text3)":"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]!=null?counts[cfg.table].toLocaleString()+" rows in DB":"..."}</span>
                     {st?.state==="done"&&(()=>{
                       const lastUpload = st.time?new Date(st.time):null;
                       const daysSince = lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
