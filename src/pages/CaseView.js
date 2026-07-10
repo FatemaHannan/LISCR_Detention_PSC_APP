@@ -126,6 +126,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [evpQ, setEvpQ] = useState(0);
   const [editModal, setEditModal] = useState(null);
   const [defView, setDefView] = useState("psc");
+
+  // Auto-load intel when switching to deficiencies tab
+  React.useEffect(() => {
+    if (tab === "deficiencies" && sel && (!intel.findings || intel.findings.length === 0) && !intel.loading) {
+      loadIntelligence(sel.imo, sel.company);
+    }
+  }, [tab, sel?.imo]);
   const [showNewCase, setShowNewCase] = useState(false);
   const [newCase, setNewCase] = useState({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",caseOwner:"Case Owner A"});
   const [dbVessels, setDbVessels] = useState([]);
@@ -700,6 +707,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {tab==="deficiencies"&&(()=>{
             // Priority 1: use flag_psc_findings table
             // Priority 2: fall back to AI-extracted deficiencies from PSC report
+            if (intel.loading) return <div style={{padding:"30px",textAlign:"center",color:"var(--text3)",fontSize:"12px"}}>Loading findings data...</div>;
             const allFindings = intel?.findings||[];
             const pscFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
             const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
