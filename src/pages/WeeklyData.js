@@ -633,7 +633,15 @@ export default function WeeklyData({ currentUser }) {
                     {(()=>{
                       const saved = localStorage.getItem("liscr_upload_"+cfg.key);
                       const uploadTime = st?.time||saved;
-                      if (!uploadTime) return counts[cfg.table]>0?<span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>Uploaded (date unknown)</span>:null;
+                      if (!uploadTime) return counts[cfg.table]>0?(
+                        <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",display:"flex",alignItems:"center",gap:"6px"}}>
+                          Uploaded (date unknown)
+                          <button onClick={()=>{
+                            const d = prompt("Enter last upload date (e.g. 7/10/2026):");
+                            if(d){localStorage.setItem("liscr_upload_"+cfg.key,d);window.location.reload();}
+                          }} style={{fontSize:"9px",padding:"1px 6px",border:"1px solid var(--border)",borderRadius:"3px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Set date</button>
+                        </span>
+                      ):null;
                       const lastUpload = new Date(uploadTime);
                       const daysSince = Math.floor((new Date()-lastUpload)/86400000);
                       const nextDue = daysSince>=7;
