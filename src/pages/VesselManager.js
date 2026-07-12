@@ -617,10 +617,37 @@ function CompanyPattern({vessels}) {
 
 // ── CAR TRACKER TAB ──────────────────────────────────────────────────────────
 function CARTracker({vessels}) {
-  const notReceived = vessels.filter(v=>v.carStatus==="Not Received").sort((a,b)=>(a.detentionDate||"")>(b.detentionDate||"")?1:-1);
-  const requested = vessels.filter(v=>v.carStatus==="Requested");
-  const complete = vessels.filter(v=>v.carStatus==="Complete");
-  const rejected = vessels.filter(v=>v.carStatus==="Rejected");
+  const [carData, setCarData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(()=>{
+    supabase.from("car_status_report").select("*").order("insp_date",{ascending:false}).then(({data})=>{
+      setCarData(data||[]);
+      setLoading(false);
+    }).catch(()=>setLoading(false));
+  },[]);
+
+  // Merge car_status_report data with vessels
+  // For each vessel, find latest CAR record and use its status
+  const enrichedVessels = vessels.map(v=>{
+    const vCars = carData.filter(c=>c.imo===String(v.imo));
+    const latestCar = vCars.sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date))[0];
+    return {
+      ...v,
+      liveCarStatus: latestCar?.car_status||v.carStatus,
+      carDaysOpen: latestCar?.days_open||null,
+      carDueDate: latestCar?.close_or_due_date||null,
+      carAssignedTo: latestCar?.assigned_to||null,
+      carClosedBy: latestCar?.closed_by||null,
+      carLink: latestCar?.car_link||null,
+      carInspDate: latestCar?.insp_date||null,
+    };
+  });
+
+  const notReceived = enrichedVessels.filter(v=>v.liveCarStatus==="Not Received"||v.liveCarStatus==="Pending Response"||v.liveCarStatus==="Follow up Requested").sort((a,b)=>(a.detentionDate||"")>(b.detentionDate||"")?1:-1);
+  const requested = enrichedVessels.filter(v=>v.liveCarStatus==="Requested");
+  const complete = enrichedVessels.filter(v=>v.liveCarStatus==="Complete");
+  const rejected = enrichedVessels.filter(v=>v.liveCarStatus==="Rejected");
 
   function DaysAgo({date}) {
     if (!date) return <span style={{color:"var(--text3)"}}>—</span>;
@@ -629,24 +656,36 @@ function CARTracker({vessels}) {
   }
 
   function CARTable({rows, emptyMsg}) {
-    if (!rows.length) return <div style={{fontSize:"11px",color:"var(--text3)",padding:"12px 0"}}>{emptyMsg}</div>;
+    if (!rows.length) return <div style={{fontSize:"13px",color:"var(--text3)",padding:"12px 0"}}>{emptyMsg}</div>;
     return (
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-        <thead><tr>{["Vessel","IMO","Company","MoU","Detention Date","Days Overdue","Defs"].map(h=><th key={h} style={{fontSize:"9px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-        <tbody>{rows.map((v,i)=>(
-          <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
-            <td style={{padding:"8px 10px",fontWeight:600,color:"var(--amber2)"}}>{v.name}</td>
-            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</td>
-            <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.company||"\u2014"}</td>
-            <td style={{padding:"8px 10px",color:"var(--text3)"}}>{v.mou||"\u2014"}</td>
-            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.detentionDate||"\u2014"}</td>
-            <td style={{padding:"8px 10px"}}><DaysAgo date={v.detentionDate} /></td>
-            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:v.defs>=15?"var(--red2)":v.defs>=8?"var(--amber2)":"var(--text)",textAlign:"center"}}>{v.defs||0}</td>
-          </tr>
-        ))}</tbody>
+      <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#FFD700 #1a1a1a"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"900px"}}>
+        <thead><tr>{["Vessel","IMO","Company","Detention Date","CAR Status","Days Open","Due Date","Assigned To","View CAR"].map(h=><th key={h} style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+        <tbody>{rows.map((v,i)=>{
+          const daysOverdue = v.carDueDate&&new Date(v.carDueDate)<new Date()?Math.floor((new Date()-new Date(v.carDueDate))/86400000):null;
+          return (
+            <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",fontWeight:600,color:"var(--amber2)",whiteSpace:"nowrap"}}>{v.name}</td>
+              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",fontSize:"12px"}}>{v.imo}</td>
+              <td style={{padding:"8px 10px",color:"var(--text2)",maxWidth:"150px"}}>{v.company||"—"}</td>
+              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.detentionDate||"—"}</td>
+              <td style={{padding:"8px 10px"}}><span style={{fontWeight:600,color:v.liveCarStatus==="Complete"?"var(--green2)":v.liveCarStatus==="Rejected"?"var(--red2)":"var(--amber2)",fontSize:"12px"}}>{v.liveCarStatus||v.carStatus||"—"}</span></td>
+              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:(v.carDaysOpen||0)>60?"var(--red2)":(v.carDaysOpen||0)>30?"var(--amber2)":"var(--text3)"}}>{v.carDaysOpen!=null?v.carDaysOpen+"d":"—"}</td>
+              <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:daysOverdue?"var(--red2)":"var(--text3)"}}>{v.carDueDate||"—"}</span>
+                {daysOverdue>0&&<span style={{fontSize:"11px",color:"var(--red2)",marginLeft:"4px"}}>({daysOverdue}d overdue)</span>}
+              </td>
+              <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.carAssignedTo||"—"}</td>
+              <td style={{padding:"8px 10px"}}>{v.carLink?<a href={v.carLink} target="_blank" rel="noreferrer" style={{color:"var(--blue)",fontSize:"12px"}}>View →</a>:"—"}</td>
+            </tr>
+          );
+        })}</tbody>
       </table>
+      </div>
     );
   }
+
+  if (loading) return <div style={{padding:"40px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading CAR data from database...</div>;
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
