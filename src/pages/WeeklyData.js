@@ -391,6 +391,34 @@ const UPLOADS = [
   },
 ];
 
+async function syncVIPToVessels() {
+  // Get all VIP data
+  const {data: vipRows} = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro");
+  if (!vipRows?.length) return 0;
+  // Get all vessels
+  const {data: vessels} = await supabase.from("vessels").select("id,imo,name");
+  if (!vessels?.length) return 0;
+  
+  let updated = 0;
+  for (const r of vipRows) {
+    if (!r.imo) continue;
+    // Match by IMO or by vessel name
+    const matches = vessels.filter(v=>String(v.imo)===String(r.imo));
+    for (const v of matches) {
+      const updates = {};
+      if (r.flag_followup_rcm) updates.fsi_case_owner = r.flag_followup_rcm;
+      if (r.psc_followup_rcm) updates.psc_case_owner = r.psc_followup_rcm;
+      if (r.ism_client && (!v.company||v.company==="—")) updates.company = r.ism_client;
+      if (r.ro && (!v.ro||v.ro==="—")) updates.ro = r.ro;
+      if (Object.keys(updates).length) {
+        await supabase.from("vessels").update(updates).eq("id", v.id);
+        updated++;
+      }
+    }
+  }
+  return updated;
+}
+
 export default function WeeklyData({ currentUser }) {
   const [status, setStatus] = useState({});
   const [uploading, setUploading] = useState({});
@@ -414,6 +442,21 @@ export default function WeeklyData({ currentUser }) {
     });
     if (Object.keys(savedStatus).length) setStatus(savedStatus);
   }, []);
+
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  async function handleSyncCaseOwners() {
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const updated = await syncVIPToVessels();
+      setSyncMsg(`✓ Synced case owners for ${updated} vessel records`);
+    } catch(e) {
+      setSyncMsg("✗ Sync failed: "+e.message);
+    }
+    setSyncing(false);
+  }
 
   const isAdmin = currentUser?.role === "Super Admin" || currentUser?.role === "Admin";
   if (!isAdmin) return (
@@ -517,21 +560,7 @@ export default function WeeklyData({ currentUser }) {
       // After Vessel Inspection Performance upload: sync case owners + ISM client to vessels
       if (cfg.key === "vessel_inspection_performance") {
         try {
-          const vipResult = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro,vsl_type,age");
-          const vipRows = vipResult?.data||[];
-          if (vipRows.length) {
-            for (const r of vipRows) {
-              if (!r.imo) continue;
-              const updates = {};
-              if (r.flag_followup_rcm) updates.fsi_case_owner = r.flag_followup_rcm;
-              if (r.psc_followup_rcm) updates.psc_case_owner = r.psc_followup_rcm;
-              if (r.ism_client) updates.company = r.ism_client;
-              if (r.ro) updates.ro = r.ro;
-              if (Object.keys(updates).length) {
-                await supabase.from("vessels").update(updates).eq("imo", r.imo);
-              }
-            }
-          }
+          await syncVIPToVessels();
         } catch(syncErr) { console.warn("VIP sync:", syncErr); }
       }
 
@@ -643,9 +672,17 @@ export default function WeeklyData({ currentUser }) {
 
   return (
     <div style={{padding:"16px"}}>
-      <div style={{marginBottom:"16px"}}>
-        <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Weekly Data Upload</div>
-        <div style={{fontSize:"11px",color:"var(--text3)"}}>Upload weekly Excel exports. Each upload fully replaces previous data.</div>
+      <div style={{marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"10px"}}>
+        <div>
+          <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)",marginBottom:"4px"}}>Weekly Data Upload</div>
+          <div style={{fontSize:"11px",color:"var(--text3)"}}>Upload weekly Excel exports. Each upload fully replaces previous data.</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"6px"}}>
+          <button onClick={handleSyncCaseOwners} disabled={syncing} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"12px",fontWeight:500,opacity:syncing?0.6:1}}>
+            {syncing?"⏳ Syncing...":"↻ Sync Case Owners"}
+          </button>
+          {syncMsg&&<div style={{fontSize:"11px",color:syncMsg.startsWith("✓")?"var(--green2)":"var(--red2)"}}>{syncMsg}</div>}
+        </div>
       </div>
       <div style={{display:"grid",gap:"14px"}}>
         {UPLOADS.map(cfg => {
