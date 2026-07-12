@@ -1293,11 +1293,38 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       ))}
                     </div>
 
+                    {/* Casualty details */}
+                    {intel.vip.vsl_casualty>0&&(
+                      <div style={{padding:"10px 14px",background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",marginBottom:"10px"}}>
+                        <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",marginBottom:"4px"}}>⚠ Vessel Casualty on Record</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>
+                          This vessel has {intel.vip.vsl_casualty} casualty record(s). For full casualty details including date, type and description, refer to the LISCR Casualty report or Waypoint casualty module.
+                          {v.dispensation&&<span><br/><strong>Note:</strong> {v.dispensation}</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MLC details from MLC table */}
+                    {intel.vip.mlc_compl>0&&intel.mlc?.length>0&&(
+                      <div style={{padding:"10px 14px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",marginBottom:"10px"}}>
+                        <div style={{fontSize:"12px",fontWeight:700,color:"var(--amber2)",marginBottom:"6px"}}>MLC Complaints ({intel.mlc.length} records)</div>
+                        {intel.mlc.slice(0,3).map((m,i)=>(
+                          <div key={i} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:i<Math.min(intel.mlc.length,3)-1?"1px solid rgba(245,158,11,0.2)":"none",flexWrap:"wrap"}}>
+                            <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:"var(--text3)",flexShrink:0}}>{m.reported_date||"—"}</span>
+                            <span style={{fontSize:"12px",fontWeight:600,color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",flexShrink:0}}>{m.mlc_status||"—"}</span>
+                            <span style={{fontSize:"12px",color:"var(--text3)"}}>{m.inspection_type||"—"}</span>
+                            <span style={{fontSize:"12px",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",marginLeft:"auto"}}>{m.risk_level||""}</span>
+                          </div>
+                        ))}
+                        {intel.mlc.length>3&&<div style={{fontSize:"12px",color:"var(--text3)",marginTop:"5px"}}>+{intel.mlc.length-3} more — see MLC Complaints section above</div>}
+                      </div>
+                    )}
+
                     {/* Dispensation details */}
                     {(v.dispensation||intel.vip.tech_disp_365>0)&&(
                       <div style={{padding:"10px 14px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",marginBottom:"10px"}}>
                         <div style={{fontSize:"12px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Dispensation Details</div>
-                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{v.dispensation||intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days"}</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{v.dispensation||intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days — see Waypoint for full dispensation list"}</div>
                       </div>
                     )}
 
