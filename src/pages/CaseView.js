@@ -609,7 +609,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
@@ -1273,33 +1273,46 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 </div>
                 {/* PSC Detention Summary */}
                 {/* Vessel Casualty */}
-                {intel.vip&&(intel.vip.vsl_casualty>0||intel.vip.mlc_compl>0||intel.vip.tech_disp_365>0)&&(
+                {intel.vip&&(
                   <div style={{marginBottom:"16px"}}>
                     <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
+
+                    {/* Key counts */}
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
                       {[
-                        {l:"VSL Casualty",v:intel.vip.vsl_casualty||0,c:intel.vip.vsl_casualty>0?"var(--red2)":"var(--text3)"},
-                        {l:"MLC Complaints",v:intel.vip.mlc_compl||0,c:intel.vip.mlc_compl>0?"var(--amber2)":"var(--text3)"},
-                        {l:"Tech Disp (365d)",v:intel.vip.tech_disp_365||0,c:"var(--text)"},
-                        {l:"Flag Control/Det 365",v:intel.vip.flag_control_det_365||0,c:intel.vip.flag_control_det_365>0?"var(--amber2)":"var(--text3)"},
+                        {l:"VSL Casualty",v:intel.vip.vsl_casualty||0,c:intel.vip.vsl_casualty>0?"var(--red2)":"var(--text3)",desc:intel.vip.vsl_casualty>0?"Casualty on record — review required":null},
+                        {l:"MLC Complaints",v:intel.vip.mlc_compl||0,c:intel.vip.mlc_compl>0?"var(--amber2)":"var(--text3)",desc:null},
+                        {l:"Tech Dispensations (365d)",v:intel.vip.tech_disp_365||0,c:intel.vip.tech_disp_365>2?"var(--amber2)":"var(--text)",desc:intel.vip.tech_disp_365>2?"High dispensation count":null},
+                        {l:"Flag Control/Det 365",v:intel.vip.flag_control_det_365||0,c:intel.vip.flag_control_det_365>0?"var(--amber2)":"var(--text3)",desc:null},
                       ].map(s=>(
-                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px",border:"1px solid var(--border)"}}>
-                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{s.l}</div>
-                          <div style={{fontSize:"20px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px",border:"1px solid "+(s.v>0&&s.c!=="var(--text)"?"rgba(239,68,68,0.3)":"var(--border)")}}>
+                          <div style={{fontSize:"12px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>{s.l}</div>
+                          <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+                          {s.desc&&<div style={{fontSize:"11px",color:s.c,marginTop:"3px"}}>{s.desc}</div>}
                         </div>
                       ))}
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+
+                    {/* Dispensation details */}
+                    {(v.dispensation||intel.vip.tech_disp_365>0)&&(
+                      <div style={{padding:"10px 14px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",marginBottom:"10px"}}>
+                        <div style={{fontSize:"12px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Dispensation Details</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{v.dispensation||intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days"}</div>
+                      </div>
+                    )}
+
+                    {/* Performance stats */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
                       {[
                         {l:"US Trading",v:intel.vip.us_trading||"—"},
                         {l:"PSC Inspections",v:intel.vip.psc_insps||"—"},
-                        {l:"PSC Finding Avg",v:intel.vip.psc_finding_av||"—"},
+                        {l:"PSC Finding Avg",v:intel.vip.psc_finding_av?Number(intel.vip.psc_finding_av).toFixed(1):"—"},
                         {l:"Flag Inspections",v:intel.vip.flag_insps||"—"},
-                        {l:"Flag Finding Avg",v:intel.vip.flag_finding_av||"—"},
-                        {l:"VSL Insp. Performance",v:intel.vip.vsl_insp_perf||"—"},
+                        {l:"Flag Finding Avg",v:intel.vip.flag_finding_av?Number(intel.vip.flag_finding_av).toFixed(1):"—"},
+                        {l:"VSL Insp. Performance",v:intel.vip.vsl_insp_perf?Number(intel.vip.vsl_insp_perf).toFixed(1):"—"},
                       ].map(s=>(
-                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px",border:"1px solid var(--border)"}}>
-                          <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
+                        <div key={s.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 12px",border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:"12px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
                           <div style={{fontSize:"13px",fontWeight:500,fontFamily:"var(--mono)",color:"var(--text)"}}>{s.v}</div>
                         </div>
                       ))}
@@ -1885,6 +1898,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             {key:"fsiCaseOwner",label:"FSI Case Owner",type:"text"},{key:"pscOwner",label:"PSC Case Owner",type:"text"},
             {key:"appeal",label:"Appeal",type:"select",options:["NOT recommended","Under consideration","Recommended","Submitted","Rejected"]},
             {key:"carStatus",label:"CAR status",type:"select",options:["Not Received","Received","Complete","Rejected"]},
+            {key:"carRequestedDate",label:"CAR requested date",type:"date"},
+            {key:"clientRejection",label:"Client rejection reason",type:"text"},
+            {key:"dispensation",label:"Dispensation details",type:"textarea"},
             {key:"caseStatus",label:"Case status",type:"select",options:["New","Pending Review","Pending CAR","In Progress","Close Case"]},
             {key:"release",label:"Release condition",type:"textarea"},
           ]}
