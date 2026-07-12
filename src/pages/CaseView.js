@@ -1870,7 +1870,22 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               {[["Vessel name","name","text"],["IMO (7 digits)","imo","text"],["Company","company","text"],["Port","port","text"],["Detention date","detentionDate","date"],["Deficiencies","defs","number"]].map(([label,key,type])=>(
                 <div key={key}>
                   <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",textTransform:"uppercase",marginBottom:"5px"}}>{label}</div>
-                  <input value={newCase[key]||""} onChange={e=>setNewCase(p=>({...p,[key]:e.target.value}))} type={type}
+                  <input value={newCase[key]||""} onChange={async e=>{
+                    const val = e.target.value;
+                    setNewCase(p=>({...p,[key]:val}));
+                    // Auto-lookup VIP data when IMO is 7 digits
+                    if (key==="imo"&&val.length===7) {
+                      const {data:vip} = await supabase.from("vessel_inspection_performance").select("*").eq("imo",val).limit(1);
+                      if (vip?.[0]) {
+                        setNewCase(p=>({...p,
+                          fsiCaseOwner: vip[0].flag_followup_rcm||p.fsiCaseOwner,
+                          pscOwner: vip[0].psc_followup_rcm||p.pscOwner,
+                          company: vip[0].ism_client||p.company,
+                          ro: vip[0].ro||p.ro,
+                        }));
+                      }
+                    }
+                  }} type={type}
                     style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
                 </div>
               ))}
