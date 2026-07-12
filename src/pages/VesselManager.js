@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getVessels, upsertVessel, deleteVesselFromDB } from "../lib/db";
+import { fmtDate } from "../lib/utils";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 
@@ -90,7 +91,7 @@ function CaseList({ vessels, canEdit, canDelete }) {
                 <td style={{padding:"9px 12px",color:"var(--text2)"}}>{v.company||"\u2014"}</td>
                 <td style={{padding:"9px 12px",color:"var(--text3)"}}>{v.mou||"\u2014"}</td>
                 <td style={{padding:"9px 12px",color:"var(--text3)",maxWidth:"140px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port||"\u2014"}</td>
-                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.detentionDate||"\u2014"}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{fmtDate(v.detentionDate)}</td>
                 <td style={{padding:"9px 12px",textAlign:"center",fontFamily:"var(--mono)",color:v.defs>=20?"var(--red2)":v.defs>=10?"var(--amber2)":"var(--text)",fontWeight:v.defs>=10?600:400}}>{v.defs||0}</td>
                 <td style={{padding:"9px 12px",textAlign:"center",fontFamily:"var(--mono)",color:v.detainable>0?"var(--red2)":"var(--text3)",fontWeight:v.detainable>0?600:400}}>{v.detainable||0}</td>
                 <td style={{padding:"9px 12px",color:carColor(v.carStatus),fontWeight:500,whiteSpace:"nowrap"}}>{v.carStatus||"\u2014"}</td>
@@ -363,7 +364,7 @@ function PatternDetection({vessels}) {
                 return (
                   <tr key={i}>
                     <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontWeight:600,color:"var(--amber2)"}}>{v.name}</td>
-                    <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate||"\u2014"}{days!=null&&<span style={{marginLeft:"4px",fontSize:"9px",color:"var(--red2)"}}>{days}d</span>}</td>
+                    <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtDate(v.detentionDate)}{days!=null&&<span style={{marginLeft:"4px",fontSize:"9px",color:"var(--red2)"}}>{days}d</span>}</td>
                     <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--amber2)",textAlign:"center"}}>{v.defs||0}</td>
                   </tr>
                 );
@@ -668,11 +669,11 @@ function CARTracker({vessels}) {
               <td style={{padding:"8px 10px",fontWeight:600,color:"var(--amber2)",whiteSpace:"nowrap"}}>{v.name}</td>
               <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",fontSize:"12px"}}>{v.imo}</td>
               <td style={{padding:"8px 10px",color:"var(--text2)",maxWidth:"150px"}}>{v.company||"—"}</td>
-              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{v.detentionDate||"—"}</td>
+              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{fmtDate(v.detentionDate)}</td>
               <td style={{padding:"8px 10px"}}><span style={{fontWeight:600,color:v.liveCarStatus==="Complete"?"var(--green2)":v.liveCarStatus==="Rejected"?"var(--red2)":"var(--amber2)",fontSize:"12px"}}>{v.liveCarStatus||v.carStatus||"—"}</span></td>
               <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:(v.carDaysOpen||0)>60?"var(--red2)":(v.carDaysOpen||0)>30?"var(--amber2)":"var(--text3)"}}>{v.carDaysOpen!=null?v.carDaysOpen+"d":"—"}</td>
               <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:daysOverdue?"var(--red2)":"var(--text3)"}}>{v.carDueDate||"—"}</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:daysOverdue?"var(--red2)":"var(--text3)"}}>{fmtDate(v.carDueDate)}</span>
                 {daysOverdue>0&&<span style={{fontSize:"11px",color:"var(--red2)",marginLeft:"4px"}}>({daysOverdue}d overdue)</span>}
               </td>
               <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.carAssignedTo||"—"}</td>

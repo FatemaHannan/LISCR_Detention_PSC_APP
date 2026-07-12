@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { VESSELS, TASKS, DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
+import { fmtDate } from "../lib/utils";
 import { supabase } from "../lib/supabase";
 import CaseImport from "./CaseImport";
 import EditModal from "../components/EditModal";
@@ -103,7 +104,7 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
             </div>
           ))}
         </div>
-        {v.detentionDate&&<div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate}</div>}
+        {v.detentionDate&&<div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtDate(v.detentionDate)}</div>}
         {carLabel&&<div style={{display:"inline-block",padding:"2px 8px",borderRadius:"4px",fontSize:"13px",fontWeight:600,background:carBg,color:carColor,border:"1px solid "+carBorder,alignSelf:"flex-start"}}>{carLabel}</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:isDet?"var(--red-bg)":"rgba(34,197,94,0.08)",color:isDet?"var(--red2)":"var(--green2)",border:"1px solid "+(isDet?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{isDet?"DETAINED":"ACTIVE"}</span>
@@ -564,7 +565,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             <div>
               <div style={{display:"flex",alignItems:"baseline",gap:"10px",marginBottom:"2px"}}>
                 <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>{v.name}</div>
-                {v.detentionDate&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)",borderLeft:"2px solid var(--border2)",paddingLeft:"10px"}}>{v.detentionDate}</div>}
+                {v.detentionDate&&<div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)",borderLeft:"2px solid var(--border2)",paddingLeft:"10px"}}>{fmtDate(v.detentionDate)}</div>}
               </div>
               <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} · {v.port}</div>
               <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>Case Owner: <strong style={{color:"var(--text2)"}}>{v.caseOwner}</strong> · Task Owners: <strong style={{color:"var(--text2)"}}>{v.taskOwners?.join(", ")||"—"}</strong></div>
@@ -750,7 +751,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     PSC: {usePscTable?"From Flag & PSC Findings report ("+pscFindings.length+" findings)":"From uploaded PSC report ("+pscReportDefs.length+" findings)"}
                   </div>
                   {lastFlagFindings.length>0&&<div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:"rgba(245,158,11,0.1)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:500}}>
-                    Flag: {lastFlagDate} — {lastFlagFindings.length} findings
+                    Flag: {fmtDate(lastFlagDate)} — {lastFlagFindings.length} findings
                   </div>}
                   {matchedCodes.length>0&&<div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontWeight:600}}>
                     ⚠ {matchedCodes.length} matching codes
@@ -797,7 +798,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* Flag Findings */}
                 {defView==="flag"&&(
                   <div>
-                    {lastFlagDate&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"8px 12px",fontSize:"13px",color:"var(--amber2)",marginBottom:"10px"}}>Last Flag inspection: {lastFlagDate} — {lastFlagFindings.length} findings</div>}
+                    {lastFlagDate&&<div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"8px 12px",fontSize:"13px",color:"var(--amber2)",marginBottom:"10px"}}>Last Flag inspection: {fmtDate(lastFlagDate)} — {lastFlagFindings.length} findings</div>}
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
                       <thead><tr>{["#","Code","Category","Description","Match with PSC?"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{lastFlagFindings.map((d,i)=>{
@@ -919,10 +920,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       const vbg = !car?"var(--bg3)":open?"var(--amber-bg)":reoccurred?"var(--red-bg)":"var(--green-bg)";
                       const vb = !car?"var(--border)":open?"var(--amber)":reoccurred?"#3D1A1A":"rgba(34,197,94,0.3)";
                       return (
-                        <div key={flagDate} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",overflow:"hidden"}}>
+                        <div key={fmtDate(flagDate)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",overflow:"hidden"}}>
                           <div style={{padding:"10px 14px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
                             <div>
-                              <span style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{flagDate}</span>
+                              <span style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{fmtDate(flagDate)}</span>
                               <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{car?.insp_type||"Flag Inspection"}</span>
                               <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"8px"}}>{daysB} days before detention</span>
                             </div>
@@ -940,9 +941,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <div style={{padding:"10px 12px",borderRadius:"6px",background:vbg,border:"1px solid "+vb}}>
                               <div style={{fontSize:"13px",fontWeight:700,color:vc,marginBottom:"4px"}}>{open?"⚠ ":reoccurred?"⚠ ":"✓ "}{verdict}</div>
                               <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65}}>
-                                {open&&`CAR was ${car.car_status} when PSC detained the vessel. Corrective actions from the ${flagDate} Flag inspection were not resolved before PSC boarding.`}
-                                {closed&&reoccurred&&`CAR marked ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. However ${matched.length} deficiency code${matched.length>1?"s":""} (${matched.join(", ")}) reappeared at PSC detention — corrective actions may not have been effectively implemented.`}
-                                {closed&&!reoccurred&&`CAR ${car.car_status} by ${car.closed_by||"unknown"} on ${car.close_or_due_date||"—"}. No matching deficiency codes found at PSC detention — corrective actions appear to have been effectively implemented.`}
+                                {open&&`CAR was ${car.car_status} when PSC detained the vessel. Corrective actions from the ${fmtDate(flagDate)} Flag inspection were not resolved before PSC boarding.`}
+                                {closed&&reoccurred&&`CAR marked ${car.car_status} by ${car.closed_by||"unknown"} on ${fmtDate(car?.close_or_due_date)}. However ${matched.length} deficiency code${matched.length>1?"s":""} (${matched.join(", ")}) reappeared at PSC detention — corrective actions may not have been effectively implemented.`}
+                                {closed&&!reoccurred&&`CAR ${car.car_status} by ${car.closed_by||"unknown"} on ${fmtDate(car?.close_or_due_date)}. No matching deficiency codes found at PSC detention — corrective actions appear to have been effectively implemented.`}
                                 {!car&&"Upload CAR Status Report in Weekly Data to enable quality analysis."}
                               </div>
                             </div>
@@ -959,7 +960,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                               </div>
                             )}
                             <details style={{marginTop:"10px"}}>
-                              <summary style={{fontSize:"13px",color:"var(--text3)",cursor:"pointer"}}>Flag findings on {flagDate} ({flagGrp.length})</summary>
+                              <summary style={{fontSize:"13px",color:"var(--text3)",cursor:"pointer"}}>Flag findings on {fmtDate(flagDate)} ({flagGrp.length})</summary>
                               <div style={{marginTop:"6px",display:"flex",flexDirection:"column",gap:"3px"}}>
                                 {flagGrp.map((f,i)=><div key={i} style={{display:"flex",gap:"8px",padding:"4px 8px",background:"var(--bg3)",borderRadius:"4px",fontSize:"13px"}}><span style={{fontFamily:"var(--mono)",color:"var(--text3)",width:"50px",flexShrink:0}}>{f.defect_code}</span><span style={{color:pscCodes.has(f.defect_code)?"var(--red2)":"var(--text2)",flex:1}}>{f.main_defect_text}{f.full_description&&f.full_description!==f.main_defect_text?" — "+f.full_description.slice(0,80):""}</span>{pscCodes.has(f.defect_code)&&<span style={{fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>⚠ PSC</span>}</div>)}
                               </div>
