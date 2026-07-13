@@ -1274,9 +1274,31 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 </div>
                 {/* PSC Detention Summary */}
                 {/* Vessel Casualty */}
+                {/* Casualty History from Inspection History */}
+                {(()=>{
+                  const casualties = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").trim()==="VSL Casualty");
+                  if (!casualties.length) return null;
+                  return (
+                    <div style={{marginBottom:"16px",background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+                      <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty History ({casualties.length} records)</div>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                        <thead><tr>{["Date","Type / Description","Risk","Reported By"].map(h=><th key={h} style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                        <tbody>{casualties.map((c,i)=>(
+                          <tr key={i} style={{borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg3)":"transparent"}}>
+                            <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{fmtDate(c.inspection_date)}</td>
+                            <td style={{padding:"8px 10px",color:"var(--red2)",fontWeight:500}}>{c.inspection_type||"—"}{c.finding_note?<span style={{color:"var(--text3)",fontWeight:400}}> — {c.finding_note}</span>:""}</td>
+                            <td style={{padding:"8px 10px"}}><span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:c.risk_level==="High"?"var(--red-bg)":c.risk_level==="Medium"?"var(--amber-bg)":"var(--bg3)",color:c.risk_level==="High"?"var(--red2)":c.risk_level==="Medium"?"var(--amber2)":"var(--text3)",fontWeight:600}}>{c.risk_level||"—"}</span></td>
+                            <td style={{padding:"8px 10px",color:"var(--text3)"}}>{c.auditor||"—"}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
                 {intel.vip&&(
                   <div style={{marginBottom:"16px"}}>
-                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"10px"}}>Vessel Casualty & Safety Record</div>
 
                     {/* Key counts */}
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"10px"}}>
