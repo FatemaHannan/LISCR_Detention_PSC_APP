@@ -827,6 +827,31 @@ export default function VesselManager({ currentUser }) {
         {canEdit&&(
           <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
             <input ref={bulkRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleBulkUpload} />
+            <button onClick={()=>{
+              const rows = vessels.map(v=>({
+                "Vessel Name": v.name,
+                "IMO": v.imo,
+                "Detention Date": v.detentionDate||"—",
+                "Port": v.port||"—",
+                "MoU": v.mou||"—",
+                "Company": v.company||"—",
+                "RO": v.ro||"—",
+                "Status": v.detained?"Detained":"Active",
+                "Deficiencies": v.defs||0,
+                "Detainable": v.detainable||0,
+                "CAR Status": v.carStatus||"—",
+                "FSI Case Owner": v.fsiCaseOwner||"—",
+                "PSC Case Owner": v.pscOwner||"—",
+                "Appeal": v.appeal||"—",
+                "Case Status": v.caseStatus||"—",
+              }));
+              const ws = XLSX.utils.json_to_sheet(rows);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Detention Cases");
+              XLSX.writeFile(wb, "LISCR_Detention_Cases_"+new Date().toISOString().slice(0,10)+".xlsx");
+            }} style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"rgba(34,197,94,0.1)",color:"var(--green2)",cursor:"pointer",fontSize:"12px",fontWeight:500}}>
+              ↓ Export to Excel
+            </button>
             <button onClick={()=>bulkRef.current?.click()} disabled={bulkLoading} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:bulkLoading?"default":"pointer",fontSize:"11px",fontWeight:500}}>{bulkLoading?"⏳ Processing...":"↑ Bulk Upload DPP"}</button>
           </div>
         )}
