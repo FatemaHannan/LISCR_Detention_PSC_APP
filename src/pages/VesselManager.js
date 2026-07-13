@@ -830,20 +830,24 @@ export default function VesselManager({ currentUser }) {
             <button onClick={()=>{
               const rows = vessels.map(v=>({
                 "Vessel Name": v.name,
-                "IMO": v.imo,
-                "Detention Date": v.detentionDate||"—",
+                "IMO Number": v.imo,
+                "Inspection Date": v.detentionDate||"—",
                 "Port": v.port||"—",
-                "MoU": v.mou||"—",
+                "MOU": v.mou||"—",
+                "Number Of Deficiencies": v.defs||0,
+                "Detained": v.detained?"Yes":"No",
+                "PSC Vessel Owner": v.pscOwner||"—",
+                "PSC Report Status": v.release?"Received":"Not Received",
+                "Inspection Type": v.inspectionType||"—",
+                "CAR Status": v.carStatus||"—",
+                "Case Action Type": v.caseActionType||"—",
+                "Case Action Status": v.caseStatus||"—",
+                "Flag": "Liberia",
                 "Company": v.company||"—",
                 "RO": v.ro||"—",
-                "Status": v.detained?"Detained":"Active",
-                "Deficiencies": v.defs||0,
-                "Detainable": v.detainable||0,
-                "CAR Status": v.carStatus||"—",
                 "FSI Case Owner": v.fsiCaseOwner||"—",
-                "PSC Case Owner": v.pscOwner||"—",
                 "Appeal": v.appeal||"—",
-                "Case Status": v.caseStatus||"—",
+                "Detainable": v.detainable||0,
               }));
               const ws = XLSX.utils.json_to_sheet(rows);
               const wb = XLSX.utils.book_new();
