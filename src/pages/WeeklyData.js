@@ -654,7 +654,7 @@ export default function WeeklyData({ currentUser }) {
   async function handleExport(cfg) {
     const {data, error} = await supabase.from(cfg.table).select("*").limit(100000);
     if (error || !data?.length) { alert("No data to export."); return; }
-    const SKIP = new Set(["id","created_at","uploaded_at","reg_date","created","cf_eta"]);
+    const SKIP = new Set(["id","created_at","uploaded_at","created","cf_eta"]);
     const colMap = cfg.exportColumns || {};
     const renamed = data.map(row => {
       const out = {};
