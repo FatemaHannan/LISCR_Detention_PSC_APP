@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 import CaseImport from "./CaseImport";
 import EditModal from "../components/EditModal";
 
-const MONTHS = ["All","Jun 2026","May 2026","Apr 2026","Mar 2026","Feb 2026","Jan 2026"];
+const MONTHS = ["All","Jul 2026","Jun 2026","May 2026","Apr 2026","Mar 2026","Feb 2026","Jan 2026"];
 const FLAG_COLOR = {"WHISTLEBLOWER":"var(--purple)","FRAUDULENT RECORD":"var(--red)","HRS":"var(--red)","RO SURVEY GAP":"var(--amber)","MARPOL VIOLATION":"var(--red)","VIP REJECTION":"var(--blue)","REPEAT DETAINEE":"var(--red)","POST DRY DOCK":"var(--amber)"};
 const FLAG_BG = {"WHISTLEBLOWER":"var(--purple-bg)","FRAUDULENT RECORD":"var(--red-bg)","HRS":"var(--red-bg)","RO SURVEY GAP":"var(--amber-bg)","MARPOL VIOLATION":"var(--red-bg)","VIP REJECTION":"var(--blue-bg)","REPEAT DETAINEE":"var(--red-bg)","POST DRY DOCK":"var(--amber-bg)"};
 
@@ -455,7 +455,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {l:"Detained",v:detained.length,c:"var(--red2)"},
           {l:"Active/Released",v:active.length,c:"var(--green2)"},
           {l:"With Flags",v:filtered.filter(v=>v.flags?.length>0).length,c:"var(--amber2)"},
-          {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===("Jun 2026")).length,c:"var(--blue)"},
+          {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===("Jul 2026")).length,c:"var(--blue)"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
