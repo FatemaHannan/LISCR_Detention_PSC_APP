@@ -36,11 +36,35 @@ function Sparkline({data, color}) {
   );
 }
 
-export default function PatternDetection({ learnedPatterns }) {
+export default function PatternDetection({ learnedPatterns, vessels=[] }) {
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  const [patterns, setPatterns] = useState([]);
+
+  React.useEffect(()=>{
+    if(!vessels.length) return;
+    const livePatterns = [];
+    let id = 1;
+    const imoCounts={};
+    vessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
+    const uniqueRepeats=[...new Map(vessels.filter(v=>imoCounts[v.imo]>1).map(v=>[v.imo,v])).values()];
+    if(uniqueRepeats.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"Repeat detention",title:uniqueRepeats.length+" vessel(s) detained multiple times in 2026",evidence:uniqueRepeats.map(v=>v.name+" ("+imoCounts[v.imo]+"x)").join(", "),vessels:uniqueRepeats.map(v=>v.name),action:"Immediate ASI and company engagement for repeat detention vessels.",learned:false});
+    const carOverdue=vessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
+    if(carOverdue.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR compliance",title:carOverdue.length+" vessel(s) with CAR overdue >60 days",evidence:carOverdue.slice(0,5).map(v=>v.name+" ("+Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d)").join(", "),vessels:carOverdue.map(v=>v.name),action:"Urgent follow-up with companies. Escalate to FSI case owner.",learned:false});
+    const mouCounts={};
+    vessels.forEach(v=>{if(v.mou&&v.detained)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+    const topMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0];
+    if(topMou) livePatterns.push({id:"p"+(id++),severity:"High",type:"MoU concentration",title:topMou[0]+" leads with "+topMou[1]+" detentions YTD",evidence:"Highest detention count among all MoUs.",vessels:[],action:"Increase ASI frequency for vessels calling "+topMou[0]+" ports.",learned:false});
+    const critDef=vessels.filter(v=>(v.defs||0)>=20);
+    if(critDef.length>0) livePatterns.push({id:"p"+(id++),severity:"High",type:"Critical deficiency",title:critDef.length+" detention(s) with ≥20 deficiencies",evidence:critDef.slice(0,5).map(v=>v.name+" ("+v.defs+" defs)").join(", "),vessels:critDef.map(v=>v.name),action:"Flag for priority ASI and company engagement.",learned:false});
+    const compDefs={};const compCount={};
+    vessels.forEach(v=>{if(v.company&&v.company!=="—"){compDefs[v.company]=(compDefs[v.company]||0)+(v.defs||0);compCount[v.company]=(compCount[v.company]||0)+1;}});
+    const highDefComp=Object.entries(compDefs).map(([c,d])=>([c,d,compCount[c],Math.round(d/compCount[c])])).filter(r=>r[3]>=15).sort((a,b)=>b[3]-a[3]).slice(0,3);
+    if(highDefComp.length>0) livePatterns.push({id:"p"+(id++),severity:"High",type:"Company risk",title:highDefComp.length+" company(ies) averaging ≥15 deficiencies",evidence:highDefComp.map(([c,,ct,avg])=>c+" avg "+avg+" defs ("+ct+" cases)").join("; "),vessels:[],action:"Company-level ISM audit required.",learned:false});
+    setPatterns(livePatterns);
+  },[vessels]);
 
   const allPatterns = [
     ...patterns,
