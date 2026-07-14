@@ -192,7 +192,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
-      supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
+      supabase.from("dpp_vetting_history").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
       supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(30),
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
