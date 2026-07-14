@@ -391,6 +391,15 @@ export default function App() {
             const topCompanies = Object.entries(compDetentions).sort((a,b)=>b[1]-a[1]).slice(0,5);
             const maxComp = topCompanies.length?topCompanies[0][1]:1;
 
+            // Top ROs by detentions
+            const roDetentions = {};
+            fleetVessels.filter(v=>v.detained&&v.ro&&v.ro!=="—"&&v.ro!=="Unknown"&&v.ro!=="").forEach(v=>{
+              const ro = String(v.ro).trim();
+              roDetentions[ro]=(roDetentions[ro]||0)+1;
+            });
+            const topROs = Object.entries(roDetentions).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const maxRO = topROs.length?topROs[0][1]:1;
+
             return (
             <div className="pg active">
               {/* Stats row */}
@@ -475,6 +484,19 @@ export default function App() {
                     </div>
                   )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No company data yet. Upload Client Vessel Details.</div>}
                 </div>
+
+                {/* Top ROs by Detentions */}
+                <div className="card">
+                  <div className="card-t">Top ROs by Detentions <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
+                  {topROs.length>0?topROs.map(([ro,v])=>(
+                    <div key={ro} className="bar-r">
+                      <div className="bar-l" style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ro}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxRO)*100}%`,background:v>=5?"var(--red)":v>=3?"var(--amber)":"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
+                    </div>
+                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No RO data yet. Upload Vessel Inspection Performance.</div>}
+                </div>
+              </div>
               </div>
             </div>
             );
