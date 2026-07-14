@@ -452,35 +452,131 @@ export default function App() {
             </div>
           )}
 
-          {page === "gaps" && (
+          {page === "gaps" && (()=>{
+            // Generate live gaps from actual vessel data
+            const liveGaps = [];
+            let n = 1;
+
+            // CAR not received > 60 days
+            const carOverdue = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
+            if(carOverdue.length>0) liveGaps.push({n:n++,level:"EVP Decision",title:"CAR overdue >60 days for "+carOverdue.length+" vessel(s)",detail:carOverdue.slice(0,5).map(v=>v.name+" ("+Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d overdue)").join(", "),fix:"Approve escalation to company senior management. Consider registration consequences for non-compliance.",owner:"EVP + FSI Case Owners"});
+
+            // Repeat detentions
+            const imoCounts={};fleetVessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
+            const repeatVessels=[...new Set(fleetVessels.filter(v=>imoCounts[v.imo]>1).map(v=>v.name))];
+            if(repeatVessels.length>0) liveGaps.push({n:n++,level:"EVP Decision",title:repeatVessels.length+" vessel(s) detained multiple times in 2026",detail:"Repeat detentions: "+repeatVessels.slice(0,5).join(", ")+". No cancellation threshold defined.",fix:"Define policy: 3+ detentions in 18 months triggers automatic registration review with 30-day response window.",owner:"Senior Management"});
+
+            // Unresponsive companies
+            const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE")));
+            if(unresponsive.length>0) liveGaps.push({n:n++,level:"EVP Decision",title:unresponsive.length+" company(ies) flagged as unresponsive",detail:"Companies: "+[...new Set(unresponsive.map(v=>v.company||"Unknown"))].slice(0,5).join(", "),fix:"Direct company engagement or registration consequences. Define enforcement policy for non-responsive companies.",owner:"EVP + Fleet Performance"});
+
+            // No case owners assigned
+            const noOwner = fleetVessels.filter(v=>(!v.fsiCaseOwner||v.fsiCaseOwner==="—")&&v.detentionDate);
+            if(noOwner.length>5) liveGaps.push({n:n++,level:"Process",title:noOwner.length+" detained vessels missing FSI case owner",detail:"Cases without assigned owner may not receive timely CAR follow-up or ASI scheduling.",fix:"Run Sync Case Owners in Weekly Data. Assign owners for all active cases.",owner:"Fleet Performance"});
+
+            // High deficiency vessels with no detainable recorded
+            const noDetainable = fleetVessels.filter(v=>(v.defs||0)>=10&&(v.detainable||0)===0);
+            if(noDetainable.length>3) liveGaps.push({n:n++,level:"Process",title:noDetainable.length+" high-deficiency cases with no detainable count recorded",detail:"Vessels with 10+ deficiencies but 0 detainable findings — likely missing PSC report analysis.",fix:"Upload and analyze PSC Form A+B for these cases to extract detainable findings.",owner:"Prevention Team"});
+
+            // Companies with multiple detentions no CAR
+            const compCarMissing={};
+            fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.company&&v.company!=="—").forEach(v=>{compCarMissing[v.company]=(compCarMissing[v.company]||0)+1;});
+            const multiCarMissing=Object.entries(compCarMissing).filter(([,v])=>v>=2).sort((a,b)=>b[1]-a[1]);
+            if(multiCarMissing.length>0) liveGaps.push({n:n++,level:"Process",title:multiCarMissing.length+" company(ies) with 2+ missing CARs",detail:multiCarMissing.map(([c,v])=>c+" ("+v+" missing)").join(", "),fix:"Systematic company-level follow-up. Escalate to FSI case owner for each.",owner:"FSI Case Owners"});
+
+            // CAR compliance rate
+            const detained=fleetVessels.filter(v=>v.detained);
+            const carRate=detained.length?Math.round(fleetVessels.filter(v=>v.carStatus==="Complete").length/detained.length*100):0;
+            if(carRate<60) liveGaps.push({n:n++,level:"Process",title:"CAR compliance rate at "+carRate+"% — below 70% target",detail:"Only "+fleetVessels.filter(v=>v.carStatus==="Complete").length+" of "+detained.length+" detained vessels have completed CARs.",fix:"Weekly CAR status review. Set 30/60/90 day milestones per company. Escalate at 60 days.",owner:"Fleet Performance"});
+
+            // Vessels with no port data
+            const noPort=fleetVessels.filter(v=>(!v.port||v.port==="—")&&v.detentionDate);
+            if(noPort.length>10) liveGaps.push({n:n++,level:"Resource",title:noPort.length+" cases missing port information",detail:"Port data missing — limits MoU analysis and pattern detection accuracy.",fix:"Upload and analyze PSC reports or sync from DPP Case File History.",owner:"Prevention Team / IT"});
+
+            const evpGaps=liveGaps.filter(g=>g.level==="EVP Decision");
+            const processGaps=liveGaps.filter(g=>g.level==="Process");
+            const resourceGaps=liveGaps.filter(g=>g.level==="Resource");
+
+            return (
             <div className="pg active">
-              <div className="hl"><strong>8 structural gaps</strong> — what the EVP will ask about that do not have a clean answer yet.</div>
-              <div className="sec">Require EVP decision</div>
-              {GAPS.filter(g=>g.level==="EVP Decision").map(g => (
-                <div key={g.n} className={"gap-c g-r"}>
-                  <div className="gc-t">Gap {g.n} — {g.title} <span className="badge b-r">EVP Decision</span></div>
-                  <div className="gc-b">{g.detail}</div>
-                  <div className="gc-f"><strong>Fix:</strong> {g.fix} <strong>Owner: {g.owner}</strong></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",flexWrap:"wrap",gap:"8px"}}>
+                <div>
+                  <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>Critical Gaps — {liveGaps.length} identified</div>
+                  <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Live from Supabase · {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
                 </div>
-              ))}
-              <div className="sec">Require process change</div>
-              {GAPS.filter(g=>g.level==="Process").map(g => (
-                <div key={g.n} className={"gap-c g-a"}>
-                  <div className="gc-t">Gap {g.n} — {g.title} <span className="badge b-a">Process</span></div>
-                  <div className="gc-b">{g.detail}</div>
-                  <div className="gc-f"><strong>Fix:</strong> {g.fix} <strong>Owner: {g.owner}</strong></div>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <div style={{padding:"6px 12px",background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",fontSize:"12px",color:"var(--red2)",fontWeight:600}}>{evpGaps.length} EVP Decision</div>
+                  <div style={{padding:"6px 12px",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",fontSize:"12px",color:"var(--amber2)",fontWeight:600}}>{processGaps.length} Process</div>
+                  <div style={{padding:"6px 12px",background:"var(--blue-bg)",border:"1px solid var(--blue)",borderRadius:"6px",fontSize:"12px",color:"var(--blue)",fontWeight:600}}>{resourceGaps.length} Resource</div>
                 </div>
-              ))}
-              <div className="sec">Require resource decision</div>
-              {GAPS.filter(g=>g.level==="Resource").map(g => (
-                <div key={g.n} className={"gap-c g-b"}>
-                  <div className="gc-t">Gap {g.n} — {g.title} <span className="badge b-b">Resource</span></div>
-                  <div className="gc-b">{g.detail}</div>
-                  <div className="gc-f"><strong>Fix:</strong> {g.fix} <strong>Owner: {g.owner}</strong></div>
+              </div>
+
+              {evpGaps.length>0&&(
+                <div style={{marginBottom:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>⚠ Require EVP Decision</div>
+                  {evpGaps.map(g=>(
+                    <div key={g.n} style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px",marginBottom:"8px",borderLeft:"3px solid var(--red)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px",flexWrap:"wrap"}}>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>Gap {g.n}</span>
+                        <span style={{fontSize:"14px",fontWeight:600,color:"var(--text)"}}>{g.title}</span>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",border:"1px solid #3D1A1A",fontWeight:600,marginLeft:"auto"}}>EVP Decision</span>
+                      </div>
+                      <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"8px",lineHeight:1.6}}>{g.detail}</div>
+                      <div style={{fontSize:"12px",color:"var(--text3)",padding:"8px 10px",background:"var(--bg3)",borderRadius:"5px"}}>
+                        <strong style={{color:"var(--text)"}}>Recommended action:</strong> {g.fix} <span style={{color:"var(--amber2)",marginLeft:"8px"}}>Owner: {g.owner}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {processGaps.length>0&&(
+                <div style={{marginBottom:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Process Gaps</div>
+                  {processGaps.map(g=>(
+                    <div key={g.n} style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px",marginBottom:"8px",borderLeft:"3px solid var(--amber)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px",flexWrap:"wrap"}}>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:700}}>Gap {g.n}</span>
+                        <span style={{fontSize:"14px",fontWeight:600,color:"var(--text)"}}>{g.title}</span>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:600,marginLeft:"auto"}}>Process</span>
+                      </div>
+                      <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"8px",lineHeight:1.6}}>{g.detail}</div>
+                      <div style={{fontSize:"12px",color:"var(--text3)",padding:"8px 10px",background:"var(--bg3)",borderRadius:"5px"}}>
+                        <strong style={{color:"var(--text)"}}>Recommended action:</strong> {g.fix} <span style={{color:"var(--amber2)",marginLeft:"8px"}}>Owner: {g.owner}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resourceGaps.length>0&&(
+                <div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--blue)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Resource Gaps</div>
+                  {resourceGaps.map(g=>(
+                    <div key={g.n} style={{background:"var(--bg2)",border:"1px solid var(--blue)",borderRadius:"8px",padding:"14px",marginBottom:"8px",borderLeft:"3px solid var(--blue)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px",flexWrap:"wrap"}}>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--blue-bg)",color:"var(--blue)",fontFamily:"var(--mono)",fontWeight:700}}>Gap {g.n}</span>
+                        <span style={{fontSize:"14px",fontWeight:600,color:"var(--text)"}}>{g.title}</span>
+                        <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"3px",background:"var(--blue-bg)",color:"var(--blue)",border:"1px solid var(--blue)",fontWeight:600,marginLeft:"auto"}}>Resource</span>
+                      </div>
+                      <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"8px",lineHeight:1.6}}>{g.detail}</div>
+                      <div style={{fontSize:"12px",color:"var(--text3)",padding:"8px 10px",background:"var(--bg3)",borderRadius:"5px"}}>
+                        <strong style={{color:"var(--text)"}}>Recommended action:</strong> {g.fix} <span style={{color:"var(--blue)",marginLeft:"8px"}}>Owner: {g.owner}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {liveGaps.length===0&&(
+                <div style={{textAlign:"center",padding:"60px",color:"var(--text3)",fontSize:"14px"}}>
+                  <div style={{fontSize:"32px",marginBottom:"10px"}}>✓</div>
+                  No critical gaps identified. All vessels have case owners, CARs are on track, and no repeat detentions.
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <PdaipPage canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} />}
