@@ -255,36 +255,175 @@ export default function App() {
             </div>
           )}
 
-          {page === "evp" && (
+          {page === "evp" && (()=>{
+            const detained = fleetVessels.filter(v=>v.detained);
+            const imoCounts={};fleetVessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
+            const reDetained = [...new Set(fleetVessels.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
+            const carMissing = fleetVessels.filter(v=>v.carStatus==="Not Received").length;
+            const carComplete = fleetVessels.filter(v=>v.carStatus==="Complete").length;
+            const carRate = detained.length?Math.round(carComplete/detained.length*100):0;
+            const highDef = detained.filter(v=>(v.defs||0)>=20).length;
+            const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE"))).length;
+            const carOverdue60 = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
+            const mouCounts={};detained.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+            const topMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+            const compCounts={};detained.forEach(v=>{if(v.company&&v.company!=="—")compCounts[v.company]=(compCounts[v.company]||0)+1;});
+            const topCompanies=Object.entries(compCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const avgDefs=detained.length?(detained.reduce((a,v)=>a+(v.defs||0),0)/detained.length).toFixed(1):0;
+            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&v.detentionDate.match(/^\d{4}-\d{2}/)){const m=v.detentionDate.slice(0,7);months[m]=(months[m]||0)+1;}});
+            const monthTrend=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-3);
+            const trend = monthTrend.length>=2?(monthTrend[monthTrend.length-1][1]>monthTrend[monthTrend.length-2][1]?"increasing":"decreasing"):"stable";
+            const trendColor = trend==="increasing"?"var(--red2)":trend==="decreasing"?"var(--green2)":"var(--text3)";
+
+            return (
             <div className="pg active">
-              <div className="al al-b"><i className="ti ti-presentation"></i><div><strong>Executive briefing view</strong> — Prepared for EVP meeting Jun 2026. Strategic picture, key risks, and decisions required.</div></div>
-              <div className="mg4">
-                <div className="met"><div className="m-l">Detentions Jan-May</div><div className="m-v">107</div><div className="m-s">Liberia-flagged fleet</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Re-detained 2+</div><div className="m-v" style={{color:"var(--red2)"}}>7</div><div className="m-s">within 12 months</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>PDAIP tasks open</div><div className="m-v" style={{color:"var(--amber2)"}}>28</div><div className="m-s">21% of program</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Inspection refusals</div><div className="m-v" style={{color:"var(--red2)"}}>12</div><div className="m-s">all then detained</div></div>
-              </div>
-              <div className="two">
-                <div className="card">
-                  <div className="card-t">What is working</div>
-                  {["Dispensation reform (CARLA C) — fleet-wide Marine Advisory, all RTMs briefed.","7 WayPoint workflow fixes (EC TURAN) — P1P boarding automated.","China mandatory boarding policy — 6-month trigger implemented.","FMP-001 engine failure procedure (RUBY TOWER) — fleet-wide Work Instruction."].map((t,i) => (
-                    <div key={i} style={{display:"flex",gap:"8px",color:"var(--text2)",marginBottom:"6px",fontSize:"11px"}}><span style={{color:"var(--green)",flexShrink:0}}>✓</span><div>{t}</div></div>
-                  ))}
+              {/* Header */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+                <div>
+                  <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>LISCR PSC Detention Intelligence — Executive Briefing</div>
+                  <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Live from Supabase · {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})}</div>
                 </div>
-                <div className="card">
-                  <div className="card-t">What is not working</div>
-                  {["Re-detentions despite completed actions. ANDREAS K: all Feb actions complete, re-detained April.","54% of PDAIP actions are generic templates applied regardless of cause.","No enforcement when clients refuse inspections. 12 refusals, 12 detentions.","72 detained vessels have no PDAIP tasks at all."].map((t,i) => (
-                    <div key={i} style={{display:"flex",gap:"8px",color:"var(--text2)",marginBottom:"6px",fontSize:"11px"}}><span style={{color:"var(--red)",flexShrink:0}}>✗</span><div>{t}</div></div>
-                  ))}
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button className="btn btn-primary" onClick={()=>nav("questions")}><i className="ti ti-help-circle"></i> EVP Q&A</button>
+                  <button className="btn" onClick={()=>nav("gaps")}><i className="ti ti-alert-triangle"></i> Critical Gaps</button>
+                  <button className="btn" onClick={()=>{nav("chat");sendChat("As EVP, give me a 3-minute briefing on current PSC detention status, top risks, and what decisions I need to make today.");}}><i className="ti ti-sparkles"></i> AI Briefing</button>
                 </div>
               </div>
-              <div style={{display:"flex",gap:"7px",flexWrap:"wrap"}}>
-                <button className="btn btn-primary" onClick={() => nav("questions")}><i className="ti ti-help-circle"></i> 12 EVP questions</button>
-                <button className="btn" onClick={() => nav("gaps")}><i className="ti ti-alert-triangle"></i> 8 critical gaps</button>
-                <button className="btn" onClick={() => {nav("chat");sendChat("Prepare a 5-minute verbal briefing for the EVP on the detention program status Jun 2026.");}}><i className="ti ti-sparkles"></i> Prep with AI</button>
+
+              {/* Critical Alert */}
+              {(carOverdue60.length>0||reDetained>0||unresponsive>0)&&(
+                <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"12px 16px",marginBottom:"14px",fontSize:"13px",color:"var(--red2)",lineHeight:1.65}}>
+                  <strong>⚠ Immediate Attention Required: </strong>
+                  {carOverdue60.length>0&&<span>{carOverdue60.length} vessel(s) with CAR overdue >60 days ({carOverdue60.slice(0,3).map(v=>v.name).join(", ")}). </span>}
+                  {reDetained>0&&<span>{reDetained} vessel(s) detained multiple times in 2026. </span>}
+                  {unresponsive>0&&<span>{unresponsive} company(ies) flagged as unresponsive.</span>}
+                </div>
+              )}
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"14px"}}>
+                {[
+                  {l:"Total Detentions",v:detained.length,s:"YTD 2026",c:"var(--text)"},
+                  {l:"Detention Trend",v:trend.toUpperCase(),s:monthTrend.length>=2?monthTrend.slice(-2).map(m=>m[1]).join("→"):"",c:trendColor},
+                  {l:"Avg Deficiencies",v:avgDefs,s:"per detention",c:parseFloat(avgDefs)>=15?"var(--red2)":parseFloat(avgDefs)>=10?"var(--amber2)":"var(--text)"},
+                  {l:"CAR Compliance",v:carRate+"%",s:carComplete+" complete / "+detained.length+" total",c:carRate>=70?"var(--green2)":carRate>=50?"var(--amber2)":"var(--red2)"},
+                  {l:"CAR Not Received",v:carMissing,s:"outstanding",c:carMissing>20?"var(--red2)":"var(--amber2)"},
+                  {l:"Re-Detained Vessels",v:reDetained,s:"multiple detentions",c:reDetained>0?"var(--red2)":"var(--green2)"},
+                ].map(m=>(
+                  <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                    <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".04em"}}>{m.l}</div>
+                    <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:m.c,lineHeight:1}}>{m.v}</div>
+                    <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"3px"}}>{m.s}</div>
+                  </div>
+                ))}
               </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"14px"}}>
+                {/* CAR Status */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>CAR Status Overview</div>
+                  {[
+                    {l:"Complete",v:carComplete,c:"var(--green2)",bg:"var(--green-bg)"},
+                    {l:"Not Received",v:carMissing,c:"var(--red2)",bg:"var(--red-bg)"},
+                    {l:"Other / Pending",v:detained.length-carComplete-carMissing,c:"var(--amber2)",bg:"var(--amber-bg)"},
+                    {l:"Overdue >60 days",v:carOverdue60.length,c:"var(--red2)",bg:"var(--red-bg)"},
+                  ].map(s=>(
+                    <div key={s.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:"5px",background:s.bg,marginBottom:"4px"}}>
+                      <span style={{fontSize:"12px",color:s.c}}>{s.l}</span>
+                      <span style={{fontSize:"16px",fontWeight:600,fontFamily:"var(--mono)",color:s.c}}>{s.v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Companies */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Companies by Detentions</div>
+                  {topCompanies.map(([c,v],i)=>(
+                    <div key={c} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px"}}>
+                      <span style={{fontSize:"11px",color:"var(--text3)",width:"16px",textAlign:"center",fontFamily:"var(--mono)"}}>{i+1}</span>
+                      <div style={{flex:1,background:"var(--bg3)",borderRadius:"3px",height:"6px",overflow:"hidden"}}>
+                        <div style={{height:"100%",width:(v/topCompanies[0][1]*100)+"%",background:i===0?"var(--red)":i===1?"var(--amber)":"var(--blue)",borderRadius:"3px"}}></div>
+                      </div>
+                      <span style={{fontSize:"11px",color:"var(--text2)",flex:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</span>
+                      <span style={{fontSize:"13px",fontWeight:600,fontFamily:"var(--mono)",color:"var(--red2)",width:"20px",textAlign:"right"}}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* MoU Breakdown */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Detentions by MoU</div>
+                  {topMou.map(([m,v])=>(
+                    <div key={m} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px"}}>
+                      <div style={{flex:1,background:"var(--bg3)",borderRadius:"3px",height:"6px",overflow:"hidden"}}>
+                        <div style={{height:"100%",width:(v/topMou[0][1]*100)+"%",background:"var(--blue)",borderRadius:"3px"}}></div>
+                      </div>
+                      <span style={{fontSize:"11px",color:"var(--text2)",flex:2}}>{m}</span>
+                      <span style={{fontSize:"13px",fontWeight:600,fontFamily:"var(--mono)",color:"var(--text)",width:"20px",textAlign:"right"}}>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{borderTop:"1px solid var(--border)",marginTop:"8px",paddingTop:"8px",fontSize:"11px",color:"var(--text3)"}}>
+                    High Def (≥20): <strong style={{color:"var(--red2)"}}>{highDef}</strong> · Unresponsive: <strong style={{color:"var(--amber2)"}}>{unresponsive}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Decisions Required */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+                <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>Decisions Required</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                  {carOverdue60.length>0&&(
+                    <div style={{display:"flex",gap:"10px",padding:"10px 12px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontWeight:700,flexShrink:0}}>URGENT</span>
+                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>{carOverdue60.length} vessel(s) have CAR overdue >60 days: <strong style={{color:"var(--red2)"}}>{carOverdue60.slice(0,5).map(v=>v.name).join(", ")}</strong>. Approve escalation to company senior management.</div>
+                    </div>
+                  )}
+                  {reDetained>0&&(
+                    <div style={{display:"flex",gap:"10px",padding:"10px 12px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontWeight:700,flexShrink:0}}>DECISION</span>
+                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>{reDetained} vessel(s) detained multiple times in 2026. Should LISCR initiate cancellation review for repeat offenders?</div>
+                    </div>
+                  )}
+                  {carRate<50&&(
+                    <div style={{display:"flex",gap:"10px",padding:"10px 12px",background:"var(--amber-bg)",borderRadius:"6px",border:"1px solid var(--amber)",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontWeight:700,flexShrink:0}}>REVIEW</span>
+                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>CAR compliance rate is only {carRate}%. {carMissing} outstanding CARs. Should LISCR impose stricter timelines on companies?</div>
+                    </div>
+                  )}
+                  {unresponsive>0&&(
+                    <div style={{display:"flex",gap:"10px",padding:"10px 12px",background:"var(--amber-bg)",borderRadius:"6px",border:"1px solid var(--amber)",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontWeight:700,flexShrink:0}}>ACTION</span>
+                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>{unresponsive} company(ies) flagged as unresponsive. Direct company engagement or registration consequences required.</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Overdue CARs list */}
+              {carOverdue60.length>0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>⚠ CAR Overdue >60 Days ({carOverdue60.length})</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                    <thead><tr>{["Vessel","IMO","Company","Detention Date","Days Overdue","PSC Owner"].map(h=><th key={h} style={{fontSize:"11px",color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <tbody>{carOverdue60.map((v,i)=>{
+                      const days=Math.floor((new Date()-new Date(v.detentionDate))/86400000);
+                      return (
+                        <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                          <td style={{padding:"8px 10px",fontWeight:600,color:"var(--red2)"}}>{v.name}</td>
+                          <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</td>
+                          <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.company||"—"}</td>
+                          <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.detentionDate}</td>
+                          <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--red2)",fontWeight:600}}>{days}d</td>
+                          <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.pscOwner||"—"}</td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {page === "questions" && (
             <div className="pg active">
