@@ -62,24 +62,24 @@ function CaseList({ vessels, canEdit, canDelete }) {
   return (
     <div>
       <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
-        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel, IMO, company..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none",width:"220px"}} />
-        <select value={filterMou} onChange={e=>{setFilterMou(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel, IMO, company..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",width:"220px"}} />
+        <select value={filterMou} onChange={e=>{setFilterMou(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {mous.map(m=><option key={m}>{m}</option>)}
         </select>
-        <select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+        <select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {["All","Detained","Active"].map(s=><option key={s}>{s}</option>)}
         </select>
-        <select value={filterCAR} onChange={e=>{setFilterCAR(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"11px",outline:"none"}}>
+        <select value={filterCAR} onChange={e=>{setFilterCAR(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {["All",...CAR_OPTS].map(s=><option key={s}>{s}</option>)}
         </select>
-        {(search||filterMou!=="All"||filterStatus!=="All"||filterCAR!=="All")&&<button onClick={()=>{setSearch("");setFilterMou("All");setFilterStatus("All");setFilterCAR("All");setPage(1);}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>Clear</button>}
-        <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} cases</span>
+        {(search||filterMou!=="All"||filterStatus!=="All"||filterCAR!=="All")&&<button onClick={()=>{setSearch("");setFilterMou("All");setFilterStatus("All");setFilterCAR("All");setPage(1);}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} cases</span>
       </div>
       <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",minWidth:"900px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"900px"}}>
           <thead>
             <tr style={{background:"var(--bg2)"}}>
-              {COLS.map(c=><th key={c.key} onClick={()=>toggleSort(c.key)} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{c.l}{sortKey===c.key?sortDir==="asc"?" ↑":" ↓":""}</th>)}
+              {COLS.map(c=><th key={c.key} onClick={()=>toggleSort(c.key)} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{c.l}{sortKey===c.key?sortDir==="asc"?" ↑":" ↓":""}</th>)}
               <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",width:"80px"}}></th>
             </tr>
           </thead>
@@ -96,11 +96,11 @@ function CaseList({ vessels, canEdit, canDelete }) {
                 <td style={{padding:"9px 12px",textAlign:"center",fontFamily:"var(--mono)",color:v.detainable>0?"var(--red2)":"var(--text3)",fontWeight:v.detainable>0?600:400}}>{v.detainable||0}</td>
                 <td style={{padding:"9px 12px",color:carColor(v.carStatus),fontWeight:500,whiteSpace:"nowrap"}}>{v.carStatus||"\u2014"}</td>
                 <td style={{padding:"9px 12px",color:"var(--text3)"}}>{v.caseStatus||"\u2014"}</td>
-                <td style={{padding:"9px 12px"}}><span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.08)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{v.detained?"DETAINED":"ACTIVE"}</span></td>
+                <td style={{padding:"9px 12px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.08)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{v.detained?"DETAINED":"ACTIVE"}</span></td>
                 <td style={{padding:"9px 12px"}}>
                   <div style={{display:"flex",gap:"5px"}}>
-                    {canEdit&&<button onClick={()=>setEditVessel({...v})} style={{padding:"3px 8px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"10px"}}>Edit</button>}
-                    {canDelete&&<button onClick={()=>setDeleteConfirm(v)} style={{padding:"3px 8px",border:"1px solid var(--red)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontSize:"10px"}}>Del</button>}
+                    {canEdit&&<button onClick={()=>setEditVessel({...v})} style={{padding:"3px 8px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px"}}>Edit</button>}
+                    {canDelete&&<button onClick={()=>setDeleteConfirm(v)} style={{padding:"3px 8px",border:"1px solid var(--red)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontSize:"13px"}}>Del</button>}
                   </div>
                 </td>
               </tr>
@@ -110,15 +110,15 @@ function CaseList({ vessels, canEdit, canDelete }) {
       </div>
       {totalPages>1&&(
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",marginTop:"14px"}}>
-          <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>«</button>
-          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"11px"}}>‹</button>
-          {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>p===1||p===totalPages||Math.abs(p-page)<=1).reduce((acc,p,idx,arr)=>{if(idx>0&&p-arr[idx-1]>1)acc.push("...");acc.push(p);return acc;},[]).map((p,i)=>p==="..."?<span key={i} style={{padding:"5px 4px",color:"var(--text3)",fontSize:"11px"}}>\u2026</span>:<button key={i} onClick={()=>setPage(p)} style={{padding:"5px 10px",border:"1px solid "+(page===p?"var(--blue)":"var(--border)"),borderRadius:"5px",background:page===p?"var(--blue)":"var(--bg3)",color:page===p?"#fff":"var(--text2)",cursor:"pointer",fontSize:"11px",fontWeight:page===p?600:400,minWidth:"32px"}}>{p}</button>)}
-          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>›</button>
-          <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"11px"}}>»</button>
-          <span style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>Page {page} of {totalPages} · {sorted.length} cases</span>
+          <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"13px"}}>«</button>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text2)",cursor:page===1?"default":"pointer",fontSize:"13px"}}>‹</button>
+          {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>p===1||p===totalPages||Math.abs(p-page)<=1).reduce((acc,p,idx,arr)=>{if(idx>0&&p-arr[idx-1]>1)acc.push("...");acc.push(p);return acc;},[]).map((p,i)=>p==="..."?<span key={i} style={{padding:"5px 4px",color:"var(--text3)",fontSize:"13px"}}>\u2026</span>:<button key={i} onClick={()=>setPage(p)} style={{padding:"5px 10px",border:"1px solid "+(page===p?"var(--blue)":"var(--border)"),borderRadius:"5px",background:page===p?"var(--blue)":"var(--bg3)",color:page===p?"#fff":"var(--text2)",cursor:"pointer",fontSize:"13px",fontWeight:page===p?600:400,minWidth:"32px"}}>{p}</button>)}
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"13px"}}>›</button>
+          <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"5px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text2)",cursor:page===totalPages?"default":"pointer",fontSize:"13px"}}>»</button>
+          <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"8px"}}>Page {page} of {totalPages} · {sorted.length} cases</span>
         </div>
       )}
-      {paged.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:"11px",padding:"30px"}}>No cases match filters.</div>}
+      {paged.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:"13px",padding:"30px"}}>No cases match filters.</div>}
 
       {editVessel&&(
         <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"20px"}}>
@@ -130,26 +130,26 @@ function CaseList({ vessels, canEdit, canDelete }) {
             <div style={{padding:"16px 20px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
               {[["Vessel name","name","text"],["Company","company","text"],["Port","port","text"],["RO / Class","ro","text"],["Detention date","detentionDate","date"],["Deficiencies","defs","number"],["Detainable","detainable","number"]].map(([label,key,type])=>(
                 <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
-                  <input value={editVessel[key]||""} onChange={e=>setEditVessel(p=>({...p,[key]:type==="number"?parseInt(e.target.value)||0:e.target.value}))} type={type} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",boxSizing:"border-box"}} />
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
+                  <input value={editVessel[key]||""} onChange={e=>setEditVessel(p=>({...p,[key]:type==="number"?parseInt(e.target.value)||0:e.target.value}))} type={type} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",boxSizing:"border-box"}} />
                 </div>
               ))}
               {[["MoU","mou",MOU_OPTS],["CAR Status","carStatus",CAR_OPTS],["Case Status","caseStatus",CASE_OPTS]].map(([label,key,opts])=>(
                 <div key={key}>
-                  <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
-                  <select value={editVessel[key]||""} onChange={e=>setEditVessel(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none"}}>
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{label}</div>
+                  <select value={editVessel[key]||""} onChange={e=>setEditVessel(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
                     {opts.map(o=><option key={o}>{o}</option>)}
                   </select>
                 </div>
               ))}
               <div style={{gridColumn:"span 2"}}>
-                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Release Condition</div>
-                <textarea value={editVessel.release||""} onChange={e=>setEditVessel(p=>({...p,release:e.target.value}))} rows={3} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"12px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
+                <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>Release Condition</div>
+                <textarea value={editVessel.release||""} onChange={e=>setEditVessel(p=>({...p,release:e.target.value}))} rows={3} style={{width:"100%",padding:"8px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",resize:"vertical",boxSizing:"border-box"}} />
               </div>
             </div>
             <div style={{padding:"14px 20px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"8px"}}>
-              <button onClick={()=>setEditVessel(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              <button onClick={saveEdit} disabled={saving} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:500}}>{saving?"Saving...":"Save changes"}</button>
+              <button onClick={()=>setEditVessel(null)} style={{padding:"8px 18px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+              <button onClick={saveEdit} disabled={saving} style={{padding:"8px 18px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500}}>{saving?"Saving...":"Save changes"}</button>
             </div>
           </div>
         </div>
@@ -159,10 +159,10 @@ function CaseList({ vessels, canEdit, canDelete }) {
           <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"10px",padding:"28px",maxWidth:"380px",width:"100%",textAlign:"center"}}>
             <div style={{fontSize:"28px",marginBottom:"12px"}}>\u26a0</div>
             <div style={{fontSize:"14px",fontWeight:600,color:"var(--red2)",marginBottom:"8px"}}>Delete {deleteConfirm.name}?</div>
-            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>This will permanently delete this case and all associated data.</div>
+            <div style={{fontSize:"13px",color:"var(--text2)",marginBottom:"20px",lineHeight:1.65}}>This will permanently delete this case and all associated data.</div>
             <div style={{display:"flex",gap:"10px",justifyContent:"center"}}>
-              <button onClick={()=>setDeleteConfirm(null)} style={{padding:"8px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"12px"}}>Cancel</button>
-              <button onClick={()=>doDelete(deleteConfirm)} style={{padding:"8px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"12px",fontWeight:600}}>Delete permanently</button>
+              <button onClick={()=>setDeleteConfirm(null)} style={{padding:"8px 20px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Cancel</button>
+              <button onClick={()=>doDelete(deleteConfirm)} style={{padding:"8px 20px",border:"1px solid var(--red)",borderRadius:"6px",background:"var(--red)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:600}}>Delete permanently</button>
             </div>
           </div>
         </div>
@@ -214,33 +214,33 @@ function FleetAnalysis({vessels}) {
           {l:"CAR Not Received",v:carNotReceived.length,c:"var(--red2)",s:Math.round(carNotReceived.length/Math.max(vessels.length,1)*100)+"%"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
-            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"4px"}}>{s.l}</div>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-            {s.s&&<div style={{fontSize:"9px",color:"var(--text3)",marginTop:"3px"}}>{s.s}</div>}
+            {s.s&&<div style={{fontSize:"13px",color:"var(--text3)",marginTop:"3px"}}>{s.s}</div>}
           </div>
         ))}
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"16px"}}>Detentions by Month</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"16px"}}>Detentions by Month</div>
           <div style={{display:"flex",alignItems:"flex-end",gap:"8px",height:"100px"}}>
             {months.map(([m,c])=>(
               <div key={m} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"4px"}}>
-                <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c}</div>
+                <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c}</div>
                 <div style={{width:"100%",background:"var(--blue)",borderRadius:"3px 3px 0 0",height:(c/maxMonth*72)+"px",minHeight:"4px"}}></div>
-                <div style={{fontSize:"11px",color:"var(--text3)",textAlign:"center"}}>{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1]}'26</div>
+                <div style={{fontSize:"13px",color:"var(--text3)",textAlign:"center"}}>{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1]}'26</div>
               </div>
             ))}
           </div>
         </div>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Cases by MoU</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Cases by MoU</div>
           {topMous.map(([m,c])=>(
             <div key={m} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-              <div style={{fontSize:"10px",color:"var(--text2)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m}</div>
+              <div style={{fontSize:"13px",color:"var(--text2)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m}</div>
               <div style={{width:"70px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:"var(--blue)",width:(c/topMous[0][1]*100)+"%"}}></div></div>
-              <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",width:"18px",textAlign:"right"}}>{c}</div>
+              <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",width:"18px",textAlign:"right"}}>{c}</div>
             </div>
           ))}
         </div>
@@ -248,22 +248,22 @@ function FleetAnalysis({vessels}) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Avg Deficiencies by MoU</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Avg Deficiencies by MoU</div>
           {mouAvg.map(([m,avg])=>(
             <div key={m} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-              <div style={{fontSize:"10px",color:"var(--text2)",flex:1}}>{m}</div>
+              <div style={{fontSize:"13px",color:"var(--text2)",flex:1}}>{m}</div>
               <div style={{width:"80px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:avg>=15?"var(--red)":avg>=8?"var(--amber)":"var(--green)",width:(avg/mouAvg[0][1]*100)+"%"}}></div></div>
-              <div style={{fontSize:"11px",fontWeight:600,fontFamily:"var(--mono)",color:avg>=15?"var(--red2)":avg>=8?"var(--amber2)":"var(--text)",width:"32px",textAlign:"right"}}>{avg}</div>
+              <div style={{fontSize:"13px",fontWeight:600,fontFamily:"var(--mono)",color:avg>=15?"var(--red2)":avg>=8?"var(--amber2)":"var(--text)",width:"32px",textAlign:"right"}}>{avg}</div>
             </div>
           ))}
         </div>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>CAR Status Breakdown</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>CAR Status Breakdown</div>
           {Object.entries(vessels.reduce((acc,v)=>{const k=v.carStatus||"Unknown";acc[k]=(acc[k]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]).map(([s,c])=>(
             <div key={s} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-              <div style={{fontSize:"10px",color:carColor(s),flex:1,fontWeight:500}}>{s}</div>
+              <div style={{fontSize:"13px",color:carColor(s),flex:1,fontWeight:500}}>{s}</div>
               <div style={{width:"80px",height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}><div style={{height:"100%",background:carColor(s),width:(c/vessels.length*100)+"%"}}></div></div>
-              <div style={{fontSize:"10px",color:"var(--text3)",fontFamily:"var(--mono)",width:"32px",textAlign:"right"}}>{c}</div>
+              <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",width:"32px",textAlign:"right"}}>{c}</div>
             </div>
           ))}
         </div>
@@ -290,7 +290,7 @@ function PatternDetection({vessels}) {
     const c=sev==="red"?"var(--red2)":sev==="amber"?"var(--amber2)":"var(--text3)";
     const bg=sev==="red"?"var(--red-bg)":sev==="amber"?"var(--amber-bg)":"var(--bg3)";
     const b=sev==="red"?"#3D1A1A":sev==="amber"?"var(--amber)":"var(--border)";
-    return <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:bg,color:c,border:"1px solid "+b,fontFamily:"var(--mono)",fontWeight:600}}>{label}</span>;
+    return <span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:bg,color:c,border:"1px solid "+b,fontFamily:"var(--mono)",fontWeight:600}}>{label}</span>;
   }
 
   return (
@@ -303,7 +303,7 @@ function PatternDetection({vessels}) {
           {l:"High Detainable \u22655",v:detainableHeavy.length,c:"var(--red2)",sev:"red"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
-            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
           </div>
         ))}
@@ -311,32 +311,32 @@ function PatternDetection({vessels}) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Repeat Detention Vessels <span style={{fontSize:"9px",color:"var(--red2)",fontWeight:400}}>({uniqueRepeats.length})</span></div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Repeat Detention Vessels <span style={{fontSize:"13px",color:"var(--red2)",fontWeight:400}}>({uniqueRepeats.length})</span></div>
           {uniqueRepeats.length>0?(
             <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
               {uniqueRepeats.map(v=>(
                 <div key={v.imo} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid #3D1A1A"}}>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)"}}>{v.name}</div>
-                    <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} \u00b7 {v.company||"\u2014"}</div>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>{v.name}</div>
+                    <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo} \u00b7 {v.company||"\u2014"}</div>
                   </div>
                   <Badge label={imoCounts[v.imo]+"x detained"} sev="red" />
                 </div>
               ))}
             </div>
-          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No repeat detention vessels found.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No repeat detention vessels found.</div>}
         </div>
 
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>MoU Risk Ranking</div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px"}}>
-            <thead><tr>{["MoU","Cases","Detained","Rate"].map(h=><th key={h} style={{fontSize:"9px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>MoU Risk Ranking</div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+            <thead><tr>{["MoU","Cases","Detained","Rate"].map(h=><th key={h} style={{fontSize:"13px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
             <tbody>{mouRisk.map(([m,det,tot,rate])=>(
               <tr key={m}>
                 <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)"}}>{m}</td>
                 <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)",textAlign:"center"}}>{tot}</td>
                 <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--red2)",fontFamily:"var(--mono)",textAlign:"center"}}>{det}</td>
-                <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:rate>=50?"var(--red-bg)":rate>=25?"var(--amber-bg)":"var(--bg3)",color:rate>=50?"var(--red2)":rate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{rate}%</span></td>
+                <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:rate>=50?"var(--red-bg)":rate>=25?"var(--amber-bg)":"var(--bg3)",color:rate>=50?"var(--red2)":rate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{rate}%</span></td>
               </tr>
             ))}</tbody>
           </table>
@@ -345,10 +345,10 @@ function PatternDetection({vessels}) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Critical Deficiency Cases (\u226520)</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Critical Deficiency Cases (\u226520)</div>
           {highDef.length>0?(
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px"}}>
-              <thead><tr>{["Vessel","MoU","Defs","Detainable"].map(h=><th key={h} style={{fontSize:"9px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+              <thead><tr>{["Vessel","MoU","Defs","Detainable"].map(h=><th key={h} style={{fontSize:"13px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
               <tbody>{highDef.slice(0,8).map((v,i)=>(
                 <tr key={i}>
                   <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontWeight:600,color:"var(--red2)"}}>{v.name}</td>
@@ -358,25 +358,25 @@ function PatternDetection({vessels}) {
                 </tr>
               ))}</tbody>
             </table>
-          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No critical deficiency cases.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No critical deficiency cases.</div>}
         </div>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>CAR Not Received — Overdue</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>CAR Not Received — Overdue</div>
           {noCAR.length>0?(
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"10px"}}>
-              <thead><tr>{["Vessel","Detention Date","Defs"].map(h=><th key={h} style={{fontSize:"9px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+              <thead><tr>{["Vessel","Detention Date","Defs"].map(h=><th key={h} style={{fontSize:"13px",color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
               <tbody>{noCAR.slice(0,8).map((v,i)=>{
                 const days=v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):null;
                 return (
                   <tr key={i}>
                     <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontWeight:600,color:"var(--amber2)"}}>{v.name}</td>
-                    <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtDate(v.detentionDate)}{days!=null&&<span style={{marginLeft:"4px",fontSize:"9px",color:"var(--red2)"}}>{days}d</span>}</td>
+                    <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontFamily:"var(--mono)"}}>{fmtDate(v.detentionDate)}{days!=null&&<span style={{marginLeft:"4px",fontSize:"13px",color:"var(--red2)"}}>{days}d</span>}</td>
                     <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--amber2)",textAlign:"center"}}>{v.defs||0}</td>
                   </tr>
                 );
               })}</tbody>
             </table>
-          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>All CARs received.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>All CARs received.</div>}
         </div>
       </div>
       {/* Deficiency Pattern Analysis */}
@@ -413,22 +413,22 @@ function PatternDetection({vessels}) {
 
         return (
           <div style={{marginTop:"12px"}}>
-            <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
-              Deficiency Pattern Analysis <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>({totalDefs} deficiencies across {vessels.filter(v=>(v.deficiencies||[]).length>0).length} cases with uploaded PSC reports)</span>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",paddingBottom:"8px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
+              Deficiency Pattern Analysis <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({totalDefs} deficiencies across {vessels.filter(v=>(v.deficiencies||[]).length>0).length} cases with uploaded PSC reports)</span>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency Categories</div>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency Categories</div>
                 {sortedCats.map(([cat,count])=>{
                   const detCount=defDetainable[cat]||0;
                   const pct=Math.round(count/totalDefs*100);
                   return (
                     <div key={cat} style={{marginBottom:"10px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:"3px"}}>
-                        <div style={{fontSize:"10px",color:"var(--text2)",fontWeight:500}}>{cat}</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",fontWeight:500}}>{cat}</div>
                         <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
                           {detCount>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{detCount} det.</span>}
-                          <span style={{fontSize:"10px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{count} ({pct}%)</span>
+                          <span style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{count} ({pct}%)</span>
                         </div>
                       </div>
                       <div style={{height:"5px",background:"var(--bg3)",borderRadius:"3px",overflow:"hidden"}}>
@@ -441,22 +441,22 @@ function PatternDetection({vessels}) {
 
               <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"11px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency by MoU</div>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top Deficiency by MoU</div>
                   {mouDefTop.length>0?mouDefTop.map(m=>(
                     <div key={m.mou} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"7px",padding:"6px 8px",background:"var(--bg3)",borderRadius:"5px"}}>
-                      <div style={{fontSize:"10px",color:"var(--text2)",width:"90px",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.mou}</div>
-                      <div style={{flex:1,fontSize:"10px",color:"var(--amber2)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.topCat}</div>
-                      <span style={{fontSize:"9px",fontFamily:"var(--mono)",color:"var(--text3)",flexShrink:0}}>{m.topCount}</span>
+                      <div style={{fontSize:"13px",color:"var(--text2)",width:"90px",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.mou}</div>
+                      <div style={{flex:1,fontSize:"13px",color:"var(--amber2)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.topCat}</div>
+                      <span style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--text3)",flexShrink:0}}>{m.topCount}</span>
                     </div>
-                  )):<div style={{fontSize:"11px",color:"var(--text3)"}}>No MoU data available.</div>}
+                  )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No MoU data available.</div>}
                 </div>
                 {Object.keys(defDetainable).length>0&&(
                   <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Most Detainable Deficiency Types</div>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>Most Detainable Deficiency Types</div>
                     {Object.entries(defDetainable).sort((a,b)=>b[1]-a[1]).map(([cat,count])=>(
                       <div key={cat} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
-                        <div style={{fontSize:"10px",color:"var(--text2)"}}>{cat}</div>
-                        <span style={{fontSize:"9px",padding:"1px 7px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{count} detainable</span>
+                        <div style={{fontSize:"13px",color:"var(--text2)"}}>{cat}</div>
+                        <span style={{fontSize:"13px",padding:"1px 7px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{count} detainable</span>
                       </div>
                     ))}
                   </div>
@@ -518,7 +518,7 @@ function CompanyPattern({vessels}) {
   const riskOrder = {"High":3,"Medium":2,"Low":1};
   const top5 = [...companies].sort((a,b)=>(riskOrder[b.riskLabel]||0)-(riskOrder[a.riskLabel]||0)||(b.detained||0)-(a.detained||0)||(parseFloat(b.avgDefs)||0)-(parseFloat(a.avgDefs)||0)).slice(0,5);
   const sorted = [...companies].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
-  function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
+  function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
@@ -527,7 +527,7 @@ function CompanyPattern({vessels}) {
       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
         <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
           ⚠ Top 5 High Risk Companies
-          <span style={{fontSize:"11px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate, avg deficiencies, CAR compliance, responsiveness</span>
+          <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate, avg deficiencies, CAR compliance, responsiveness</span>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
           {top5.map((c,i)=>(
@@ -535,26 +535,26 @@ function CompanyPattern({vessels}) {
               <div style={{fontSize:"20px",fontWeight:700,color:i===0?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",width:"28px",flexShrink:0}}>#{i+1}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{c.name}</div>
-                <div style={{fontSize:"11px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}  ·  {c.dominantMou}</div>
+                <div style={{fontSize:"13px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}  ·  {c.dominantMou}</div>
               </div>
               <div style={{display:"flex",gap:"10px",flexShrink:0}}>
                 <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
-                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}<span style={{fontSize:"11px",color:"var(--text3)",fontWeight:400}}>/100</span></div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}<span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>/100</span></div>
                 </div>
                 <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
                   <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate}%</div>
                 </div>
                 <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div>
                   <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{c.avgDefs}</div>
                 </div>
                 <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div>
+                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div>
                   <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.carNotReceived>0?"var(--red2)":"var(--green2)"}}>{c.carNotReceived}</div>
                 </div>
-                <div style={{padding:"4px 10px",borderRadius:"4px",background:c.riskBg,border:"1px solid "+c.riskBorder,fontSize:"11px",fontWeight:700,color:c.riskColor,alignSelf:"center"}}>{c.riskLabel}</div>
+                <div style={{padding:"4px 10px",borderRadius:"4px",background:c.riskBg,border:"1px solid "+c.riskBorder,fontSize:"13px",fontWeight:700,color:c.riskColor,alignSelf:"center"}}>{c.riskLabel}</div>
               </div>
             </div>
           ))}
@@ -564,7 +564,7 @@ function CompanyPattern({vessels}) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
         {[{l:"Companies",v:companies.length,c:"var(--text)"},{l:"High Risk",v:companies.filter(c=>c.riskLabel==="High").length,c:"var(--red2)"},{l:"Multi-Detention",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},{l:"Unresponsive",v:companies.filter(c=>c.unresponsive>0).length,c:"var(--amber2)"},{l:"Insp. Rejected",v:companies.filter(c=>c.inspectionRejection>0).length,c:"var(--red2)"},{l:"0% CAR",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
-            <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
           </div>
         ))}
@@ -572,47 +572,47 @@ function CompanyPattern({vessels}) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Unresponsive Companies</div>
-          <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"10px"}}>CAR not received 60+ days, no response to LISCR, or client unresponsive flag</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Unresponsive Companies</div>
+          <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>CAR not received 60+ days, no response to LISCR, or client unresponsive flag</div>
           {sorted.filter(c=>c.unresponsive>0).length>0?(
             <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
               {sorted.filter(c=>c.unresponsive>0).map(c=>(
                 <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--amber-bg)",borderRadius:"6px",border:"1px solid var(--amber)"}}>
-                  <div style={{flex:1}}><div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)"}}>{c.name}</div><div style={{fontSize:"9px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
+                  <div style={{flex:1}}><div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)"}}>{c.name}</div><div style={{fontSize:"13px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
                   <div style={{display:"flex",gap:"4px"}}>
-                    <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive} flag{c.unresponsive>1?"s":""}</span>
-                    {c.carNotReceived>0&&<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carNotReceived} CAR</span>}
+                    <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive} flag{c.unresponsive>1?"s":""}</span>
+                    {c.carNotReceived>0&&<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carNotReceived} CAR</span>}
                   </div>
                 </div>
               ))}
             </div>
-          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No unresponsive companies detected.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No unresponsive companies detected.</div>}
         </div>
 
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"4px"}}>Inspection Rejection</div>
-          <div style={{fontSize:"9px",color:"var(--text3)",marginBottom:"10px"}}>Companies that refused or rejected PSC/ASI inspections</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"4px"}}>Inspection Rejection</div>
+          <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>Companies that refused or rejected PSC/ASI inspections</div>
           {sorted.filter(c=>c.inspectionRejection>0).length>0?(
             <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
               {sorted.filter(c=>c.inspectionRejection>0).map(c=>(
                 <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A"}}>
-                  <div style={{flex:1}}><div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)"}}>{c.name}</div><div style={{fontSize:"9px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
-                  <span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}x rejected</span>
+                  <div style={{flex:1}}><div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>{c.name}</div><div style={{fontSize:"13px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
+                  <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}x rejected</span>
                 </div>
               ))}
             </div>
-          ):<div style={{fontSize:"11px",color:"var(--text3)"}}>No inspection rejections on record.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspection rejections on record.</div>}
         </div>
       </div>
 
       {sorted.filter(c=>c.riskLabel==="High").length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"8px"}}>
             {sorted.filter(c=>c.riskLabel==="High").map(c=>(
               <div key={c.name} style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 12px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
-                  <div style={{fontSize:"11px",fontWeight:700,color:"var(--red2)",flex:1,lineHeight:1.3}}>{c.name}</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",flex:1,lineHeight:1.3}}>{c.name}</div>
                   <span style={{fontSize:"8px",padding:"2px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginLeft:"6px"}}>HIGH RISK</span>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"4px",marginBottom:"8px"}}>
@@ -635,28 +635,28 @@ function CompanyPattern({vessels}) {
       )}
 
       <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",minWidth:"1100px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"1100px"}}>
           <thead><tr style={{background:"var(--bg2)"}}>
             {th("riskScore","Risk")}{th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}{th("unresponsive","Unresponsive")}{th("inspectionRejection","Insp. Rejected")}
-            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Top MoU</th>
-            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Worst Vessel</th>
+            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Top MoU</th>
+            <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Worst Vessel</th>
           </tr></thead>
           <tbody>{sorted.map((c,i)=>(
             <tr key={c.name} style={{background:c.riskLabel==="High"?"rgba(239,68,68,0.03)":i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
-              <td style={{padding:"9px 12px"}}><span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:c.riskBg,color:c.riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+c.riskBorder}}>{c.riskLabel}</span></td>
+              <td style={{padding:"9px 12px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:c.riskBg,color:c.riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+c.riskBorder}}>{c.riskLabel}</span></td>
               <td style={{padding:"9px 12px",fontWeight:600,color:c.riskLabel==="High"?"var(--red2)":"var(--text)"}}>{c.name}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.cases}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}}>{c.fleetSize}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.detained>1?"var(--red2)":"var(--text)",fontWeight:c.detained>1?600:400}}>{c.detained}</td>
-              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDefs)>=15?"var(--red2)":parseFloat(c.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(c.avgDefs)>=8?600:400}}>{c.avgDefs}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{c.avgDetainable}</td>
-              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:c.carRate>=80?"rgba(34,197,94,0.08)":c.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:c.carRate>=80?"var(--green2)":c.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carRate}%</span></td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.carRate>=80?"rgba(34,197,94,0.08)":c.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:c.carRate>=80?"var(--green2)":c.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carRate}%</span></td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:c.carNotReceived>0?600:400}}>{c.carNotReceived}</td>
-              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.unresponsive>0?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
-              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.inspectionRejection>0?<span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
-              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"10px"}}>{c.dominantMou}</td>
-              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"10px"}}>{c.worstVessel?c.worstVessel.name+" ("+c.worstVessel.defs+" defs)":"—"}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.unresponsive>0?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"var(--amber-bg)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.unresponsive}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.inspectionRejection>0?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}</span>:<span style={{color:"var(--text3)"}}>-</span>}</td>
+              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"13px"}}>{c.dominantMou}</td>
+              <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"13px"}}>{c.worstVessel?c.worstVessel.name+" ("+c.worstVessel.defs+" defs)":"—"}</td>
             </tr>
           ))}</tbody>
         </table>
@@ -702,7 +702,7 @@ function CARTracker({vessels}) {
   function DaysAgo({date}) {
     if (!date) return <span style={{color:"var(--text3)"}}>—</span>;
     const d = Math.floor((new Date()-new Date(date))/86400000);
-    return <span style={{color:d>60?"var(--red2)":d>30?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontSize:"10px",fontWeight:d>30?600:400}}>{d}d ago</span>;
+    return <span style={{color:d>60?"var(--red2)":d>30?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontSize:"13px",fontWeight:d>30?600:400}}>{d}d ago</span>;
   }
 
   function CARTable({rows, emptyMsg}) {
@@ -710,23 +710,23 @@ function CARTracker({vessels}) {
     return (
       <div style={{overflowX:"auto",scrollbarWidth:"thin",scrollbarColor:"#FFD700 #1a1a1a"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"900px"}}>
-        <thead><tr>{["Vessel","IMO","Company","Detention Date","CAR Status","Days Open","Due Date","Assigned To","View CAR"].map(h=><th key={h} style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+        <thead><tr>{["Vessel","IMO","Company","Detention Date","CAR Status","Days Open","Due Date","Assigned To","View CAR"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
         <tbody>{rows.map((v,i)=>{
           const daysOverdue = v.carDueDate&&new Date(v.carDueDate)<new Date()?Math.floor((new Date()-new Date(v.carDueDate))/86400000):null;
           return (
             <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
               <td style={{padding:"8px 10px",fontWeight:600,color:"var(--amber2)",whiteSpace:"nowrap"}}>{v.name}</td>
-              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",fontSize:"12px"}}>{v.imo}</td>
+              <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",fontSize:"13px"}}>{v.imo}</td>
               <td style={{padding:"8px 10px",color:"var(--text2)",maxWidth:"150px"}}>{v.company||"—"}</td>
               <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{fmtDate(v.detentionDate)}</td>
-              <td style={{padding:"8px 10px"}}><span style={{fontWeight:600,color:v.liveCarStatus==="Complete"?"var(--green2)":v.liveCarStatus==="Rejected"?"var(--red2)":"var(--amber2)",fontSize:"12px"}}>{v.liveCarStatus||v.carStatus||"—"}</span></td>
+              <td style={{padding:"8px 10px"}}><span style={{fontWeight:600,color:v.liveCarStatus==="Complete"?"var(--green2)":v.liveCarStatus==="Rejected"?"var(--red2)":"var(--amber2)",fontSize:"13px"}}>{v.liveCarStatus||v.carStatus||"—"}</span></td>
               <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:(v.carDaysOpen||0)>60?"var(--red2)":(v.carDaysOpen||0)>30?"var(--amber2)":"var(--text3)"}}>{v.carDaysOpen!=null?v.carDaysOpen+"d":"—"}</td>
               <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
-                <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:daysOverdue?"var(--red2)":"var(--text3)"}}>{fmtDate(v.carDueDate)}</span>
-                {daysOverdue>0&&<span style={{fontSize:"11px",color:"var(--red2)",marginLeft:"4px"}}>({daysOverdue}d overdue)</span>}
+                <span style={{fontFamily:"var(--mono)",fontSize:"13px",color:daysOverdue?"var(--red2)":"var(--text3)"}}>{fmtDate(v.carDueDate)}</span>
+                {daysOverdue>0&&<span style={{fontSize:"13px",color:"var(--red2)",marginLeft:"4px"}}>({daysOverdue}d overdue)</span>}
               </td>
               <td style={{padding:"8px 10px",color:"var(--text2)"}}>{v.carAssignedTo||"—"}</td>
-              <td style={{padding:"8px 10px"}}>{v.carLink?<a href={v.carLink} target="_blank" rel="noreferrer" style={{color:"var(--blue)",fontSize:"12px"}}>View →</a>:"—"}</td>
+              <td style={{padding:"8px 10px"}}>{v.carLink?<a href={v.carLink} target="_blank" rel="noreferrer" style={{color:"var(--blue)",fontSize:"13px"}}>View →</a>:"—"}</td>
             </tr>
           );
         })}</tbody>
@@ -747,28 +747,28 @@ function CARTracker({vessels}) {
           {l:"Rejected",v:rejected.length,c:"var(--red2)",bg:"var(--red-bg)",b:"#3D1A1A"},
         ].map(s=>(
           <div key={s.l} style={{background:s.bg,border:"1px solid "+s.b,borderRadius:"8px",padding:"12px 14px"}}>
-            <div style={{fontSize:"9px",color:s.c,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"4px",opacity:0.8}}>{s.l}</div>
+            <div style={{fontSize:"13px",color:s.c,textTransform:"uppercase",letterSpacing:".05em",marginBottom:"4px",opacity:0.8}}>{s.l}</div>
             <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-            <div style={{fontSize:"9px",color:s.c,opacity:0.7,marginTop:"2px"}}>{vessels.length?Math.round(s.v/vessels.length*100):0}% of cases</div>
+            <div style={{fontSize:"13px",color:s.c,opacity:0.7,marginTop:"2px"}}>{vessels.length?Math.round(s.v/vessels.length*100):0}% of cases</div>
           </div>
         ))}
       </div>
 
       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-        <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>CAR Not Received ({notReceived.length})</div>
+        <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>CAR Not Received ({notReceived.length})</div>
         <CARTable rows={notReceived} emptyMsg="All CARs received — great compliance!" />
       </div>
 
       {requested.length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--amber2)",marginBottom:"10px"}}>CAR Requested — Awaiting Response ({requested.length})</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"10px"}}>CAR Requested — Awaiting Response ({requested.length})</div>
           <CARTable rows={requested} emptyMsg="" />
         </div>
       )}
 
       {rejected.length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"11px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>CAR Rejected ({rejected.length})</div>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>CAR Rejected ({rejected.length})</div>
           <CARTable rows={rejected} emptyMsg="" />
         </div>
       )}
@@ -871,7 +871,7 @@ export default function VesselManager({ currentUser }) {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px",flexWrap:"wrap",gap:"8px"}}>
         <div>
           <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>Detention Cases</div>
-          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"2px"}}>{vessels.length} total cases · {vessels.filter(v=>v.detained).length} currently detained</div>
+          <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{vessels.length} total cases · {vessels.filter(v=>v.detained).length} currently detained</div>
         </div>
         {canEdit&&(
           <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
@@ -902,23 +902,23 @@ export default function VesselManager({ currentUser }) {
               const wb = XLSX.utils.book_new();
               XLSX.utils.book_append_sheet(wb, ws, "Detention Cases");
               XLSX.writeFile(wb, "LISCR_Detention_Cases_"+new Date().toISOString().slice(0,10)+".xlsx");
-            }} style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"rgba(34,197,94,0.1)",color:"var(--green2)",cursor:"pointer",fontSize:"12px",fontWeight:500}}>
+            }} style={{padding:"7px 14px",border:"1px solid var(--green)",borderRadius:"6px",background:"rgba(34,197,94,0.1)",color:"var(--green2)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>
               ↓ Export to Excel
             </button>
-            <button onClick={()=>bulkRef.current?.click()} disabled={bulkLoading} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:bulkLoading?"default":"pointer",fontSize:"11px",fontWeight:500}}>{bulkLoading?"⏳ Processing...":"↑ Bulk Upload DPP"}</button>
+            <button onClick={()=>bulkRef.current?.click()} disabled={bulkLoading} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:bulkLoading?"default":"pointer",fontSize:"13px",fontWeight:500}}>{bulkLoading?"⏳ Processing...":"↑ Bulk Upload DPP"}</button>
           </div>
         )}
       </div>
       {bulkStatus&&(
-        <div style={{marginBottom:"12px",padding:"10px 14px",borderRadius:"6px",background:bulkStatus.state==="done"?"rgba(34,197,94,0.08)":bulkStatus.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(bulkStatus.state==="done"?"rgba(34,197,94,0.3)":bulkStatus.state==="error"?"#3D1A1A":"var(--border)"),fontSize:"11px",color:bulkStatus.state==="done"?"var(--green2)":bulkStatus.state==="error"?"var(--red2)":"var(--text3)"}}>
+        <div style={{marginBottom:"12px",padding:"10px 14px",borderRadius:"6px",background:bulkStatus.state==="done"?"rgba(34,197,94,0.08)":bulkStatus.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(bulkStatus.state==="done"?"rgba(34,197,94,0.3)":bulkStatus.state==="error"?"#3D1A1A":"var(--border)"),fontSize:"13px",color:bulkStatus.state==="done"?"var(--green2)":bulkStatus.state==="error"?"var(--red2)":"var(--text3)"}}>
           {bulkStatus.msg}
-          {bulkStatus.state==="done"&&<button onClick={()=>setBulkStatus(null)} style={{marginLeft:"12px",background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"11px"}}>dismiss</button>}
+          {bulkStatus.state==="done"&&<button onClick={()=>setBulkStatus(null)} style={{marginLeft:"12px",background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>dismiss</button>}
         </div>
       )}
 
       <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"16px",gap:"2px"}}>
         {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 16px",border:"none",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),background:"transparent",color:tab===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"12px",fontWeight:tab===t.id?600:400,whiteSpace:"nowrap"}}>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 16px",border:"none",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),background:"transparent",color:tab===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:tab===t.id?600:400,whiteSpace:"nowrap"}}>
             {t.label}
           </button>
         ))}
@@ -980,10 +980,10 @@ export default function VesselManager({ currentUser }) {
           <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
             {/* Fleet benchmark */}
             <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",display:"flex",gap:"20px",alignItems:"center"}}>
-              <div style={{fontSize:"11px",color:"var(--text3)"}}>Fleet benchmark:</div>
-              <div style={{fontSize:"11px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{fleetAvgDefs}</strong> avg defs</div>
-              <div style={{fontSize:"11px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--red2)"}}>{fleetDetRate}%</strong> detention rate</div>
-              <div style={{fontSize:"11px",color:"var(--text3)",marginLeft:"auto"}}>{ros.length} ROs active across {vessels.length} cases</div>
+              <div style={{fontSize:"13px",color:"var(--text3)"}}>Fleet benchmark:</div>
+              <div style={{fontSize:"13px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{fleetAvgDefs}</strong> avg defs</div>
+              <div style={{fontSize:"13px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--red2)"}}>{fleetDetRate}%</strong> detention rate</div>
+              <div style={{fontSize:"13px",color:"var(--text3)",marginLeft:"auto"}}>{ros.length} ROs active across {vessels.length} cases</div>
             </div>
 
             {/* RO performance cards */}
@@ -999,10 +999,10 @@ export default function VesselManager({ currentUser }) {
                   <div key={r.name} style={{background:"var(--bg2)",border:"1px solid "+(riskLevel==="High"?"#3D1A1A":"var(--border)"),borderRadius:"10px",overflow:"hidden"}}>
                     <div style={{padding:"12px 14px",borderBottom:"1px solid var(--border)"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
-                        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",flex:1,lineHeight:1.3}}>{r.name}</div>
-                        <span style={{fontSize:"9px",padding:"2px 7px",borderRadius:"3px",background:riskBg,color:riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+riskBorder,flexShrink:0,marginLeft:"8px"}}>{riskLevel} RISK</span>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",flex:1,lineHeight:1.3}}>{r.name}</div>
+                        <span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:riskBg,color:riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+riskBorder,flexShrink:0,marginLeft:"8px"}}>{riskLevel} RISK</span>
                       </div>
-                      <div style={{fontSize:"9px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""} · {[...r.mous].slice(0,2).join(", ")}</div>
+                      <div style={{fontSize:"13px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""} · {[...r.mous].slice(0,2).join(", ")}</div>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"0"}}>
                       {[
@@ -1018,7 +1018,7 @@ export default function VesselManager({ currentUser }) {
                       ))}
                     </div>
                     {r.worstVessel&&(
-                      <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",fontSize:"9px",color:"var(--text3)"}}>
+                      <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",fontSize:"13px",color:"var(--text3)"}}>
                         Worst vessel: <span style={{color:"var(--red2)",fontWeight:600}}>{r.worstVessel.name}</span> ({r.worstVessel.defs} defs)
                       </div>
                     )}
@@ -1029,11 +1029,11 @@ export default function VesselManager({ currentUser }) {
 
             {/* RO comparison table */}
             <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
                 <thead>
                   <tr style={{background:"var(--bg2)"}}>
                     {["RO / Class","Cases","Detained","Det %","Avg Defs","Avg Det.","CAR %","CAR Missing","vs Fleet Avg","Worst Vessel"].map(h=>(
-                      <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
+                      <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1045,13 +1045,13 @@ export default function VesselManager({ currentUser }) {
                         <td style={{padding:"9px 12px",fontWeight:600,color:"var(--text)"}}>{r.name}</td>
                         <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.cases}</td>
                         <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.detained>0?"var(--red2)":"var(--text3)",fontWeight:r.detained>0?600:400}}>{r.detained}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
                         <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDefs)>=15?"var(--red2)":parseFloat(r.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(r.avgDefs)>=8?600:400}}>{r.avgDefs}</td>
                         <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{r.avgDetainable}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
                         <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:r.carNotReceived>0?600:400}}>{r.carNotReceived}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"9px",padding:"1px 6px",borderRadius:"3px",background:vsAvg>0?"var(--red-bg)":"rgba(34,197,94,0.08)",color:vsAvg>0?"var(--red2)":"var(--green2)",fontFamily:"var(--mono)",fontWeight:600}}>{vsAvg>0?"+":""}{vsAvg.toFixed(1)}</span></td>
-                        <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:"10px",whiteSpace:"nowrap"}}>{r.worstVessel?r.worstVessel.name+" ("+r.worstVessel.defs+" defs)":"—"}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:vsAvg>0?"var(--red-bg)":"rgba(34,197,94,0.08)",color:vsAvg>0?"var(--red2)":"var(--green2)",fontFamily:"var(--mono)",fontWeight:600}}>{vsAvg>0?"+":""}{vsAvg.toFixed(1)}</span></td>
+                        <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:"13px",whiteSpace:"nowrap"}}>{r.worstVessel?r.worstVessel.name+" ("+r.worstVessel.defs+" defs)":"—"}</td>
                       </tr>
                     );
                   })}
