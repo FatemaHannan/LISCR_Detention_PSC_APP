@@ -496,20 +496,22 @@ function CompanyPattern({vessels}) {
     const carRate = c.cases?Math.round(c.carComplete/c.cases*100):0;
     const detRate = c.cases?Math.round(c.detained/c.cases*100):0;
     const fleetSize = [...c.vessels].length;
-    const rawRs = (detRate*0.4)+(parseFloat(avgDefs)*2)+(c.carNotReceived*5)+(c.unresponsive*8)+(c.inspectionRejection*10);
-    const rs = Math.min(Math.round(rawRs/1.7),100); // normalize to 0-100
-    const riskLabel = rs>60?"High":rs>35?"Medium":"Low";
-    const riskColor = rs>60?"var(--red2)":rs>35?"var(--amber2)":"var(--green2)";
-    const riskBg = rs>60?"var(--red-bg)":rs>35?"var(--amber-bg)":"rgba(34,197,94,0.08)";
-    const riskBorder = rs>60?"#3D1A1A":rs>35?"var(--amber)":"rgba(34,197,94,0.3)";
+    // Risk based on simple rules - no score
+    const isHigh = detRate===100||parseFloat(avgDefs)>=15||c.carNotReceived>=2||c.unresponsive>0||c.inspectionRejection>0;
+    const isMed = detRate>=50||parseFloat(avgDefs)>=8||c.carNotReceived>=1;
+    const riskLabel = isHigh?"High":isMed?"Medium":"Low";
+    const riskColor = isHigh?"var(--red2)":isMed?"var(--amber2)":"var(--green2)";
+    const riskBg = isHigh?"var(--red-bg)":isMed?"var(--amber-bg)":"rgba(34,197,94,0.08)";
+    const riskBorder = isHigh?"#3D1A1A":isMed?"var(--amber)":"rgba(34,197,94,0.3)";
     const worstVessel = [...c.vesselList].sort((a,b)=>(b.defs||0)-(a.defs||0))[0];
     const mouCounts={};c.vesselList.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
     const dominantMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskScore:rs,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
+    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
   });
 
-  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
-  const sorted = [...companies].sort((a,b)=>{const av=a[sortKey];const bv=b[sortKey];return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
+  const riskOrder = {"High":3,"Medium":2,"Low":1};
+  const top5 = [...companies].sort((a,b)=>(riskOrder[b.riskLabel]||0)-(riskOrder[a.riskLabel]||0)||(b.detained||0)-(a.detained||0)||(parseFloat(b.avgDefs)||0)-(parseFloat(a.avgDefs)||0)).slice(0,5);
+  const sorted = [...companies].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
 
   return (
