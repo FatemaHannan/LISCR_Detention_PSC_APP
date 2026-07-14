@@ -212,7 +212,7 @@ export default function App() {
         <div className="topbar">
           <div className="topbar-t">{TITLES[page]||page}</div>
           <div className="topbar-r">
-            <div className="time-badge">Jun 2026</div>
+            <div className="time-badge">{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][new Date().getMonth()]} {new Date().getFullYear()}</div>
             <button className="btn" onClick={() => nav("chat")}><i className="ti ti-sparkles"></i> Ask AI</button>
             {canEdit && <button className="btn btn-primary" onClick={() => nav("upload")}><i className="ti ti-upload"></i> Upload docs</button>}
           </div>
