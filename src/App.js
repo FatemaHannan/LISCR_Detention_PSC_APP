@@ -497,7 +497,6 @@ export default function App() {
                   )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No RO data yet. Upload Vessel Inspection Performance.</div>}
                 </div>
               </div>
-              </div>
             </div>
             );
           })()}
