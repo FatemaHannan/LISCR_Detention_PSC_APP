@@ -345,9 +345,9 @@ export default function App() {
 
           {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <PdaipPage canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} />}
-          {page === "ais" && <AISMonitor />}
+          {page === "ais" && <AISMonitor vessels={fleetVessels||[]} />}
           {page === "inspector" && <InspectorNetwork />}
-          {page === "vip" && <VIPProtocol />}
+          {page === "vip" && <VIPProtocol vessels={fleetVessels||[]} />}
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
