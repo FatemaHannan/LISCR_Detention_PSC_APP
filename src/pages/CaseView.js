@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { VESSELS, TASKS, DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
+import { checkRateLimit } from "../lib/rateLimiter";
 import { supabase } from "../lib/supabase";
 import CaseImport from "./CaseImport";
 import EditModal from "../components/EditModal";

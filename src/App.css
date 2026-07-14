@@ -199,3 +199,31 @@ div, span, td, th, p, label, input, select, textarea, button, a {
   --fs-md: 14px;
   --fs-lg: 15px;
 }
+
+/* ============ MOBILE RESPONSIVE ============ */
+@media (max-width: 768px) {
+  .sidebar { width: 0; min-width: 0; overflow: hidden; }
+  .main { margin-left: 0 !important; width: 100% !important; }
+  .pg { padding: 10px !important; }
+  .mg4 { grid-template-columns: repeat(2,1fr) !important; }
+  .two { grid-template-columns: 1fr !important; }
+  .met { padding: 10px !important; }
+  .m-v { font-size: 22px !important; }
+  .card { padding: 12px !important; }
+  table { font-size: 11px !important; }
+  table th, table td { padding: 6px 8px !important; }
+  .bar-l { width: 70px !important; font-size: 10px !important; }
+}
+
+@media (max-width: 480px) {
+  .mg4 { grid-template-columns: 1fr !important; }
+  .m-v { font-size: 18px !important; }
+}
+
+/* ============ PAGE SPEED ============ */
+img { loading: lazy; }
+* { box-sizing: border-box; }
+
+/* ============ ACCESSIBILITY ============ */
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+button:focus-visible { outline: 2px solid var(--blue); }
