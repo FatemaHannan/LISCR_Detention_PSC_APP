@@ -63,6 +63,90 @@ export default function PatternDetection({ learnedPatterns, vessels=[] }) {
     vessels.forEach(v=>{if(v.company&&v.company!=="—"){compDefs[v.company]=(compDefs[v.company]||0)+(v.defs||0);compCount[v.company]=(compCount[v.company]||0)+1;}});
     const highDefComp=Object.entries(compDefs).map(([c,d])=>([c,d,compCount[c],Math.round(d/compCount[c])])).filter(r=>r[3]>=15).sort((a,b)=>b[3]-a[3]).slice(0,3);
     if(highDefComp.length>0) livePatterns.push({id:"p"+(id++),severity:"High",type:"Company risk",title:highDefComp.length+" company(ies) averaging ≥15 deficiencies",evidence:highDefComp.map(([c,,ct,avg])=>c+" avg "+avg+" defs ("+ct+" cases)").join("; "),vessels:[],action:"Company-level ISM audit required.",learned:false});
+    // 3. RO Performance Pattern
+    const roCounts={};const roDetained={};
+    vessels.forEach(v=>{
+      if(v.ro&&v.ro!=="—"){
+        roCounts[v.ro]=(roCounts[v.ro]||0)+1;
+        if(v.detained)roDetained[v.ro]=(roDetained[v.ro]||0)+1;
+      }
+    });
+    const roRisk=Object.entries(roCounts).filter(([,t])=>t>=3).map(([ro,t])=>([ro,roDetained[ro]||0,t,Math.round((roDetained[ro]||0)/t*100)])).sort((a,b)=>b[3]-a[3]);
+    if(roRisk.length>0&&roRisk[0][3]>=80){
+      livePatterns.push({id:"p"+(id++),severity:"High",type:"RO performance",
+        title:roRisk[0][0]+" — "+roRisk[0][3]+"% detention rate ("+roRisk[0][1]+" of "+roRisk[0][2]+" vessels)",
+        evidence:"Top RO by detention rate. "+roRisk.slice(0,3).map(([ro,,t,r])=>ro+": "+r+"%  ("+t+" vessels)").join(", "),
+        vessels:[],action:"Review RO survey effectiveness. Consider enhanced oversight for vessels classed by "+roRisk[0][0]+".",learned:false});
+    }
+
+    // 4. Port Concentration Pattern
+    const portCounts={};
+    vessels.filter(v=>v.detained&&v.port&&v.port!=="—").forEach(v=>{
+      const port=v.port.split(",")[0].trim();
+      portCounts[port]=(portCounts[port]||0)+1;
+    });
+    const topPorts=Object.entries(portCounts).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>=3).slice(0,3);
+    if(topPorts.length>0){
+      livePatterns.push({id:"p"+(id++),severity:"High",type:"Port concentration",
+        title:"Top detention ports: "+topPorts.map(([p,v])=>p+" ("+v+")").join(", "),
+        evidence:"These ports account for a disproportionate share of detentions. PSCOs at these ports are boarding aggressively.",
+        vessels:[],action:"Issue Marine Advisory for vessels calling these ports. Mandatory pre-arrival checklist.",learned:false});
+    }
+
+    // 5. CAR Closed Then Re-Detained
+    const closedRedetained=vessels.filter(v=>{
+      const others=vessels.filter(o=>o.imo===v.imo&&o.id!==v.id);
+      return others.some(o=>o.carStatus==="Complete")&&v.carStatus==="Not Received";
+    });
+    if(closedRedetained.length>0){
+      livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR quality",
+        title:closedRedetained.length+" vessel(s) re-detained after previous CAR was closed",
+        evidence:closedRedetained.map(v=>v.name).join(", ")+" — CAR marked complete but vessel detained again. Corrective actions may not have been properly implemented.",
+        vessels:closedRedetained.map(v=>v.name),action:"Review CAR quality for these vessels. Implement verification step before CAR closure.",learned:false});
+    }
+
+    // 6. Vessel Age Pattern
+    const detained2=vessels.filter(v=>v.detained);
+    const vipData=vessels.filter(v=>v.age);
+    if(vipData.length>10){
+      const avgAge=vipData.reduce((a,v)=>a+(v.age||0),0)/vipData.length;
+      const detainedWithAge=detained2.filter(v=>v.age);
+      const avgDetainedAge=detainedWithAge.length?detainedWithAge.reduce((a,v)=>a+(v.age||0),0)/detainedWithAge.length:0;
+      if(avgDetainedAge>avgAge+3){
+        livePatterns.push({id:"p"+(id++),severity:"Medium",type:"Vessel age",
+          title:"Detained vessels average "+avgDetainedAge.toFixed(0)+" years old vs fleet avg "+avgAge.toFixed(0)+" years",
+          evidence:"Older vessels are disproportionately represented in detentions. Age is a risk factor.",
+          vessels:[],action:"Flag vessels >20 years old for enhanced pre-arrival review and mandatory ASI.",learned:false});
+      }
+    }
+
+    // 7. MoU Month Concentration
+    const mouMonths={};
+    vessels.filter(v=>v.detained&&v.detentionDate&&v.mou).forEach(v=>{
+      const m=String(v.detentionDate).slice(0,7);
+      if(!mouMonths[v.mou])mouMonths[v.mou]={};
+      mouMonths[v.mou][m]=(mouMonths[v.mou][m]||0)+1;
+    });
+    const mouPeaks=Object.entries(mouMonths).map(([mou,months])=>{
+      const peak=Object.entries(months).sort((a,b)=>b[1]-a[1])[0];
+      return {mou,month:peak?.[0],count:peak?.[1]||0};
+    }).filter(m=>m.count>=5).sort((a,b)=>b.count-a.count);
+    if(mouPeaks.length>0){
+      livePatterns.push({id:"p"+(id++),severity:"Medium",type:"Seasonal pattern",
+        title:"Detention spike: "+mouPeaks[0].mou+" had "+mouPeaks[0].count+" detentions in "+mouPeaks[0].month,
+        evidence:mouPeaks.map(m=>m.mou+": peak "+m.count+" in "+m.month).join(", "),
+        vessels:[],action:"Prepare for annual detention spikes. Pre-position ASI resources before peak months.",learned:false});
+    }
+
+    // 8. Missing PSC Reports (deficiencies = 0 but detained)
+    const noReport=vessels.filter(v=>v.detained&&(v.defs||0)===0);
+    if(noReport.length>10){
+      livePatterns.push({id:"p"+(id++),severity:"Medium",type:"Data gap",
+        title:noReport.length+" detained vessels with no deficiency data",
+        evidence:"Cases without uploaded PSC reports — deficiency analysis, CAR quality check, and EVP reports cannot be generated.",
+        vessels:noReport.slice(0,5).map(v=>v.name),action:"Upload and analyze PSC Form A+B for these cases to enable full intelligence analysis.",learned:false});
+    }
+
     setPatterns(livePatterns);
   },[vessels]);
 
