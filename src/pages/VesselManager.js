@@ -196,8 +196,6 @@ function FleetAnalysis({vessels}) {
   const mouDetRate={};const mouTotal={};
   vessels.forEach(v=>{if(v.mou){mouTotal[v.mou]=(mouTotal[v.mou]||0)+1;if(v.detained)mouDetRate[v.mou]=(mouDetRate[v.mou]||0)+1;}});
 
-  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
-
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
 
@@ -548,10 +546,9 @@ function CompanyPattern({vessels}) {
     return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskScore:Math.round(rs),riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
   });
 
+  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
   const sorted = [...companies].sort((a,b)=>{const av=a[sortKey];const bv=b[sortKey];return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
-
-  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
