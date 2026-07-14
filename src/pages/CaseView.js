@@ -221,7 +221,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const detained = filtered.filter(v=>v.detained);
   const active = filtered.filter(v=>!v.detained);
 
-  async function selectVessel(v) {
+  async function selectVessel(v) { // eslint-disable-line no-unused-vars
     setSel(v);
     setTab("overview");
     setEvpQ(0);
@@ -1482,7 +1482,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const allDefs = v.deficiencies||[];
             const daysDetained = v.detentionDate?Math.floor((new Date()-new Date(v.detentionDate))/86400000):null;
             const asiTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/\basi\b|preemptive/));
-            const maTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("marine advisory"));
+            const _maTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("marine advisory"));
             const carTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().includes("car"));
             const emailTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/email|notif|contact|letter/));
             const flags = (v.flags||[]).map(f=>String(f).toUpperCase());
@@ -1695,7 +1695,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const carClosed = lastFlag?.car_status&&(lastFlag.car_status.toLowerCase().includes("closed")||lastFlag.car_status.toLowerCase().includes("complete")||lastFlag.car_status.toLowerCase().includes("approved"));
                   const carOpen = lastFlag?.car_status&&!carClosed&&lastFlag.car_status!=="No Deficiencies"&&lastFlag.car_status!=="";
                   const sameIssuesAfterCAR = carClosed&&matchingCats.length>0;
-                  const hasFindings = allFindings.length>0;
+                  const _hasFindings = allFindings.length>0;
 
                   const asiTask = vesselTasks.find(t=>((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/asi|preemptive/));
 
@@ -1942,7 +1942,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <button onClick={async()=>{
                 if (!newCase.name||!newCase.imo) return;
                 const vessel = {...newCase, defs:parseInt(newCase.defs)||0, detainable:parseInt(newCase.detainable)||0, detained:true, status:"active", flags:[], carStatus:"Not Received", caseStatus:"New", ro:"—", type:"—", gt:0, taskOwners:[], addedDate:new Date().toISOString().slice(0,10)};
-                const saved = await upsertVessel(vessel);
+                await upsertVessel(vessel);
                 await logAudit(AUDIT_ACTIONS.VESSEL_CREATE, {entityType:"vessel",entityId:vessel.imo,entityName:vessel.name,newValue:{imo:vessel.imo,detentionDate:vessel.detentionDate,port:vessel.port,mou:vessel.mou}});
                 await refreshVessels();
                 setShowNewCase(false);
