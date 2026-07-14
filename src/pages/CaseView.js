@@ -159,6 +159,16 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     loadAll(preSelectImo, preSelectDate);
   }, []);
 
+  // React to new preSelect when already mounted
+  useEffect(() => {
+    if (preSelectImo && dbVessels.length > 0) {
+      const found = preSelectDate
+        ? dbVessels.find(x => String(x.imo) === String(preSelectImo) && x.detentionDate === preSelectDate)
+        : dbVessels.find(x => String(x.imo) === String(preSelectImo));
+      if (found) { setSel(found); if(onClearPreSelect) onClearPreSelect(); }
+    }
+  }, [preSelectImo, preSelectDate]); // eslint-disable-line
+
 
 
   async function loadAll(selectImo, selectDate) {
@@ -236,6 +246,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setSaving(false);
     const v = await getVessels();
     setDbVessels(v);
+    // Refresh sel from db to get latest data
+    const refreshed = v.find(x=>x.id===updated.id||( String(x.imo)===String(updated.imo)&&x.detentionDate===updated.detentionDate));
+    if (refreshed) setSel(refreshed);
   }
 
   async function handleDocUpload(docKey, files) {
