@@ -30,7 +30,6 @@ const NAV = [
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
-    { id:"pdaip", label:"PDAIP analysis", icon:"ti-chart-dots", badge:null },
     { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
     { id:"tracker", label:"PSC tracker", icon:"ti-table", badge:null },
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
@@ -41,7 +40,7 @@ const NAV = [
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
     { id:"vip", label:"VIP protocol", icon:"ti-shield-check", badge:null },
     { id:"meeting", label:"Meeting minutes", icon:"ti-notes", badge:null },
-    { id:"initiatives", label:"Task Intelligence", icon:"ti-chart-dots", badge:null },
+    { id:"initiatives", label:"PDAIP & Tasks", icon:"ti-chart-dots", badge:null },
   ]},
   { section:"ASSISTANT", items:[
     { id:"chat", label:"AI assistant", icon:"ti-message-circle", badge:null },
@@ -54,7 +53,7 @@ const NAV = [
 
 const TITLES = {
   home:"My dashboard", evp:"EVP briefing", questions:"EVP questions", gaps:"Critical gaps",
-  tasks:"My tasks", case:"Case view", pdaip:"PDAIP analysis", fleet:"Fleet dashboard",
+  tasks:"My tasks", case:"Case view", pdaip:"PDAIP & Tasks", fleet:"Fleet dashboard",
   tracker:"PSC tracker", upload:"Upload & analyze", patterns:"Pattern detection",
   ais:"AIS / LRIT Monitor", inspector:"Inspector network", vip:"VIP protocol",
   meeting:"Meeting minutes", initiatives:"Initiative tracker", chat:"AI assistant",
@@ -579,12 +578,12 @@ export default function App() {
           })()}
 
           {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
-          {page === "pdaip" && <PdaipPage canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} />}
+          {page === "pdaip" && <InitiativeTracker />}
           {page === "ais" && <AISMonitor vessels={fleetVessels||[]} />}
           {page === "inspector" && <InspectorNetwork />}
           {page === "vip" && <VIPProtocol vessels={fleetVessels||[]} />}
           {page === "meeting" && <MeetingMinutes />}
-          {page === "initiatives" && <InitiativeTracker />}
+          {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} />}
           {page === "admin" && <AdminPanel />}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PdaipPage from './PdaipPage';
 import { getTasks, getVessels } from '../lib/db';
 
 export default function InitiativeTracker() {
@@ -76,6 +77,7 @@ export default function InitiativeTracker() {
   function priorityColor(p) { return p==="Critical"?"var(--red2)":p==="High"?"var(--amber2)":p==="Medium"?"var(--blue)":"var(--text3)"; }
 
   const SUBTABS = [
+    {id:"import", label:"Import & Manage"},
     {id:"overview", label:"Overview"},
     {id:"stalled", label:"Stalled & Overdue"},
     {id:"byvessel", label:"By Vessel"},
@@ -797,6 +799,9 @@ export default function InitiativeTracker() {
             </table>
           </div>
         </div>
+      )}
+      {subTab==="import"&&(
+        <PdaipPage canEdit={true} canDelete={true} canDownload={true} />
       )}
     </div>
   );
