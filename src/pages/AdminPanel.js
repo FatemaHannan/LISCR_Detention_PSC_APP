@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import EditModal from '../components/EditModal';
 
 const ROLE_COLOR = { 'Super Admin':'var(--purple)', 'Admin':'var(--blue)', 'Viewer':'var(--text3)' };
@@ -60,7 +61,18 @@ const AUDIT_BG = { edit:'var(--blue-bg)', add:'var(--green-bg)', role:'var(--pur
 export default function AdminPanel() {
   const [tab, setTab] = useState('users');
   const [users, setUsers] = useState(INITIAL_USERS);
-  const [audit, setAudit] = useState(INITIAL_AUDIT);
+  const [audit, setAudit] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  useEffect(()=>{
+    if(tab==='audit'){
+      setAuditLoading(true);
+      supabase.from('audit_log').select('*').order('created_at',{ascending:false}).limit(200).then(({data})=>{
+        setAudit(data||[]);
+        setAuditLoading(false);
+      });
+    }
+  },[tab]);
   const [showAdd, setShowAdd] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -234,23 +246,30 @@ export default function AdminPanel() {
 
       {tab==='audit' && (
         <div>
-          <div style={{background:'var(--bg3)',borderRadius:'6px',padding:'10px 13px',fontSize:'11px',lineHeight:1.65,marginBottom:'12px',border:'1px solid var(--border)',color:'var(--text2)'}}>
-            <strong style={{color:'var(--text)'}}>Audit log</strong> — all changes made in the platform, who made them, and when. Cannot be edited or deleted.
+          <div style={{background:'var(--bg3)',borderRadius:'6px',padding:'10px 13px',fontSize:'13px',lineHeight:1.65,marginBottom:'12px',border:'1px solid var(--border)',color:'var(--text2)'}}>
+            <strong style={{color:'var(--text)'}}>Audit Log</strong> — all sensitive actions made in the platform, who made them, and when. Cannot be edited or deleted.
           </div>
-          {audit.map(a => (
-            <div key={a.id} style={{display:'flex',alignItems:'flex-start',gap:'12px',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'8px',marginBottom:'6px',background:'var(--bg2)',borderLeft:'3px solid '+(AUDIT_COLOR[a.type]||'var(--border)')}}>
-              <div style={{width:'28px',height:'28px',borderRadius:'50%',background:AUDIT_BG[a.type]||'var(--bg3)',border:`1px solid ${AUDIT_COLOR[a.type]||'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',flexShrink:0}}>
-                {a.type==='edit'?'✎':a.type==='add'?'+':a.type==='role'?'◈':a.type==='push'?'→':'✓'}
-              </div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'3px',flexWrap:'wrap'}}>
-                  <strong style={{fontSize:'11px',color:'var(--text)'}}>{a.user}</strong>
-                  <span style={{fontSize:'11px',color:'var(--text2)'}}>{a.action}</span>
+          {auditLoading&&<div style={{textAlign:'center',padding:'30px',color:'var(--text3)',fontSize:'13px'}}>Loading audit log...</div>}
+          {!auditLoading&&audit.length===0&&<div style={{textAlign:'center',padding:'30px',color:'var(--text3)',fontSize:'13px'}}>No audit entries yet. Actions will appear here as users interact with the platform.</div>}
+          {!auditLoading&&audit.map(a=>{
+            const actionColor = a.action?.includes('delete')?'var(--red)':a.action?.includes('create')?'var(--green)':a.action?.includes('analyze')?'var(--blue)':'var(--amber)';
+            return (
+              <div key={a.id} style={{display:'flex',alignItems:'flex-start',gap:'12px',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:'8px',marginBottom:'6px',background:'var(--bg2)',borderLeft:'3px solid '+actionColor}}>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'3px',flexWrap:'wrap'}}>
+                    <strong style={{fontSize:'12px',color:'var(--text)'}}>{a.user_name||a.user_email||'Unknown'}</strong>
+                    <span style={{fontSize:'11px',padding:'1px 7px',borderRadius:'3px',background:'var(--bg3)',color:actionColor,fontFamily:'var(--mono)',fontWeight:600}}>{a.action}</span>
+                    {a.entity_name&&<span style={{fontSize:'12px',color:'var(--text2)'}}>{a.entity_name}</span>}
+                  </div>
+                  <div style={{display:'flex',gap:'12px',fontSize:'11px',color:'var(--text3)',fontFamily:'var(--mono)'}}>
+                    <span>{new Date(a.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+                    {a.entity_type&&<span>Type: {a.entity_type}</span>}
+                    {a.details&&<span>{a.details}</span>}
+                  </div>
                 </div>
-                <div style={{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--mono)'}}>Target: {a.target} · {a.time}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

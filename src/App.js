@@ -10,6 +10,7 @@ import VIPProtocol from "./pages/VIPProtocol";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import PatternDetection from "./pages/PatternDetection";
+import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
 import { MASTER_PROMPT } from "./lib/masterPrompt";
 import UploadAnalyze from "./pages/UploadAnalyze";
@@ -122,7 +123,8 @@ export default function App() {
   const canDelete = currentUser && currentUser.role === "Super Admin";
   const canDownload = currentUser && (currentUser.role === "Super Admin" || currentUser.role === "Admin");
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({behavior:"smooth"}); }, [chatMessages]);
+  useEffect(() => {
+    if (currentUser) setAuditUser(currentUser); messagesEndRef.current?.scrollIntoView({behavior:"smooth"}); }, [chatMessages]);
 
   if (!currentUser) return <Login onLogin={setCurrentUser} />;
 

@@ -4,6 +4,7 @@ import { VESSELS, TASKS, DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { checkRateLimit } from "../lib/rateLimiter";
+import { logAudit, AUDIT_ACTIONS } from "../lib/auditLog";
 import { supabase } from "../lib/supabase";
 import CaseImport from "./CaseImport";
 import EditModal from "../components/EditModal";
@@ -369,6 +370,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         await saveVesselEdit(updates);
       }
 
+      await logAudit(AUDIT_ACTIONS.DOCUMENT_ANALYZE, {entityType:"document",entityId:doc.id,entityName:doc.fileName,details:`Vessel: ${sel.name} (${sel.imo})`});
       await markDocumentAnalyzed(doc.id);
       const docs = await getDocuments(sel.imo, sel.detentionDate);
       setDbDocs(docs);
@@ -1928,7 +1930,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <button onClick={async()=>{
                 if (!newCase.name||!newCase.imo) return;
                 const vessel = {...newCase, defs:parseInt(newCase.defs)||0, detainable:parseInt(newCase.detainable)||0, detained:true, status:"active", flags:[], carStatus:"Not Received", caseStatus:"New", ro:"—", type:"—", gt:0, taskOwners:[], addedDate:new Date().toISOString().slice(0,10)};
-                await upsertVessel(vessel);
+                const saved = await upsertVessel(vessel);
+                await logAudit(AUDIT_ACTIONS.VESSEL_CREATE, {entityType:"vessel",entityId:vessel.imo,entityName:vessel.name,newValue:{imo:vessel.imo,detentionDate:vessel.detentionDate,port:vessel.port,mou:vessel.mou}});
                 await refreshVessels();
                 setShowNewCase(false);
                 setNewCase({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",fsiCaseOwner:"",pscOwner:""});

@@ -461,6 +461,7 @@ export default function WeeklyData({ currentUser }) {
     try {
       const updated = await syncVIPToVessels();
       setSyncMsg(`✓ Synced case owners for ${updated} vessel records`);
+      await logAudit(AUDIT_ACTIONS.DATA_IMPORT, {entityType:'vip_sync',details:`Synced ${updated} vessel records`});
     } catch(e) {
       setSyncMsg("✗ Sync failed: "+e.message);
     }
