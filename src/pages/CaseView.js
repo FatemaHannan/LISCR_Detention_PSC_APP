@@ -156,25 +156,22 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const PAGE_SIZE = 20;
 
   useEffect(() => {
-    loadAll();
+    loadAll(preSelectImo, preSelectDate);
   }, []);
 
-  useEffect(() => {
-    if (preSelectImo && dbVessels.length > 0) {
-      const v = preSelectDate
-        ? dbVessels.find(v => String(v.imo) === String(preSelectImo) && v.detentionDate === preSelectDate)
-        : dbVessels.find(v => String(v.imo) === String(preSelectImo));
-      if (v) {
-        setSel(v);
-        if (onClearPreSelect) onClearPreSelect();
-      }
-    }
-  }, [preSelectImo, preSelectDate, dbVessels]);
 
-  async function loadAll() {
+
+  async function loadAll(selectImo, selectDate) {
     setLoading(true);
     const [v, t] = await Promise.all([getVessels(), getTasks()]);
     setDbVessels(v);
+    // Auto-select vessel if navigated from Detention Cases
+    if (selectImo && v.length > 0) {
+      const found = selectDate
+        ? v.find(x => String(x.imo) === String(selectImo) && x.detentionDate === selectDate)
+        : v.find(x => String(x.imo) === String(selectImo));
+      if (found) setSel(found);
+    }
     setDbTasks(t);
     setLoading(false);
   }
