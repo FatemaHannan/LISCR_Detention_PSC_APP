@@ -25,7 +25,7 @@ const NAV = [
   ]},
   { section:"MY WORKSPACE", items:[
     { id:"home", label:"My dashboard", icon:"ti-home", badge:{n:12,c:"nb-r"} },
-    { id:"tasks", label:"My tasks", icon:"ti-checklist", badge:{n:28,c:"nb-r"} },
+    { id:"tasks", label:"My tasks", icon:"ti-checklist", badge:{n:fleetTasks.filter(t=>t.status!=="Executed").length||0,c:"nb-r"} },
   ]},
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
@@ -692,6 +692,104 @@ export default function App() {
           {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <InitiativeTracker />}
           {page === "ais" && <AISMonitor vessels={fleetVessels||[]} />}
+          {page === "tasks" && (()=>{
+            const myTasks = fleetTasks.filter(t=>t.status!=="Executed");
+            const overdue = myTasks.filter(t=>t.due&&new Date(t.due)<new Date());
+            const dueToday = myTasks.filter(t=>t.due&&new Date(t.due).toDateString()===new Date().toDateString());
+            const dueThisWeek = myTasks.filter(t=>{if(!t.due)return false;const d=new Date(t.due);const now=new Date();const week=new Date(now);week.setDate(now.getDate()+7);return d>=now&&d<=week;});
+            const byPriority={High:myTasks.filter(t=>t.priority==="High"),Medium:myTasks.filter(t=>t.priority==="Medium"),Low:myTasks.filter(t=>t.priority==="Low"||!t.priority)};
+            const byVessel={};myTasks.forEach(t=>{if(t.vessel){if(!byVessel[t.vessel])byVessel[t.vessel]=[];byVessel[t.vessel].push(t);}});
+            const topVessels=Object.entries(byVessel).sort((a,b)=>b[1].length-a[1].length).slice(0,5);
+            return (
+              <div className="pg active">
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
+                  <div>
+                    <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>My Tasks</div>
+                    <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Live from Supabase · {myTasks.length} open tasks</div>
+                  </div>
+                  <button className="btn btn-primary" onClick={()=>nav("initiatives")}><i className="ti ti-chart-dots"></i> PDAIP & Task Intelligence</button>
+                </div>
+
+                {/* KPIs */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"12px"}}>
+                  {[
+                    {l:"Total Open",v:myTasks.length,c:"var(--text)"},
+                    {l:"Overdue",v:overdue.length,c:overdue.length>0?"var(--red2)":"var(--green2)"},
+                    {l:"Due Today",v:dueToday.length,c:dueToday.length>0?"var(--amber2)":"var(--text3)"},
+                    {l:"Due This Week",v:dueThisWeek.length,c:"var(--blue)"},
+                  ].map(m=>(
+                    <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                      <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"4px",textTransform:"uppercase"}}>{m.l}</div>
+                      <div style={{fontSize:"28px",fontWeight:300,fontFamily:"var(--mono)",color:m.c}}>{m.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                  {/* Overdue tasks */}
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>⚠ Overdue Tasks ({overdue.length})</div>
+                    {overdue.length===0&&<div style={{color:"var(--text3)",fontSize:"12px"}}>No overdue tasks. Well done!</div>}
+                    {overdue.slice(0,8).map((t,i)=>(
+                      <div key={i} style={{padding:"7px 0",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",gap:"8px"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title||t.action||"—"}</div>
+                          <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>{t.vessel||"—"} · {t.assignedTo||"—"}</div>
+                        </div>
+                        <div style={{fontSize:"11px",color:"var(--red2)",fontFamily:"var(--mono)",flexShrink:0,fontWeight:600}}>{t.due}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* By priority */}
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Tasks by Priority</div>
+                    {[["High","var(--red2)","var(--red-bg)"],["Medium","var(--amber2)","var(--amber-bg)"],["Low","var(--text3)","var(--bg3)"]].map(([p,c,bg])=>(
+                      <div key={p} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",borderRadius:"6px",background:bg,marginBottom:"6px"}}>
+                        <span style={{fontSize:"12px",color:c,fontWeight:600,width:"60px"}}>{p}</span>
+                        <div style={{flex:1,background:"var(--bg3)",borderRadius:"3px",height:"8px",overflow:"hidden"}}>
+                          <div style={{height:"100%",width:myTasks.length?(byPriority[p].length/myTasks.length*100)+"%":"0%",background:c,borderRadius:"3px"}}></div>
+                        </div>
+                        <span style={{fontSize:"14px",fontWeight:600,fontFamily:"var(--mono)",color:c,width:"30px",textAlign:"right"}}>{byPriority[p].length}</span>
+                      </div>
+                    ))}
+
+                    <div style={{borderTop:"1px solid var(--border)",marginTop:"10px",paddingTop:"10px"}}>
+                      <div style={{fontSize:"12px",fontWeight:600,color:"var(--text)",marginBottom:"8px"}}>Top Vessels by Task Count</div>
+                      {topVessels.map(([v,tasks])=>(
+                        <div key={v} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:"12px",borderBottom:"1px solid var(--border)"}}>
+                          <span style={{color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{v}</span>
+                          <span style={{color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600,marginLeft:"8px"}}>{tasks.length}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* All open tasks */}
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>All Open Tasks ({myTasks.length})</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                    <thead><tr>{["Task","Vessel","Assigned To","Priority","Due Date","Status"].map(h=><th key={h} style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <tbody>{myTasks.slice(0,20).map((t,i)=>{
+                      const isOverdue=t.due&&new Date(t.due)<new Date();
+                      return (
+                        <tr key={i} style={{borderBottom:"1px solid var(--border)",background:isOverdue?"rgba(239,68,68,0.04)":"transparent"}}>
+                          <td style={{padding:"8px 10px",color:"var(--text)",maxWidth:"250px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title||t.action||"—"}</td>
+                          <td style={{padding:"8px 10px",color:"var(--text2)"}}>{t.vessel||"—"}</td>
+                          <td style={{padding:"8px 10px",color:"var(--text3)"}}>{t.assignedTo||"—"}</td>
+                          <td style={{padding:"8px 10px"}}><span style={{fontSize:"11px",padding:"2px 7px",borderRadius:"3px",background:t.priority==="High"?"var(--red-bg)":t.priority==="Medium"?"var(--amber-bg)":"var(--bg3)",color:t.priority==="High"?"var(--red2)":t.priority==="Medium"?"var(--amber2)":"var(--text3)",fontWeight:600}}>{t.priority||"Low"}</span></td>
+                          <td style={{padding:"8px 10px",fontFamily:"var(--mono)",fontSize:"11px",color:isOverdue?"var(--red2)":"var(--text3)",fontWeight:isOverdue?600:400}}>{t.due||"—"}{isOverdue&&" ⚠"}</td>
+                          <td style={{padding:"8px 10px"}}><span style={{fontSize:"11px",color:"var(--text3)"}}>{t.status||"—"}</span></td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                  {myTasks.length>20&&<div style={{textAlign:"center",padding:"10px",fontSize:"12px",color:"var(--text3)"}}>Showing 20 of {myTasks.length} tasks · <span style={{color:"var(--blue)",cursor:"pointer"}} onClick={()=>nav("initiatives")}>View all in PDAIP & Tasks →</span></div>}
+                </div>
+              </div>
+            );
+          })()}
           {page === "inspector" && <InspectorNetwork />}
           {page === "vip" && <VIPProtocol vessels={fleetVessels||[]} />}
           {page === "meeting" && <MeetingMinutes />}
