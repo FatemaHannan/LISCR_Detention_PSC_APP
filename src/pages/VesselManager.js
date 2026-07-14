@@ -99,6 +99,7 @@ function CaseList({ vessels, canEdit, canDelete }) {
                 <td style={{padding:"9px 12px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.08)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontFamily:"var(--mono)",fontWeight:700}}>{v.detained?"DETAINED":"ACTIVE"}</span></td>
                 <td style={{padding:"9px 12px"}}>
                   <div style={{display:"flex",gap:"5px"}}>
+                    {onOpenCase&&<button onClick={()=>onOpenCase(v.imo,v.detentionDate)} style={{padding:"3px 10px",border:"1px solid var(--blue)",borderRadius:"4px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>Open Case →</button>}
                     {canEdit&&<button onClick={()=>setEditVessel({...v})} style={{padding:"3px 8px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px"}}>Edit</button>}
                     {canDelete&&<button onClick={()=>setDeleteConfirm(v)} style={{padding:"3px 8px",border:"1px solid var(--red)",borderRadius:"4px",background:"var(--red-bg)",color:"var(--red2)",cursor:"pointer",fontSize:"13px"}}>Del</button>}
                   </div>

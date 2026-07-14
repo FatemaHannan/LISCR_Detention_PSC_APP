@@ -101,6 +101,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [importedVessels, setImportedVessels] = useState([]);
   const [page, setPage] = useState("home");
+  const [openCaseImo, setOpenCaseImo] = useState(null);
+  const [openCaseDate, setOpenCaseDate] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [evpQ, setEvpQ] = useState(0);
   const [chatMessages, setChatMessages] = useState([{role:"ai", text:"Good morning. I have your full fleet data loaded — 107 detentions Jan-Jun 2026, 136 PDAIP tasks, and all active case files including OCEAN GALAXY. What do you need?"}]);
@@ -690,7 +692,7 @@ export default function App() {
             );
           })()}
 
-          {page === "case" && <CaseView canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
+          {page === "case" && <CaseView preSelectImo={openCaseImo} preSelectDate={openCaseDate} onClearPreSelect={()=>{setOpenCaseImo(null);setOpenCaseDate(null);}} canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <InitiativeTracker />}
           {page === "ais" && <AISMonitor vessels={fleetVessels||[]} />}
           {page === "tasks" && (()=>{
@@ -796,7 +798,7 @@ export default function App() {
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
-          {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} />}
+          {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
 
