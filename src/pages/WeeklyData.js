@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
+import { logAudit, AUDIT_ACTIONS } from "../lib/auditLog";
 
 // Helper: safe string
 const s = (v) => v == null ? "" : String(v).trim();
