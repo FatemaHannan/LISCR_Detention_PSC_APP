@@ -32,7 +32,6 @@ const NAV = [
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
     { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
-    { id:"tracker", label:"PSC tracker", icon:"ti-table", badge:null },
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
   ]},
   { section:"INTELLIGENCE", items:[
@@ -55,7 +54,7 @@ const NAV = [
 const TITLES = {
   home:"My dashboard", evp:"EVP briefing", questions:"EVP questions", gaps:"Critical gaps",
   tasks:"My tasks", case:"Case view", pdaip:"PDAIP & Tasks", fleet:"Fleet dashboard",
-  tracker:"PSC tracker", upload:"Upload & analyze", patterns:"Pattern detection",
+  upload:"Upload & analyze", patterns:"Pattern detection",
   ais:"AIS / LRIT Monitor", inspector:"Inspector network", vip:"VIP protocol",
   meeting:"Meeting minutes", initiatives:"Initiative tracker", chat:"AI assistant",
   vessels:"Vessel manager", admin:"Admin panel",
