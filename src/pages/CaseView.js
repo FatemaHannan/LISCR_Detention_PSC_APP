@@ -118,7 +118,7 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
 }
 
 
-export default function CaseView({canEdit, canDelete, canDownload, currentUser, importedVessels=[]}) {
+export default function CaseView({canEdit, canDelete, canDownload, currentUser, importedVessels=[], preSelectImo, preSelectDate, onClearPreSelect}) {
   const [month, setMonth] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -158,6 +158,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   useEffect(() => {
     loadAll();
   }, []);
+
+  useEffect(() => {
+    if (preSelectImo && dbVessels.length > 0) {
+      const v = preSelectDate
+        ? dbVessels.find(v => String(v.imo) === String(preSelectImo) && v.detentionDate === preSelectDate)
+        : dbVessels.find(v => String(v.imo) === String(preSelectImo));
+      if (v) {
+        setSel(v);
+        if (onClearPreSelect) onClearPreSelect();
+      }
+    }
+  }, [preSelectImo, preSelectDate, dbVessels]);
 
   async function loadAll() {
     setLoading(true);
