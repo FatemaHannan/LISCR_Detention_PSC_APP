@@ -96,7 +96,7 @@ export default function PatternDetection({ learnedPatterns }) {
     <div style={{padding:"16px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"14px",flexWrap:"wrap",gap:"10px"}}>
         <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 13px",fontSize:"11px",lineHeight:1.65,color:"var(--red2)",flex:1}}>
-          <strong>{critical} Critical pattern{critical!==1?"s":""} active.</strong> {patterns.filter(p=>p.severity==="Critical"&&!p.learned).map(p=>p.title).join(" and ")||"Review patterns below."}
+          <strong>{critical} Critical pattern{critical!==1?"s":""} active.</strong> {allPatterns.filter(p=>p.severity==="Critical"&&!p.learned).map(p=>p.title).join(" and ")||"Review patterns below."}
           {learned > 0 && <span style={{color:"var(--amber2)",marginLeft:"8px"}}>· {learned} new patterns learned from uploaded documents.</span>}
         </div>
         <button onClick={runPatternScan} disabled={analyzing}
