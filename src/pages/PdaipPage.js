@@ -9,28 +9,37 @@ const PAGE_SIZE = 20;
 function PdaipImport({ onImported }) {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
+  const [mode, setMode] = useState("weekly"); // "weekly" = upsert, "replace" = delete all then insert
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const fileRef = React.useRef();
+
+  const MODES = [
+    {id:"weekly", label:"Weekly Update", desc:"Add new tasks, update existing ones. Safe for regular uploads.", icon:"↻"},
+    {id:"replace", label:"Full Replace", desc:"Delete ALL existing tasks then import fresh. Use for complete reset.", icon:"⚠"},
+  ];
 
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
+    if (mode==="replace" && !window.confirm("FULL REPLACE: This will DELETE all existing tasks and replace with new file. Are you sure?")) {
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setImporting(true);
     setResult(null);
     try {
-      // Use SheetJS to parse CSV — handles multiline fields, quotes, special chars
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, {type:"array", raw:false});
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, {defval:""});
-
       if (!rows || rows.length === 0) { setResult({error:"No data found in file"}); setImporting(false); return; }
-
       const tasks = [];
       for (const row of rows) {
         const title = (row["Title"]||row["title"]||"").toString().trim();
         const imo = (row["IMO"]||row["imo"]||"").toString().trim();
         if (!title && !imo) continue;
-        const clean = (v) => (v||"").toString().replace(/[\r\n]+/g," ").trim();
+        const clean = (v) => (v||"").toString().replace(/[
+]+/g," ").trim();
         tasks.push({
           title: clean(row["Title"]),
           actions: clean(row["ActionsTaken"]),
@@ -50,22 +59,59 @@ function PdaipImport({ onImported }) {
         });
       }
       if (tasks.length === 0) { setResult({error:"No tasks found"}); setImporting(false); return; }
-      const saved = await upsertTasksBulk(tasks);
-      setResult({success:true, total:tasks.length, saved:saved.length});
+
+      if (mode==="replace") {
+        // Delete all existing tasks first
+        const {supabase} = await import("../lib/supabase");
+        await supabase.from("tasks").delete().neq("id","00000000-0000-0000-0000-000000000000");
+        // Then insert fresh
+        const {data,error} = await supabase.from("tasks").insert(tasks.map(t=>({
+          title:t.title, vessel:t.vessel, imo:t.imo, project:t.project,
+          task_owner:t.taskOwner, assigned_to:t.assignedTo, responsible:t.responsible,
+          due:t.due||null, detention_date:t.detentionDate||null,
+          priority:t.priority, status:t.status, remark:t.remark,
+          source:t.source, case_owner:t.caseOwner,
+        }))).select();
+        setResult({success:true, total:tasks.length, saved:(data||[]).length, mode:"replace"});
+      } else {
+        const saved = await upsertTasksBulk(tasks);
+        setResult({success:true, total:tasks.length, saved:saved.length, mode:"weekly"});
+      }
       if (onImported) onImported();
     } catch(e) { setResult({error:e.message}); }
     setImporting(false);
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  const currentMode = MODES.find(m=>m.id===mode)||MODES[0];
+
   return (
-    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-      <input ref={fileRef} type="file" accept=".csv,.xlsx" style={{display:"none"}} onChange={handleFile} />
-      <button onClick={()=>fileRef.current?.click()} disabled={importing}
-        style={{padding:"7px 16px",border:"1px solid var(--green)",borderRadius:"6px",background:"var(--green-bg)",color:importing?"var(--text3)":"var(--green2)",cursor:"pointer",fontSize:"12px",fontWeight:500}}>
-        {importing?"Importing...":"↑ Import PDAIP"}
-      </button>
-      {result&&<span style={{fontSize:"11px",color:result.error?"var(--red2)":"var(--green2)"}}>{result.error?"Error: "+result.error:result.saved+" of "+result.total+" tasks saved"}</span>}
+    <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+      {/* Mode selector */}
+      <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+        <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"8px",fontWeight:500}}>Upload Mode</div>
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+          {MODES.map(m=>(
+            <div key={m.id} onClick={()=>setMode(m.id)} style={{padding:"8px 14px",borderRadius:"6px",border:`1px solid ${mode===m.id?(m.id==="replace"?"var(--red)":"var(--green)"):"var(--border)"}`,background:mode===m.id?(m.id==="replace"?"var(--red-bg)":"var(--green-bg)"):"var(--bg2)",cursor:"pointer",flex:1,minWidth:"200px"}}>
+              <div style={{fontSize:"13px",fontWeight:600,color:mode===m.id?(m.id==="replace"?"var(--red2)":"var(--green2)"):"var(--text)",marginBottom:"2px"}}>{m.icon} {m.label}</div>
+              <div style={{fontSize:"11px",color:"var(--text3)"}}>{m.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+        <input ref={fileRef} type="file" accept=".csv,.xlsx" style={{display:"none"}} onChange={handleFile} />
+        <button onClick={()=>fileRef.current?.click()} disabled={importing}
+          style={{padding:"8px 18px",border:`1px solid ${mode==="replace"?"var(--red)":"var(--green)"}`,borderRadius:"6px",background:mode==="replace"?"var(--red-bg)":"var(--green-bg)",color:importing?"var(--text3)":mode==="replace"?"var(--red2)":"var(--green2)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>
+          {importing?"Importing...":`↑ ${currentMode.label} Import`}
+        </button>
+        {result&&(
+          <span style={{fontSize:"12px",color:result.error?"var(--red2)":"var(--green2)"}}>
+            {result.error?"Error: "+result.error:`✓ ${result.mode==="replace"?"Replaced all tasks —":""} ${result.saved} of ${result.total} tasks saved`}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
