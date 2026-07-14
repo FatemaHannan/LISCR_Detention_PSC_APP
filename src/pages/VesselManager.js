@@ -925,7 +925,7 @@ export default function VesselManager({ currentUser }) {
         ))}
       </div>
 
-      {tab==="list"&&<CaseList vessels={vessels} canEdit={canEdit} canDelete={canDelete} />}
+      {tab==="list"&&<CaseList vessels={vessels} canEdit={canEdit} canDelete={canDelete} onOpenCase={onOpenCase} />}
       {tab==="analysis"&&<FleetAnalysis vessels={vessels} />}
       {tab==="patterns"&&<PatternDetection vessels={vessels} />}
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
