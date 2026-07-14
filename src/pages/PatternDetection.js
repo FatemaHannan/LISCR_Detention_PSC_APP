@@ -43,7 +43,7 @@ export default function PatternDetection({ learnedPatterns }) {
   const [lastScan, setLastScan] = useState(null);
 
   const allPatterns = [
-    ...STATIC_PATTERNS,
+    ...patterns,
     ...(learnedPatterns || []).map((p,i) => ({...p, id:"learned_"+i, learned:true})),
   ];
 
@@ -56,7 +56,7 @@ export default function PatternDetection({ learnedPatterns }) {
     setAnalyzing(true);
     const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
     
-    const vesselSummary = VESSELS.map(v => 
+    const vesselSummary = vessels.map(v => 
       v.name + " (IMO:" + v.imo + ") — " + v.mou + " — " + v.defs + " defs — " + (v.detained?"DETAINED":"Active") + " — Flags: " + (v.flags?.join(",")||"none")
     ).join("\n");
 
