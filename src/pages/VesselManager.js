@@ -196,8 +196,49 @@ function FleetAnalysis({vessels}) {
   const mouDetRate={};const mouTotal={};
   vessels.forEach(v=>{if(v.mou){mouTotal[v.mou]=(mouTotal[v.mou]||0)+1;if(v.detained)mouDetRate[v.mou]=(mouDetRate[v.mou]||0)+1;}});
 
+  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+
+      {/* Top 5 High Risk Companies */}
+      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
+          ⚠ Top 5 High Risk Companies
+          <span style={{fontSize:"11px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate, avg deficiencies, CAR compliance, responsiveness</span>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+          {top5.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:i===0?"rgba(239,68,68,0.08)":"var(--bg3)",borderRadius:"6px",border:"1px solid "+(i===0?"#3D1A1A":"var(--border)")}}>
+              <div style={{fontSize:"20px",fontWeight:700,color:i===0?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",width:"28px",flexShrink:0}}>#{i+1}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{c.name}</div>
+                <div style={{fontSize:"11px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}  ·  {c.dominantMou}</div>
+              </div>
+              <div style={{display:"flex",gap:"10px",flexShrink:0}}>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate}%</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{c.avgDefs}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.carNotReceived>0?"var(--red2)":"var(--green2)"}}>{c.carNotReceived}</div>
+                </div>
+                <div style={{padding:"4px 10px",borderRadius:"4px",background:c.riskBg,border:"1px solid "+c.riskBorder,fontSize:"11px",fontWeight:700,color:c.riskColor,alignSelf:"center"}}>{c.riskLabel}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
         {[
           {l:"Total Cases",v:vessels.length,c:"var(--text)"},
@@ -510,8 +551,49 @@ function CompanyPattern({vessels}) {
   const sorted = [...companies].sort((a,b)=>{const av=a[sortKey];const bv=b[sortKey];return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"9px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
 
+  const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+
+      {/* Top 5 High Risk Companies */}
+      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
+          ⚠ Top 5 High Risk Companies
+          <span style={{fontSize:"11px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate, avg deficiencies, CAR compliance, responsiveness</span>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+          {top5.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:i===0?"rgba(239,68,68,0.08)":"var(--bg3)",borderRadius:"6px",border:"1px solid "+(i===0?"#3D1A1A":"var(--border)")}}>
+              <div style={{fontSize:"20px",fontWeight:700,color:i===0?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",width:"28px",flexShrink:0}}>#{i+1}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{c.name}</div>
+                <div style={{fontSize:"11px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}  ·  {c.dominantMou}</div>
+              </div>
+              <div style={{display:"flex",gap:"10px",flexShrink:0}}>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate}%</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{c.avgDefs}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.carNotReceived>0?"var(--red2)":"var(--green2)"}}>{c.carNotReceived}</div>
+                </div>
+                <div style={{padding:"4px 10px",borderRadius:"4px",background:c.riskBg,border:"1px solid "+c.riskBorder,fontSize:"11px",fontWeight:700,color:c.riskColor,alignSelf:"center"}}>{c.riskLabel}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
         {[{l:"Companies",v:companies.length,c:"var(--text)"},{l:"High Risk",v:companies.filter(c=>c.riskLabel==="High").length,c:"var(--red2)"},{l:"Multi-Detention",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},{l:"Unresponsive",v:companies.filter(c=>c.unresponsive>0).length,c:"var(--amber2)"},{l:"Insp. Rejected",v:companies.filter(c=>c.inspectionRejection>0).length,c:"var(--red2)"},{l:"0% CAR",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
