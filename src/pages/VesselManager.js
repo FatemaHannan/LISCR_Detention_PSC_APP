@@ -229,7 +229,7 @@ function FleetAnalysis({vessels}) {
               <div key={m} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"4px"}}>
                 <div style={{fontSize:"9px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{c}</div>
                 <div style={{width:"100%",background:"var(--blue)",borderRadius:"3px 3px 0 0",height:(c/maxMonth*72)+"px",minHeight:"4px"}}></div>
-                <div style={{fontSize:"8px",color:"var(--text3)",textAlign:"center"}}>{m.slice(5)}</div>
+                <div style={{fontSize:"11px",color:"var(--text3)",textAlign:"center"}}>{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1]}'26</div>
               </div>
             ))}
           </div>
