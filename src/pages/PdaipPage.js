@@ -39,7 +39,6 @@ function PdaipImport({ onImported }) {
         const imo = (row["IMO"]||row["imo"]||"").toString().trim();
         if (!title && !imo) continue;
         const clean = (v) => (v||"").toString().replace(/[\r\n]+/g," ").trim();
-]+/g," ").trim();
         tasks.push({
           title: clean(row["Title"]),
           actions: clean(row["ActionsTaken"]),
