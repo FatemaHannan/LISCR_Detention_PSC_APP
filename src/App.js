@@ -350,7 +350,7 @@ export default function App() {
           {page === "vip" && <VIPProtocol />}
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker />}
-          {page === "patterns" && <PatternDetection learnedPatterns={window._learnedPatterns||[]} />}
+          {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
