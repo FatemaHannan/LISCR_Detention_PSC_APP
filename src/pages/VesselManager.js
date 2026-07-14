@@ -778,7 +778,7 @@ function CARTracker({vessels}) {
 }
 
 // ── MAIN PAGE ────────────────────────────────────────────────────────────────
-export default function VesselManager({ currentUser, canEdit, canDelete, onOpenCase }) {
+export default function VesselManager({ currentUser, onOpenCase }) {
   const [vessels, setVessels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("list");
