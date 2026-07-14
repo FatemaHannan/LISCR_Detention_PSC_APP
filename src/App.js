@@ -219,40 +219,152 @@ export default function App() {
 
         <div className="content">
 
-          {page === "home" && (
+          {page === "home" && (()=>{
+            const detained = fleetVessels.filter(v=>v.detained);
+            const imoCounts={};fleetVessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
+            const reDetained = [...new Set(fleetVessels.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
+            const carMissing = fleetVessels.filter(v=>v.carStatus==="Not Received").length;
+            const carComplete = fleetVessels.filter(v=>v.carStatus==="Complete").length;
+            const carRate = detained.length?Math.round(carComplete/detained.length*100):0;
+            const overdueTasks = fleetTasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()).length;
+            const openTasks = fleetTasks.filter(t=>t.status!=="Executed").length;
+            const carOverdue60 = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
+            const highDef = detained.filter(v=>(v.defs||0)>=20);
+            const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE")));
+            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}-\d{2}/)){const m=String(v.detentionDate).slice(0,7);months[m]=(months[m]||0)+1;}});
+            const monthData=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6);
+            const maxMonth=monthData.length?Math.max(...monthData.map(m=>m[1])):1;
+            const mouCounts={};detained.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+            const topMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,4);
+            const avgDefs=detained.length?(detained.reduce((a,v)=>a+(v.defs||0),0)/detained.length).toFixed(1):0;
+            const months2=Object.values(months).slice(-2);
+            const trend=months2.length>=2?(months2[1]>months2[0]?"↑ Increasing":"↓ Decreasing"):"Stable";
+            const trendColor=trend.includes("Increasing")?"var(--red2)":trend.includes("Decreasing")?"var(--green2)":"var(--text3)";
+            const compCounts={};detained.forEach(v=>{if(v.company&&v.company!=="—")compCounts[v.company]=(compCounts[v.company]||0)+1;});
+            const topCompanies=Object.entries(compCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+            const NAV_CARDS = [
+              {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detained.length+" detained vessels",color:"var(--blue)",badge:detained.length},
+              {id:"evp",icon:"ti-presentation",label:"EVP Briefing",desc:"Live executive summary",color:"var(--amber2)",badge:null},
+              {id:"gaps",icon:"ti-alert-triangle",label:"Critical Gaps",desc:carOverdue60.length+" urgent items",color:"var(--red2)",badge:carOverdue60.length},
+              {id:"fleet",icon:"ti-ship",label:"Fleet Dashboard",desc:"Charts & MoU breakdown",color:"var(--blue)",badge:null},
+              {id:"patterns",icon:"ti-chart-dots",label:"Pattern Detection",desc:"Live intelligence patterns",color:"var(--amber2)",badge:null},
+              {id:"ais",icon:"ti-radar",label:"AIS Monitor",desc:carOverdue60.length+" vessels DARK",color:"var(--red2)",badge:carOverdue60.length||null},
+              {id:"vip",icon:"ti-shield-check",label:"VIP Protocol",desc:"Targeted companies",color:"var(--amber2)",badge:null},
+              {id:"initiatives",icon:"ti-checklist",label:"PDAIP & Tasks",desc:openTasks+" open tasks",color:"var(--green2)",badge:openTasks||null},
+            ];
+
+            return (
             <div className="pg active">
-              <div className="al al-r"><i className="ti ti-alert-triangle"></i><div><strong>{fleetTasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()).length} tasks overdue.</strong> Review PDAIP for details.</div></div>
-              <div className="al al-a"><i className="ti ti-alert-circle"></i><div><strong>51% of all PDAIP tasks assigned to one coordinator</strong> (69/136) — single point of failure. 7-8 immediately delegatable.</div></div>
-              <div className="two">
-                <div className="card">
-                  <div className="card-t">Monthly detention trend</div>
-                  {MONTHLY.map(r => (
-                    <div key={r.m} className="bar-r">
-                      <div className="bar-l">{r.m}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(r.v/25)*100}%`,background:r.m==="May"?"var(--amber)":"var(--blue)"}}></div></div>
-                      <div className="bar-v">{r.v}</div>
-                    </div>
-                  ))}
-                  <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"6px",fontFamily:"var(--mono)"}}>Rate flat — not improving</div>
+              {/* Welcome header */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+                <div>
+                  <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Good {new Date().getHours()<12?"morning":new Date().getHours()<17?"afternoon":"evening"}, Fatema</div>
+                  <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>LISCR PSC Intelligence Platform · Live from Supabase · {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</div>
                 </div>
-                <div className="card">
-                  <div className="card-t">Critical items right now</div>
-                  {[{v:"OCEAN GALAXY",t:"HMM report + escalate MLC/ISM",b:"b-p",l:"Whistleblower"},{v:"ANDREAS K",t:"Cancellation decision",b:"b-r",l:"Re-detained"},{v:"CAPE MIRON",t:"VIP rejection review",b:"b-a",l:"Jun 7"},{v:"MORNING CLOUD",t:"Inspector oversight",b:"b-gr",l:"Jun 22"}].map((r,i) => (
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"11px"}}>
-                      <span style={{color:"var(--text2)"}}><strong style={{color:"var(--text)"}}>{r.v}</strong> — {r.t}</span>
-                      <span className={"badge "+r.b}>{r.l}</span>
-                    </div>
-                  ))}
-                </div>
+                <button className="btn btn-primary" onClick={()=>{nav("chat");sendChat("Good morning. Give me a quick 2-minute briefing on the most important things I need to know about our PSC detention program today.");}}><i className="ti ti-sparkles"></i> AI Morning Briefing</button>
               </div>
-              <div style={{display:"flex",gap:"7px",flexWrap:"wrap"}}>
-                <button className="btn btn-primary" onClick={() => nav("tasks")}><i className="ti ti-checklist"></i> My 28 open tasks</button>
-                <button className="btn" onClick={() => nav("case")}><i className="ti ti-file-analytics"></i> Case view</button>
-                <button className="btn" onClick={() => nav("evp")}><i className="ti ti-presentation"></i> EVP briefing</button>
-                <button className="btn" onClick={() => nav("pdaip")}><i className="ti ti-chart-dots"></i> PDAIP analysis</button>
+
+              {/* Critical alerts */}
+              {carOverdue60.length>0&&(
+                <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 14px",marginBottom:"8px",fontSize:"13px",color:"var(--red2)",display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>nav("evp")}>
+                  <i className="ti ti-alert-triangle" style={{fontSize:"16px",flexShrink:0}}></i>
+                  <div><strong>{carOverdue60.length} vessel(s) with CAR overdue &gt;60 days</strong> — {carOverdue60.slice(0,3).map(v=>v.name).join(", ")} · Click to view in EVP Briefing</div>
+                </div>
+              )}
+              {reDetained>0&&(
+                <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 14px",marginBottom:"8px",fontSize:"13px",color:"var(--red2)",display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>nav("case")}>
+                  <i className="ti ti-alert-circle" style={{fontSize:"16px",flexShrink:0}}></i>
+                  <div><strong>{reDetained} vessel(s) detained multiple times in 2026</strong> · Click to view in Case View</div>
+                </div>
+              )}
+              {unresponsive.length>0&&(
+                <div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"8px",fontSize:"13px",color:"var(--amber2)",display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>nav("vip")}>
+                  <i className="ti ti-alert-circle" style={{fontSize:"16px",flexShrink:0}}></i>
+                  <div><strong>{unresponsive.length} company(ies) flagged as unresponsive</strong> · Click to view in VIP Protocol</div>
+                </div>
+              )}
+
+              {/* KPI row */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"12px",marginTop:"4px"}}>
+                {[
+                  {l:"Total Detentions",v:detained.length,s:"YTD 2026",c:"var(--text)"},
+                  {l:"Avg Deficiencies",v:avgDefs,s:"per detention",c:parseFloat(avgDefs)>=15?"var(--red2)":"var(--amber2)"},
+                  {l:"CAR Compliance",v:carRate+"%",s:carComplete+" complete",c:carRate>=70?"var(--green2)":carRate>=50?"var(--amber2)":"var(--red2)"},
+                  {l:"CAR Not Received",v:carMissing,s:"outstanding",c:carMissing>20?"var(--red2)":"var(--amber2)"},
+                  {l:"Re-Detained",v:reDetained,s:"multiple 2026",c:reDetained>0?"var(--red2)":"var(--green2)"},
+                  {l:"Trend",v:trend,s:"vs last month",c:trendColor},
+                ].map(m=>(
+                  <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+                    <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"4px",textTransform:"uppercase",letterSpacing:".04em"}}>{m.l}</div>
+                    <div style={{fontSize:"24px",fontWeight:300,fontFamily:"var(--mono)",color:m.c,lineHeight:1}}>{m.v}</div>
+                    <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"3px"}}>{m.s}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Navigation cards */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"12px"}}>
+                {NAV_CARDS.map(c=>(
+                  <div key={c.id} onClick={()=>nav(c.id)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",cursor:"pointer",display:"flex",gap:"12px",alignItems:"center",transition:"border-color .15s",position:"relative"}} onMouseEnter={e=>e.currentTarget.style.borderColor="var(--border2)"} onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>
+                    <i className={"ti "+c.icon} style={{fontSize:"22px",color:c.color,flexShrink:0}}></i>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>{c.label}</div>
+                      <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>{c.desc}</div>
+                    </div>
+                    {c.badge>0&&<div style={{position:"absolute",top:"8px",right:"8px",background:"var(--red)",color:"#fff",borderRadius:"10px",fontSize:"10px",fontWeight:700,padding:"1px 6px",fontFamily:"var(--mono)"}}>{c.badge}</div>}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
+                {/* Monthly trend */}
+                <div className="card">
+                  <div className="card-t">Monthly Detention Trend</div>
+                  {monthData.map(([m,v])=>{
+                    const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1];
+                    return (
+                      <div key={m} className="bar-r">
+                        <div className="bar-l">{mn}&apos;{m.slice(2,4)}</div>
+                        <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxMonth)*100}%`,background:v===Math.max(...monthData.map(x=>x[1]))?"var(--red)":"var(--blue)"}}></div></div>
+                        <div className="bar-v">{v}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Top companies */}
+                <div className="card">
+                  <div className="card-t">Top Companies by Detentions</div>
+                  {topCompanies.map(([c,v],i)=>(
+                    <div key={c} className="bar-r">
+                      <div className="bar-l" style={{maxWidth:"130px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/topCompanies[0][1])*100}%`,background:i===0?"var(--red)":i===1?"var(--amber)":"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* MoU + CAR status */}
+                <div className="card">
+                  <div className="card-t">MoU Breakdown</div>
+                  {topMou.map(([m,v])=>(
+                    <div key={m} className="bar-r">
+                      <div className="bar-l" style={{maxWidth:"120px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/topMou[0][1])*100}%`,background:"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
+                    </div>
+                  ))}
+                  <div style={{borderTop:"1px solid var(--border)",marginTop:"8px",paddingTop:"8px",display:"flex",gap:"12px"}}>
+                    <div style={{fontSize:"12px",color:"var(--green2)"}}><strong>{carComplete}</strong> CAR complete</div>
+                    <div style={{fontSize:"12px",color:"var(--red2)"}}><strong>{carMissing}</strong> CAR missing</div>
+                    <div style={{fontSize:"12px",color:"var(--amber2)"}}><strong>{highDef.length}</strong> high def</div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {page === "evp" && (()=>{
             const detained = fleetVessels.filter(v=>v.detained);
