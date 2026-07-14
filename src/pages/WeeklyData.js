@@ -238,38 +238,37 @@ const UPLOADS = [
   },
   {
     key: "dpp_case_files",
-    onConflictKey: "imo,detention_date",
-    label: "DPP Case File History",
-    desc: "Live arrival risk — port calls, MoU risk scores, vetting status",
+    onConflictKey: "imo,created_date,case_file_port,mou_zone,action_type",
+    label: "DPP Case File History (Vetting)",
+    desc: "Weekly vetting export — case file status, MoU zone, action queue, vessel note history",
     icon: "ti-radar", color: "var(--amber2)", bg: "var(--amber-bg)",
     table: "dpp_case_files",
     exportColumns: {
-      vessel:"Vessel Name", imo:"IMO Number", inspection_date:"Inspection Date",
-      port:"Port", mou:"MOU", num_findings:"Number Of Deficiencies",
-      was_detained:"Detained", psc_vessel_owner:"PSC Vessel Owner",
-      report_status:"PSC Report Status", inspection_type:"Inspection Type",
-      car_status:"CAR Status", action_type:"Case Action Type",
-      action_status:"Case Action Status", flag:"Flag",
+      created_date:"Created", days_ago:"Days Ago", cf_eta:"CF ETA", eta_span:"ETA Span",
+      mou_zone:"Mou Zone", action_type:"Action Type", action_status:"Action Status",
+      case_file_port:"Case File Port", cf_vetting:"CF - Vetting",
+      latest_case_file_note:"Latest Case File Note", casefile_type:"CaseFile Type",
+      last_updated_date:"Last Updated", vessel:"Vessel", imo:"IMO", risk_level_at_time:"Risk Level",
     },
-    filter: (r) => s(r["Vessel Name"]||r["Vessel"]||r["vessel"]) && s(r["IMO Number"]||r["IMO"]||r["imo"]),
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO"]||r["imo"]),
     map: (r) => ({
-      vessel: s(r["Vessel Name"]||r["Vessel"]||r["vessel"]),
-      imo: imo(r["IMO Number"]||r["IMO"]||r["imo"]),
-      inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
-      detention_date: d(r["Inspection Date"]||r["Detention Date"]||r["detention_date"]),
-      port: s(r["Port"]||r["port"]),
-      mou: s(r["MOU"]||r["mou"]),
-      num_findings: i(r["Number Of Deficiencies"]||r["num_findings"]),
-      was_detained: s(r["Detained"]||r["was_detained"]),
-      psc_vessel_owner: s(r["PSC Vessel Owner"]||r["psc_vessel_owner"]),
-      report_status: s(r["PSC Report Status"]||r["report_status"]),
-      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
-      car_status: s(r["CAR Status"]||r["car_status"]),
-      action_type: s(r["Case Action Type"]||r["Action Type"]||r["action_type"]),
-      action_status: s(r["Case Action Status"]||r["Action Status"]||r["action_status"]),
-      flag: s(r["Flag"]||r["flag"]),
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: imo(r["IMO"]||r["imo"]),
+      created_date: d(r["Created"]||r["created_date"]),
+      days_ago: r["Days Ago"]===""||r["Days Ago"]==null ? null : i(r["Days Ago"]),
+      cf_eta: d(r["CF ETA"]||r["cf_eta"]),
+      eta_span: r["ETA Span"]===""||r["ETA Span"]==null ? null : i(r["ETA Span"]),
+      mou_zone: s(r["Mou Zone"]||r["mou_zone"]),
+      action_type: s(r["Action Type"]||r["action_type"]),
+      action_status: s(r["Action Status"]||r["action_status"]),
+      case_file_port: s(r["Case File Port"]||r["case_file_port"]),
+      cf_vetting: s(r["CF - Vetting"]||r["cf_vetting"]),
+      latest_case_file_note: s(r["Latest Case File Note"]||r["latest_case_file_note"]),
+      casefile_type: s(r["CaseFile Type"]||r["casefile_type"]),
+      last_updated_date: d(r["Last Updated"]||r["last_updated_date"]),
+      risk_level_at_time: s(r["Risk Level"]||r["risk_level_at_time"]),
     }),
-  },,
+  },
   {
     key: "vessel_inspection_performance",
     onConflictKey: "imo",
@@ -592,57 +591,10 @@ export default function WeeklyData({ currentUser }) {
         } catch(syncErr) { console.warn("CVD company sync:", syncErr); }
       }
 
-      // After DPP upload: sync fields + auto-create missing cases
-      if (cfg.key === "dpp_case_files") {
-        try {
-          const {data: dppRows} = await supabase.from("dpp_case_files").select("*");
-          if (dppRows?.length) {
-            // Get existing vessels to check for duplicates
-            const {data: existingVessels} = await supabase.from("vessels").select("imo,detention_date");
-            const existingKeys = new Set((existingVessels||[]).map(v=>v.imo+"__"+(v.detention_date||"")));
-
-            let created = 0, updated = 0, skipped = 0;
-
-            for (const d of dppRows) {
-              if (!d.imo || !d.vessel) continue;
-              const key = d.imo+"__"+(d.detention_date||"");
-
-              if (!existingKeys.has(key)) {
-                // Create new case from DPP row
-                const newCase = {
-                  name: d.vessel,
-                  imo: d.imo,
-                  mou: d.mou||"—",
-                  port: d.port||"—",
-                  detention_date: d.detention_date||null,
-                  defs: d.num_findings||0,
-                  detained: true,
-                  car_status: d.car_status||"Not Received",
-                  case_status: "New",
-                  flag: d.flag||"Liberia",
-                  inspection_type: d.inspection_type||"",
-                  added_date: new Date().toISOString().slice(0,10),
-                };
-                const {error: cErr} = await supabase.from("vessels").insert(newCase);
-                if (!cErr) { created++; existingKeys.add(key); }
-              } else {
-                // Update existing case — only defs and car_status if not already set
-                const updates = {};
-                if (d.num_findings > 0) updates.defs = d.num_findings;
-                if (d.car_status) updates.car_status = d.car_status;
-                if (Object.keys(updates).length) {
-                  await supabase.from("vessels").update(updates).eq("imo", d.imo).eq("detention_date", d.detention_date||"");
-                  updated++;
-                }
-              }
-            }
-            console.log("DPP sync: "+created+" cases created, "+updated+" updated, "+skipped+" skipped");
-            if (created > 0) {
-              setStatus(p => ({...p, [cfg.key]: {state:"done", msg: (saved.toLocaleString())+" rows uploaded. "+created+" new cases created automatically.", count:saved, time:new Date().toLocaleString()}}));
-            }
-          }
-        } catch(syncErr) { console.warn("DPP vessel sync:", syncErr); }
-      }
+      // Note: dpp_case_files (weekly vetting export) intentionally does NOT
+      // auto-create or modify vessel/detention records. It's a routine case-file
+      // and vetting-status feed, not a detention report — most rows have no
+      // detention at all. Its data surfaces read-only in the Vetting Status tab.
 
       const uploadTime = new Date().toLocaleString();
       const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";

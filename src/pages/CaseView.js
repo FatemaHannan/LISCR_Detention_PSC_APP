@@ -129,6 +129,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [evpQ, setEvpQ] = useState(0);
   const [editModal, setEditModal] = useState(null);
   const [defView, setDefView] = useState("psc");
+  const [expandedNote, setExpandedNote] = useState(null);
 
   // Auto-load intel when switching to deficiencies tab
   React.useEffect(() => {
@@ -191,7 +192,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
-      supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("id",{ascending:false}).limit(10),
+      supabase.from("dpp_case_files").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
       supabase.from("inspection_history").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(30),
       supabase.from("mlc_complaints").select("*").eq("imo", String(imo)).order("reported_date",{ascending:false}).limit(10),
       supabase.from("psc_detention_summary").select("*").eq("imo", String(imo)).order("inspection_date",{ascending:false}).limit(10),
@@ -622,8 +623,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           </div>
 
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px",overflowX:"auto"}}>
-            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"Case Documents"},{id:"intelligence",l:"Vessel History"},{id:"timeline",l:"Timeline"},{id:"summary",l:"Summary"},{id:"report",l:"EVP Report"}].map(t=>(
-              <div key={t.id} onClick={()=>{setTab(t.id);if(t.id==="intelligence"&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
+            {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"Vetting Status"},{id:"intelligence",l:"Vessel History"},{id:"timeline",l:"Timeline"},{id:"summary",l:"Summary"},{id:"report",l:"EVP Report"}].map(t=>(
+              <div key={t.id} onClick={()=>{setTab(t.id);if((t.id==="intelligence"||t.id==="history")&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
             ))}
           </div>
 
@@ -1126,8 +1127,90 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           )}
 
           {/* HISTORY TAB */}
-          {tab==="history"&&(
+          {tab==="history"&&(()=>{
+            const dpp = intel.dpp||[];
+            const latest = dpp[0];
+            const detCount = dpp.filter(d=>String(d.action_type).includes("Detention")||String(d.cf_vetting).includes("Detention")).length;
+            const portCount = new Set(dpp.map(d=>d.case_file_port).filter(Boolean)).size;
+            const riskColor = (r)=> r==="High"||r==="Highest"?"var(--red2)":r==="Medium"?"var(--amber2)":r==="Low"?"var(--green2)":"var(--text3)";
+            const riskBg = (r)=> r==="High"||r==="Highest"?"rgba(239,68,68,0.1)":r==="Medium"?"rgba(245,158,11,0.1)":r==="Low"?"rgba(34,197,94,0.1)":"var(--bg3)";
+            return (
             <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+
+              {intel.loading&&<div style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading vetting data...</div>}
+
+              {!intel.loading&&dpp.length===0&&(
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"20px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>
+                  No vetting case file history found for this vessel. Upload the weekly DPP Case File History report in Weekly Data to populate this tab.
+                </div>
+              )}
+
+              {!intel.loading&&latest&&(<>
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
+                    <div>
+                      <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>Current vetting status</div>
+                      <div style={{fontSize:"16px",fontWeight:600,color:"var(--text)"}}>{latest.cf_vetting||"—"}</div>
+                    </div>
+                    <div style={{display:"flex",gap:"20px"}}>
+                      <div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>Risk level</div>
+                        <span style={{background:riskBg(latest.risk_level_at_time),color:riskColor(latest.risk_level_at_time),fontSize:"13px",fontWeight:600,padding:"3px 10px",borderRadius:"5px"}}>{latest.risk_level_at_time||"—"}</span>
+                      </div>
+                      <div>
+                        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".05em"}}>MoU zone</div>
+                        <div style={{fontSize:"14px",color:"var(--text2)",paddingTop:"2px"}}>{latest.mou_zone||"—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+                  {[{l:"Case files on record",v:dpp.length},{l:"Ports involved",v:portCount},{l:"Detentions flagged",v:detCount,c:detCount>0?"var(--red2)":"var(--text)"}].map(m=>(
+                    <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+                      <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px"}}>{m.l}</div>
+                      <div style={{fontSize:"20px",fontWeight:600,color:m.c||"var(--text)"}}>{m.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Case file timeline</div>
+                  <div>
+                    {dpp.map((d,idx)=>{
+                      const isDetention = String(d.action_type).includes("Detention")||String(d.cf_vetting).includes("Detention");
+                      const isLast = idx===dpp.length-1;
+                      return (
+                        <div key={d.id||idx} style={{borderLeft:"2px solid "+(isDetention?"var(--red)":"var(--border)"),padding:isLast?"0 0 0 16px":"0 0 14px 16px",position:"relative"}}>
+                          <div style={{position:"absolute",left:"-7px",top:"2px",width:"12px",height:"12px",borderRadius:"50%",background:isDetention?"var(--red)":"var(--border2)"}}></div>
+                          <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"8px",marginBottom:"3px"}}>
+                            <span style={{fontSize:"13px",fontWeight:600,color:"var(--text)",fontFamily:"var(--mono)"}}>{d.created_date?fmtDate(d.created_date):"—"}</span>
+                            {isDetention
+                              ? <span style={{background:"var(--red-bg)",color:"var(--red2)",fontSize:"13px",fontWeight:600,padding:"2px 8px",borderRadius:"4px"}}>PSC Detention</span>
+                              : <span style={{fontSize:"13px",color:"var(--text3)"}}>{d.action_type||"—"}</span>}
+                          </div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"3px"}}>{d.case_file_port||"—"} · {d.mou_zone||"—"}{d.cf_eta?" · CF ETA "+fmtDate(d.cf_eta):""}</div>
+                          {!isDetention&&<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"6px"}}>Vetting: {d.cf_vetting||"—"}</div>}
+                          {d.latest_case_file_note&&(
+                            <>
+                              <button onClick={()=>setExpandedNote(expandedNote===idx?null:idx)} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>
+                                {expandedNote===idx?"Hide case note":"View full case note"}
+                              </button>
+                              {expandedNote===idx&&(
+                                <div style={{marginTop:"6px",fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>
+                                  {d.latest_case_file_note}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>)}
+
+              <div style={{borderTop:"1px solid var(--border)",paddingTop:"4px",marginTop:"4px"}}></div>
 
               {/* RO / Class Survey */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
@@ -1197,7 +1280,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               )}
 
             </div>
-          )}
+            );})()}
 
           {/* TIMELINE TAB */}
           {tab==="intelligence"&&(
@@ -1417,38 +1500,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 )}
                 {/* DPP Case Files */}
                 {intel.dpp&&intel.dpp.length>0&&(
-                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
-                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>DPP Case Files <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>({intel.dpp.length} records)</span></div>
-                      <div style={{display:"flex",gap:"8px"}}>
-                        {intel.dpp.some(d=>d.action_status==="Pending Review")&&<span style={{background:"rgba(245,158,11,0.1)",color:"var(--amber2)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>⚠ Pending Review</span>}
-                        {intel.dpp.some(d=>d.action_status==="Requested")&&<span style={{background:"rgba(59,130,246,0.1)",color:"var(--blue)",padding:"2px 7px",borderRadius:"4px",fontWeight:600,fontSize:"13px"}}>CAR Requested</span>}
-                      </div>
-                    </div>
-                    <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"900px"}}>
-                        <thead><tr>{["Detention Date","Port","MoU","Findings","Detained","PSC Owner","Report Status","Inspection Type","CAR Status","Action Type","Action Status","Flag"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                        <tbody>{intel.dpp.map((d,i)=>{
-                          const statusColor = d.action_status==="Pending Review"?"var(--amber2)":d.action_status==="Close Case"?"var(--green2)":d.action_status==="Requested"?"var(--blue)":"var(--text2)";
-                          return (
-                            <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.detention_date||d.inspection_date||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",whiteSpace:"nowrap",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis"}} title={d.port||""}>{d.port||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.mou||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",fontFamily:"var(--mono)",color:d.num_findings>=20?"var(--red2)":d.num_findings>=10?"var(--amber2)":"var(--text2)",fontWeight:d.num_findings>=10?600:400}}>{d.num_findings||0}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>{d.was_detained==="Yes"||d.was_detained===true?<span style={{color:"var(--red2)",fontWeight:600}}>YES</span>:<span style={{color:"var(--text3)"}}>No</span>}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.psc_vessel_owner||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.report_status||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.inspection_type||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:d.car_status==="Not Received"?"var(--red2)":d.car_status==="Complete"?"var(--green2)":"var(--amber2)",fontWeight:500,whiteSpace:"nowrap"}}>{d.car_status||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{d.action_type||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:statusColor,fontWeight:500,whiteSpace:"nowrap"}}>{d.action_status||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)"}}>{d.flag||"—"}</td>
-                            </tr>
-                          );
-                        })}</tbody>
-                      </table>
-                    </div>
+                  <div style={{background:"var(--bg3)",borderRadius:"8px",padding:"14px",fontSize:"13px",color:"var(--text3)"}}>
+                    {intel.dpp.length} weekly vetting case file record(s) on file for this vessel — see the <strong style={{color:"var(--text2)"}}>Vetting Status</strong> tab for the full timeline.
                   </div>
                 )}
                 {!intel.vessel&&!intel.inspections.length&&!intel.psc.length&&!intel.dpp.length&&!intel.mlc.length&&(
