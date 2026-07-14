@@ -13,7 +13,7 @@ function carBg(s) { return s==="Not Received"?"var(--red-bg)":s==="Complete"?"rg
 function carBorder(s) { return s==="Not Received"?"#3D1A1A":s==="Complete"?"rgba(34,197,94,0.3)":s==="Requested"?"var(--amber)":"var(--border)"; }
 
 // ── CASE LIST TAB ────────────────────────────────────────────────────────────
-function CaseList({ vessels, canEdit, canDelete }) {
+function CaseList({ vessels, canEdit, canDelete, onOpenCase }) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("detentionDate");
   const [sortDir, setSortDir] = useState("desc");
