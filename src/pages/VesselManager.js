@@ -496,15 +496,16 @@ function CompanyPattern({vessels}) {
     const carRate = c.cases?Math.round(c.carComplete/c.cases*100):0;
     const detRate = c.cases?Math.round(c.detained/c.cases*100):0;
     const fleetSize = [...c.vessels].length;
-    const rs = (detRate*0.4)+(parseFloat(avgDefs)*2)+(c.carNotReceived*5)+(c.unresponsive*8)+(c.inspectionRejection*10);
-    const riskLabel = rs>40?"High":rs>20?"Medium":"Low";
-    const riskColor = rs>40?"var(--red2)":rs>20?"var(--amber2)":"var(--green2)";
-    const riskBg = rs>40?"var(--red-bg)":rs>20?"var(--amber-bg)":"rgba(34,197,94,0.08)";
-    const riskBorder = rs>40?"#3D1A1A":rs>20?"var(--amber)":"rgba(34,197,94,0.3)";
+    const rawRs = (detRate*0.4)+(parseFloat(avgDefs)*2)+(c.carNotReceived*5)+(c.unresponsive*8)+(c.inspectionRejection*10);
+    const rs = Math.min(Math.round(rawRs/1.7),100); // normalize to 0-100
+    const riskLabel = rs>60?"High":rs>35?"Medium":"Low";
+    const riskColor = rs>60?"var(--red2)":rs>35?"var(--amber2)":"var(--green2)";
+    const riskBg = rs>60?"var(--red-bg)":rs>35?"var(--amber-bg)":"rgba(34,197,94,0.08)";
+    const riskBorder = rs>60?"#3D1A1A":rs>35?"var(--amber)":"rgba(34,197,94,0.3)";
     const worstVessel = [...c.vesselList].sort((a,b)=>(b.defs||0)-(a.defs||0))[0];
     const mouCounts={};c.vesselList.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
     const dominantMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskScore:Math.round(rs),riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
+    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskScore:rs,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
   });
 
   const top5 = [...companies].sort((a,b)=>b.riskScore-a.riskScore).slice(0,5);
@@ -531,7 +532,7 @@ function CompanyPattern({vessels}) {
               <div style={{display:"flex",gap:"10px",flexShrink:0}}>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
-                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}<span style={{fontSize:"11px",color:"var(--text3)",fontWeight:400}}>/100</span></div>
                 </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
