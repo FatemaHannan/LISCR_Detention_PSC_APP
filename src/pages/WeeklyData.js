@@ -392,24 +392,33 @@ const UPLOADS = [
 ];
 
 async function syncVIPToVessels() {
-  // Get all VIP data
-  const {data: vipRows} = await supabase.from("vessel_inspection_performance").select("imo,flag_followup_rcm,psc_followup_rcm,ism_client,ro");
+  // Get all VIP data including vessel name for name-matching
+  const {data: vipRows} = await supabase.from("vessel_inspection_performance").select("imo,vessel,flag_followup_rcm,psc_followup_rcm,ism_client,ro");
   if (!vipRows?.length) return 0;
   // Get all vessels
-  const {data: vessels} = await supabase.from("vessels").select("id,imo,name");
+  const {data: vessels} = await supabase.from("vessels").select("id,imo,name,fsi_case_owner,psc_case_owner,company,ro");
   if (!vessels?.length) return 0;
-  
+
   let updated = 0;
   for (const r of vipRows) {
-    if (!r.imo) continue;
-    // Match by IMO or by vessel name
-    const matches = vessels.filter(v=>String(v.imo)===String(r.imo));
+    if (!r.flag_followup_rcm && !r.psc_followup_rcm && !r.ism_client && !r.ro) continue;
+
+    // Match by IMO first, then by vessel name
+    let matches = [];
+    if (r.imo) matches = vessels.filter(v=>String(v.imo)===String(r.imo));
+    if (matches.length===0 && r.vessel) {
+      const vipName = String(r.vessel).trim().toUpperCase();
+      matches = vessels.filter(v=>v.name&&v.name.trim().toUpperCase()===vipName);
+    }
+
     for (const v of matches) {
       const updates = {};
+      // Always update owners from VIP (VIP is source of truth)
       if (r.flag_followup_rcm) updates.fsi_case_owner = r.flag_followup_rcm;
       if (r.psc_followup_rcm) updates.psc_case_owner = r.psc_followup_rcm;
-      if (r.ism_client && (!v.company||v.company==="—")) updates.company = r.ism_client;
-      if (r.ro && (!v.ro||v.ro==="—")) updates.ro = r.ro;
+      // Only update company and RO if missing
+      if (r.ism_client && (!v.company||v.company==="—"||v.company==="Not specified"||v.company==="")) updates.company = r.ism_client;
+      if (r.ro && (!v.ro||v.ro==="—"||v.ro==="")) updates.ro = r.ro;
       if (Object.keys(updates).length) {
         await supabase.from("vessels").update(updates).eq("id", v.id);
         updated++;
