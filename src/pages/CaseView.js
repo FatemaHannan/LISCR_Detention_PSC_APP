@@ -1971,6 +1971,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           title={"Edit — "+v?.name}
           fields={[
             {key:"name",label:"Vessel name",type:"text"},
+            {key:"detentionDate",label:"Detention date",type:"date"},
+            {key:"port",label:"Port",type:"text"},
+            {key:"mou",label:"MoU",type:"select",options:["Tokyo MOU","Paris MOU","AMSA","US Coastguard","Black Sea MOU","Mediterranean MOU","Indian Ocean MOU","Acuerdo de Vina del Mar","Abuja MOU","Riyadh MOU"]},
             {key:"company",label:"Company",type:"text"},
             {key:"ro",label:"RO / Class",type:"text"},
             {key:"fsiCaseOwner",label:"FSI Case Owner",type:"text"},{key:"pscOwner",label:"PSC Case Owner",type:"text"},
