@@ -189,7 +189,13 @@ function FleetAnalysis({vessels}) {
   const mouAvg=Object.entries(mouDefs).map(([m,s])=>([m,(s/mouDefC[m]).toFixed(1)])).sort((a,b)=>b[1]-a[1]);
 
   const monthCounts={};
-  vessels.forEach(v=>{if(v.detentionDate){const m=v.detentionDate.slice(0,7);monthCounts[m]=(monthCounts[m]||0)+1;}});
+  vessels.forEach(v=>{
+    if(v.detentionDate){
+      // Only process YYYY-MM-DD format dates
+      const m = String(v.detentionDate).match(/^(\d{4}-\d{2})/);
+      if(m) monthCounts[m[1]]=(monthCounts[m[1]]||0)+1;
+    }
+  });
   const months=Object.entries(monthCounts).sort((a,b)=>a[0]>b[0]?1:-1).slice(-8);
   const maxMonth=months.length?Math.max(...months.map(m=>m[1])):1;
 
