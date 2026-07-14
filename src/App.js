@@ -25,7 +25,7 @@ const NAV = [
   ]},
   { section:"MY WORKSPACE", items:[
     { id:"home", label:"My dashboard", icon:"ti-home", badge:{n:12,c:"nb-r"} },
-    { id:"tasks", label:"My tasks", icon:"ti-checklist", badge:{n:fleetTasks.filter(t=>t.status!=="Executed").length||0,c:"nb-r"} },
+    { id:"tasks", label:"My tasks", icon:"ti-checklist", badge:{n:28,c:"nb-r"} },
   ]},
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
@@ -192,7 +192,7 @@ export default function App() {
               {section.items.map(item => (
                 <div key={item.id} className={ni(item.id)} onClick={() => nav(item.id)} title={sidebarCollapsed?item.label:""}>
                   <i className={"ti "+item.icon}></i>
-                  {!sidebarCollapsed && <><span className="nav-label">{item.label}</span>{item.badge && <span className={"nb "+item.badge.c}>{item.badge.n}</span>}</>}
+                  {!sidebarCollapsed && <><span className="nav-label">{item.label}</span>{item.badge && <span className={"nb "+item.badge.c}>{item.id==="tasks"?fleetTasks.filter(t=>t.status!=="Executed").length:item.id==="gaps"?fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60).length||item.badge.n:item.badge.n}</span>}</>}
                 </div>
               ))}
             </div>
