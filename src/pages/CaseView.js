@@ -1926,7 +1926,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +rows("Last Detention Port",lastDetention?.port)+rows("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.finding_count!=null?" · "+lastFlagInsp.finding_count+" findings":""):"")
                       +rows("Company",v.company)
                       +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
-                      +rows("Task Owners",v.taskOwners?.join(", "))+rows("Open Tasks",openTasksForCase.length)
+                      +rows("Task Owners",v.taskOwners?.join(", "))+rows("FSI Case Owner",v.fsiCaseOwner)+rows("PSC Case Owner",v.pscOwner)+rows("Open Tasks",openTasksForCase.length)
                       +"</table>"
                       +"<h3>Company Detention History</h3><table style='border-collapse:collapse;width:100%;'>"
                       +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—"))).join(""):rows("Other Cases","None on record"))
@@ -2041,6 +2041,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
                           <Row label="Peer Rank" value={intel?.client?.peer_rank||"—"} red={String(intel?.client?.peer_rank).includes("Bottom")} />
                           <Row label="Task Owners" value={v.taskOwners?.join(", ")||"—"} />
+                          <Row label="FSI Case Owner" value={v.fsiCaseOwner||"—"} />
+                          <Row label="PSC Case Owner" value={v.pscOwner||"—"} />
                           <Row label="Open Tasks" value={openTasksForCase.length} red={openTasksForCase.length>0} />
                         </div>
                         {companyHistory.length>0&&(
