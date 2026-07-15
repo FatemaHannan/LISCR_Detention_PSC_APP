@@ -1907,6 +1907,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const briefAlerts = getSmartAlerts(v, intel, vesselTasks);
                   const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const openTasksForCase = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
+                  const vesselAge = intel?.vessel?.age;
+                  const priorDetentions = (dbVessels||[]).filter(c=>c.imo===v.imo&&c.id!==v.id&&c.detentionDate&&(!v.detentionDate||c.detentionDate<v.detentionDate)).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
+                  const lastDetention = priorDetentions[0];
+                  const vetting60 = v.detentionDate?dppBeforeDet.filter(d=>d.created_date&&Math.abs(new Date(v.detentionDate)-new Date(d.created_date))<=60*24*60*60*1000):dppBeforeDet;
+                  const postDetInspections = v.detentionDate?(intel?.inspections||[]).filter(i=>i.inspection_date&&new Date(i.inspection_date)>new Date(v.detentionDate)).sort((a,b)=>new Date(a.inspection_date)-new Date(b.inspection_date)):[];
+                  const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
                   const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
                   const buildBriefBodyHtml = ()=>(
@@ -1915,8 +1921,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"<p>Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+"</p>"
                       +"<h3>Notes</h3><p>"+(briefAlerts.length?briefAlerts.map(a=>"• "+a.msg).join("<br/>"):"No alerts on this case.")+"</p>"
                       +"<h3>Administrative Summary</h3><table style='border-collapse:collapse;width:100%;'>"
-                      +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("RO / Class",v.ro)+rows("Type",v.type)
-                      +rows("Registration Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
+                      +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("Age",vesselAge?vesselAge+" yrs":"")+rows("RO / Class",v.ro)+rows("Type",v.type)
+                      +rows("Registration Date",v.regDate?fmtDate(v.regDate):"")+rows("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record")
+                      +rows("Last Detention Port",lastDetention?.port)+rows("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.finding_count!=null?" · "+lastFlagInsp.finding_count+" findings":""):"")
+                      +rows("Company",v.company)
                       +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
                       +rows("Task Owners",v.taskOwners?.join(", "))+rows("Open Tasks",openTasksForCase.length)
                       +"</table>"
@@ -1935,13 +1943,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"</table>"
                       +"<h3>Vetting Status (as of detention date)</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Vetted",wasVetted?"Yes":"No — not vetted before detention")+rows("Vetting Status at Detention",vettingAtDetention?.cf_vetting)
+                      +rows("DPP Risk",dppRisk)
                       +rows("Client Rejection",v.clientRejection)+rows("ASI / Preemptive Insp. Done Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"))
                       +rows("CAR Status",v.carStatus||"Not Received")+rows("CAR Requested Date",v.carRequestedDate)
+                      +"</table>"
+                      +"<h3>Vetting Activity — 60 Days Before Detention</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
                       +"</table>"
                       +"<h3>Flag Inspection History (Previous to Detention)</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Last Flag Inspection Date",lastFlagDate||lastFlagInsp?.inspection_date||"")
                       +rows("Days Before Detention",daysBeforeDet)
                       +rows("Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches")
+                      +"</table>"
+                      +"<h3>Additional / FSI Inspections After Detention</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.finding_count!=null?" — "+ins.finding_count+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
                       +"</table>"
                       +"<h3>RO Survey History</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Last RO Survey Date",v.roSurveyDate)+rows("Findings",v.roFindings)+rows("Outstanding Conditions of Class",v.roStatus)+rows("Other Findings / Notes",v.roNotes)
@@ -2014,9 +2029,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Administrative Summary</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:companyHistory.length>0?"10px":0}}>
                           <Row label="Vessel / IMO" value={v.name+" · "+v.imo} />
+                          <Row label="Age" value={vesselAge?vesselAge+" yrs":"—"} />
                           <Row label="RO / Class" value={v.ro} />
                           <Row label="Type" value={v.type} />
                           <Row label="Registration Date" value={v.regDate?fmtDate(v.regDate):"—"} />
+                          <Row label="Last Detention (prior)" value={lastDetention?fmtDate(lastDetention.detentionDate):"None on record"} red={!!lastDetention} />
+                          <Row label="Last Detention Port" value={lastDetention?.port||"—"} />
+                          <Row label="Last FSI" value={lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.finding_count!=null?" · "+lastFlagInsp.finding_count+" findings":""):"—"} />
                           <Row label="Company" value={v.company} />
                           <Row label="Liberian Fleet" value={intel?.client?.vsls_with_insps?intel.client.vsls_with_insps+" vessels":"—"} />
                           <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
@@ -2076,15 +2095,26 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
                           <Row label="Vetted" value={wasVetted?"Yes":"No — not vetted before detention"} red={!wasVetted} />
                           <Row label="Vetting Status at Detention" value={vettingAtDetention?.cf_vetting||"—"} />
+                          <Row label="DPP Risk" value={dppRisk||"—"} red={dppRisk==="High"||dppRisk==="Highest"} />
                           <Row label="Client Rejection" value={v.clientRejection||"—"} red={!!v.clientRejection} />
                           <Row label="ASI / Preemptive Insp. Before PSC" value={asiDone?"Yes — "+asiTask.title:(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not recorded")} red={!asiDone} />
                         </div>
-                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>CAR Status</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                             <Row label="CAR Status" value={v.carStatus||"Not Received"} red={v.carStatus==="Not Received"||!v.carStatus} />
                             <Row label="CAR Requested Date" value={v.carRequestedDate||"—"} />
                           </div>
+                        </div>
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Vetting Activity — 60 Days Before Detention ({vetting60.length})</div>
+                          {vetting60.length>0?vetting60.map((d,i)=>(
+                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<vetting60.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
+                              <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{d.created_date?fmtDate(d.created_date):"—"}</span>
+                              <span style={{color:"var(--text2)"}}>{d.action_type||d.cf_vetting||"—"}</span>
+                              <span style={{color:"var(--text3)"}}>{d.case_file_port||""}</span>
+                            </div>
+                          )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No vetting activity recorded in the 60 days before detention.</div>}
                         </div>
                       </div>
 
@@ -2092,13 +2122,23 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag Inspection History (Previous to Detention)</div>
                         {(lastFlagDate||lastFlagInsp)?(
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
                             <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
                             <Row label="Matching Deficiency Codes" value={matchingCodes.length?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
-                        ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No Flag State inspection found in history before this detention.</div>}
+                        ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Additional / FSI Inspections After Detention ({postDetInspections.length})</div>
+                          {postDetInspections.length>0?postDetInspections.map((ins,i)=>(
+                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<postDetInspections.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
+                              <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(ins.inspection_date)}</span>
+                              <span style={{color:"var(--text2)"}}>{ins.inspection_type||"—"}</span>
+                              <span style={{color:"var(--text3)"}}>{ins.finding_count!=null?ins.finding_count+" findings":""}</span>
+                            </div>
+                          )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspections recorded after this detention.</div>}
+                        </div>
                       </div>
 
                       {/* RO Survey History */}
