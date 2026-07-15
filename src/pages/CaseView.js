@@ -1908,11 +1908,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const openTasksForCase = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
 
-                  const printBrief = ()=>window.print();
-                  const downloadWordBrief = ()=>{
-                    const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
-                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:\"Times New Roman\",Times,serif;font-size:12pt;'>"
-                      +"<p><b>Internal Use Only</b></p>"
+                  const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
+                  const buildBriefBodyHtml = ()=>(
+                      "<p><b>Internal Use Only</b></p>"
                       +"<h2>Case Brief — "+v.name+" (IMO "+v.imo+")</h2>"
                       +"<p>Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+"</p>"
                       +"<h3>Notes</h3><p>"+(briefAlerts.length?briefAlerts.map(a=>"• "+a.msg).join("<br/>"):"No alerts on this case.")+"</p>"
@@ -1960,6 +1958,24 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"</table>"
                       +"<h3>Case Flags</h3><p>"+((v.flags||[]).length?v.flags.join(", "):"None")+"</p>"
                       +"<h3>Final Recommendations</h3><p>"+(v.finalRecommendations||"—")+"</p>"
+                  );
+                  const printBrief = ()=>{
+                    // Open the brief in its own clean window instead of window.print() on the app itself —
+                    // the app's slide-over panel has an internal scrollable container, which caused
+                    // window.print() to only capture the visible viewport (1 page) instead of the full brief.
+                    const w = window.open("", "_blank", "width=900,height=1000");
+                    if (!w) { alert("Please allow pop-ups for this site to export the PDF."); return; }
+                    w.document.write("<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title>"
+                      +"<style>@page{margin:0.75in} body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;} table{page-break-inside:avoid;} h2,h3{page-break-after:avoid;}</style>"
+                      +"</head><body>"+buildBriefBodyHtml()+"</body></html>");
+                    w.document.close();
+                    w.onload = ()=>{ w.focus(); w.print(); };
+                    // fallback in case onload doesn't fire (some browsers with document.write)
+                    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
+                  };
+                  const downloadWordBrief = ()=>{
+                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:\"Times New Roman\",Times,serif;font-size:12pt;'>"
+                      +buildBriefBodyHtml()
                       +"</body></html>";
                     const blob = new Blob(['\ufeff', html], {type:"application/msword"});
                     const a = document.createElement("a");
