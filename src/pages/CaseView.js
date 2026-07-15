@@ -1889,6 +1889,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const caseCodes = new Set((v.deficiencies||[]).map(d=>d.code).filter(Boolean));
                   const matchingCodes = [...flagCodes].filter(c=>caseCodes.has(c));
                   const latestDpp = (intel?.dpp||[])[0];
+
+                  // PSC findings — same source/logic as the Deficiencies tab (flag_psc_findings table near detention date, fallback to AI-extracted PSC report)
+                  const pscFromTable = (intel?.findings||[]).filter(f=>String(f.flag_psc||"").toUpperCase()==="PSC").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+                  const pscNearDet = v.detentionDate?pscFromTable.filter(f=>{if(!f.insp_date)return false;const diff=Math.abs(new Date(f.insp_date)-new Date(v.detentionDate));return diff<=7*24*60*60*1000;}):[];
+                  const usePscTable = pscNearDet.length>0;
+                  const pscToShow = usePscTable?pscNearDet:(v.deficiencies||[]).map(d=>({defect_code:d.code,main_defect_text:d.desc,full_description:d.desc,action:d.action,detainable:d.detainable}));
+                  const detainableList = pscToShow.filter(d=>d.detainable||String(d.action).trim()==="30"||d.action===30);
+                  const totalDefsCount = v.defs||pscToShow.length||allDefs.length;
+                  const totalDetainableCount = v.detainable||detainableList.length||detainableDefs.length;
+
+                  // Vetting Status info (vetted / client rejection / ASI-preemptive before PSC)
+                  const wasVetted = (intel?.dpp?.length>0)||!!latestDpp;
+                  const asiDone = asiTask&&(asiTask.status==="Executed"||asiTask.status==="Completed");
+
                   const printBrief = ()=>window.print();
                   const downloadWordBrief = ()=>{
                     const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
@@ -1903,10 +1917,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"</table>"
                       +"<h3>Detention Details</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)
-                      +rows("Total Deficiencies",allDefs.length)+rows("Total Detainable",detainableDefs.length)
+                      +rows("Total Deficiencies",totalDefsCount)+rows("Total Detainable",totalDetainableCount)
+                      +"</table>"
+                      +"<h3>Main Detainable Deficiencies</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""))).join(""):rows("Deficiencies","None on record"))
                       +"</table>"
                       +"<h3>Detention Assessment</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Potential for Appeal",v.appeal)+rows("Detention Notes",v.detentionNotes)
+                      +"</table>"
+                      +"<h3>Vetting Status</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Vetted",wasVetted?"Yes":"—")+rows("Current Vetting Status",latestDpp?.cf_vetting)
+                      +rows("Client Rejection",v.clientRejection)+rows("ASI / Preemptive Insp. Done Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"))
                       +"</table>"
                       +"<h3>Flag Inspection History (Previous to Detention)</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Last Flag Inspection Date",lastFlagDate||lastFlagInsp?.inspection_date||"")
@@ -1923,6 +1944,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +(mlc.length?mlc.map(m=>rows(m.reported_date,m.mlc_status+(m.inspection_type?" — "+m.inspection_type:""))).join(""):rows("MLC Complaints","None on record"))
                       +"</table>"
                       +"<h3>Dispensations</h3><table style='border-collapse:collapse;width:100%;'>"+rows("Details",v.dispensation)+"</table>"
+                      +"<h3>Case Flags</h3><p>"+((v.flags||[]).length?v.flags.join(", "):"None")+"</p>"
                       +"<h3>Final Recommendations</h3><p>"+(v.finalRecommendations||"—")+"</p>"
                       +"</body></html>";
                     const blob = new Blob(['\ufeff', html], {type:"application/msword"});
@@ -1963,13 +1985,24 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       {/* Detention Details */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Details</div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:detainableList.length>0?"10px":0}}>
                           <Row label="Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
                           <Row label="Port" value={v.port} />
                           <Row label="MoU" value={v.mou} />
-                          <Row label="Total Deficiencies" value={allDefs.length} />
-                          <Row label="Total Detainable" value={detainableDefs.length} red={detainableDefs.length>0} />
+                          <Row label="Total Deficiencies" value={totalDefsCount} />
+                          <Row label="Total Detainable" value={totalDetainableCount} red={totalDetainableCount>0} />
                         </div>
+                        {detainableList.length>0&&(
+                          <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Main Detainable Deficiencies</div>
+                            {detainableList.map((d,i)=>(
+                              <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<detainableList.length-1?"1px solid var(--border)":"none",alignItems:"flex-start"}}>
+                                <span style={{fontSize:"13px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0}}>{d.defect_code||i+1}</span>
+                                <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.55}}>{d.main_defect_text||d.full_description||"—"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Detention Assessment */}
@@ -1977,10 +2010,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Assessment</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
                           <Row label="Potential for Appeal" value={v.appeal||"—"} />
-                          <Row label="Case File Opened" value={(intel?.dpp?.length>0)?"Yes":"—"} />
-                          <Row label="Current Vetting Status" value={latestDpp?.cf_vetting||"—"} />
                         </div>
                         {v.detentionNotes&&<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.detentionNotes}</div>}
+                      </div>
+
+                      {/* Vetting Status */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Vetting Status</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                          <Row label="Vetted" value={wasVetted?"Yes":"—"} />
+                          <Row label="Current Vetting Status" value={latestDpp?.cf_vetting||"—"} />
+                          <Row label="Client Rejection" value={v.clientRejection||"—"} red={!!v.clientRejection} />
+                          <Row label="ASI / Preemptive Insp. Before PSC" value={asiDone?"Yes — "+asiTask.title:(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not recorded")} red={!asiDone} />
+                        </div>
                       </div>
 
                       {/* Flag Inspection History */}
@@ -2038,6 +2080,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {v.dispensation?<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{v.dispensation}</div>:
                         <div style={{fontSize:"13px",color:"var(--text3)"}}>{intel?.vip?.tech_disp_365?intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days on file — no detail imported yet.":"No dispensation data on file."}</div>}
                       </div>
+
+                      {/* Case Flags */}
+                      {v.flags?.length>0&&(
+                        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Flags ({v.flags.length})</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                            {v.flags.map(f=>(
+                              <span key={f} style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:FLAG_BG[f]||"var(--bg3)",border:"1px solid "+(FLAG_COLOR[f]||"var(--border)"),color:FLAG_COLOR[f]||"var(--text2)",fontFamily:"var(--mono)",fontWeight:600}}>{f}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Final Recommendations */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
