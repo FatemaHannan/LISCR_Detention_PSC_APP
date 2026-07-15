@@ -1905,6 +1905,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const wasVetted = dppBeforeDet.length>0;
                   const asiDone = asiTask&&(asiTask.status==="Executed"||asiTask.status==="Completed");
                   const briefAlerts = getSmartAlerts(v, intel, vesselTasks);
+                  const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
+                  const openTasksForCase = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
 
                   const printBrief = ()=>window.print();
                   const downloadWordBrief = ()=>{
@@ -1918,16 +1920,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("RO / Class",v.ro)+rows("Type",v.type)
                       +rows("Registry Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
                       +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
+                      +rows("Task Owners",v.taskOwners?.join(", "))+rows("Open Tasks",openTasksForCase.length)
+                      +"</table>"
+                      +"<h3>Company Detention History</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—"))).join(""):rows("Other Cases","None on record"))
                       +"</table>"
                       +"<h3>Detention Details</h3><table style='border-collapse:collapse;width:100%;'>"
-                      +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)
+                      +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)+rows("PSCO",v.psco)
                       +rows("Total Deficiencies",totalDefsCount)+rows("Total Detainable",totalDetainableCount)
                       +"</table>"
                       +"<h3>Main Detainable Deficiencies</h3><table style='border-collapse:collapse;width:100%;'>"
                       +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""))).join(""):rows("Deficiencies","None on record"))
                       +"</table>"
                       +"<h3>Detention Assessment</h3><table style='border-collapse:collapse;width:100%;'>"
-                      +rows("Potential for Appeal",v.appeal)+rows("Detention Notes",v.detentionNotes)
+                      +rows("Potential for Appeal",v.appeal)+rows("Release Condition",v.release)+rows("Detention Notes",v.detentionNotes)
                       +"</table>"
                       +"<h3>Vetting Status (as of detention date)</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Vetted",wasVetted?"Yes":"No — not vetted before detention")+rows("Vetting Status at Detention",vettingAtDetention?.cf_vetting)
@@ -1987,7 +1993,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       {/* Administrative Summary */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Administrative Summary</div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:companyHistory.length>0?"10px":0}}>
                           <Row label="Vessel / IMO" value={v.name+" · "+v.imo} />
                           <Row label="RO / Class" value={v.ro} />
                           <Row label="Type" value={v.type} />
@@ -1996,7 +2002,21 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Liberian Fleet" value={intel?.client?.vsls_with_insps?intel.client.vsls_with_insps+" vessels":"—"} />
                           <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
                           <Row label="Peer Rank" value={intel?.client?.peer_rank||"—"} red={String(intel?.client?.peer_rank).includes("Bottom")} />
+                          <Row label="Task Owners" value={v.taskOwners?.join(", ")||"—"} />
+                          <Row label="Open Tasks" value={openTasksForCase.length} red={openTasksForCase.length>0} />
                         </div>
+                        {companyHistory.length>0&&(
+                          <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Company Detention History ({companyHistory.length} other case{companyHistory.length>1?"s":""})</div>
+                            {companyHistory.map((c,i)=>(
+                              <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<companyHistory.length-1?"1px solid var(--border)":"none",fontSize:"13px"}}>
+                                <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(c.detentionDate)}</span>
+                                <span style={{color:"var(--text2)"}}>{c.name}</span>
+                                <span style={{color:"var(--text3)"}}>{c.port||"—"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Detention Details */}
@@ -2006,6 +2026,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
                           <Row label="Port" value={v.port} />
                           <Row label="MoU" value={v.mou} />
+                          <Row label="PSCO" value={v.psco||"—"} />
                           <Row label="Total Deficiencies" value={totalDefsCount} />
                           <Row label="Total Detainable" value={totalDetainableCount} red={totalDetainableCount>0} />
                         </div>
@@ -2025,6 +2046,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Assessment</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
                           <Row label="Potential for Appeal" value={v.appeal||"—"} />
+                          <Row label="Release Condition" value={v.release||"—"} />
                         </div>
                         {v.detentionNotes&&<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.detentionNotes}</div>}
                       </div>
