@@ -1911,14 +1911,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const printBrief = ()=>window.print();
                   const downloadWordBrief = ()=>{
                     const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
-                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:Calibri,Arial,sans-serif;font-size:13px;'>"
+                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:\"Times New Roman\",Times,serif;font-size:12pt;'>"
                       +"<p><b>Internal Use Only</b></p>"
                       +"<h2>Case Brief — "+v.name+" (IMO "+v.imo+")</h2>"
                       +"<p>Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+"</p>"
                       +"<h3>Notes</h3><p>"+(briefAlerts.length?briefAlerts.map(a=>"• "+a.msg).join("<br/>"):"No alerts on this case.")+"</p>"
                       +"<h3>Administrative Summary</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("RO / Class",v.ro)+rows("Type",v.type)
-                      +rows("Registry Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
+                      +rows("Registration Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
                       +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
                       +rows("Task Owners",v.taskOwners?.join(", "))+rows("Open Tasks",openTasksForCase.length)
                       +"</table>"
@@ -1954,7 +1954,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"<h3>MLC Complaints</h3><table style='border-collapse:collapse;width:100%;'>"
                       +(mlc.length?mlc.map(m=>rows(m.reported_date,m.mlc_status+(m.inspection_type?" — "+m.inspection_type:""))).join(""):rows("MLC Complaints","None on record"))
                       +"</table>"
-                      +"<h3>Dispensations</h3><table style='border-collapse:collapse;width:100%;'>"+rows("Details",v.dispensation)+"</table>"
+                      +"<h3>Dispensations</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Dispensations (365d)",intel?.vip?.tech_disp_365)+rows("Open During Detention",v.dispensationOpenAtDetention||"Unknown")
+                      +rows("Related to This Detention",v.dispensationRelatedToDetention||"Unknown")+rows("Details",v.dispensation)
+                      +"</table>"
                       +"<h3>Case Flags</h3><p>"+((v.flags||[]).length?v.flags.join(", "):"None")+"</p>"
                       +"<h3>Final Recommendations</h3><p>"+(v.finalRecommendations||"—")+"</p>"
                       +"</body></html>";
@@ -1997,7 +2000,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Vessel / IMO" value={v.name+" · "+v.imo} />
                           <Row label="RO / Class" value={v.ro} />
                           <Row label="Type" value={v.type} />
-                          <Row label="Registry Date" value={v.regDate?fmtDate(v.regDate):"—"} />
+                          <Row label="Registration Date" value={v.regDate?fmtDate(v.regDate):"—"} />
                           <Row label="Company" value={v.company} />
                           <Row label="Liberian Fleet" value={intel?.client?.vsls_with_insps?intel.client.vsls_with_insps+" vessels":"—"} />
                           <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
@@ -2121,8 +2124,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       {/* Dispensations */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Dispensations</div>
-                        {v.dispensation?<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{v.dispensation}</div>:
-                        <div style={{fontSize:"13px",color:"var(--text3)"}}>{intel?.vip?.tech_disp_365?intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days on file — no detail imported yet.":"No dispensation data on file."}</div>}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
+                          <Row label="Dispensations (365d)" value={intel?.vip?.tech_disp_365??"—"} red={intel?.vip?.tech_disp_365>2} />
+                          <Row label="Open During Detention" value={v.dispensationOpenAtDetention||"Unknown"} red={v.dispensationOpenAtDetention==="Yes"} />
+                          <Row label="Related to This Detention" value={v.dispensationRelatedToDetention||"Unknown"} red={v.dispensationRelatedToDetention==="Yes"} />
+                        </div>
+                        {v.dispensation?<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.dispensation}</div>:
+                        <div style={{fontSize:"13px",color:"var(--text3)"}}>No itemized dispensation details on file. Click "Edit Fields" to enter manually.</div>}
                       </div>
 
                       {/* Case Flags */}
@@ -2337,6 +2345,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             {key:"roFindings",label:"RO Survey findings (count)",type:"text"},
             {key:"roStatus",label:"RO Survey status / outstanding conditions of class",type:"text"},
             {key:"roNotes",label:"RO Survey notes (other outstanding findings)",type:"textarea"},
+            {key:"dispensationOpenAtDetention",label:"Dispensation open during detention?",type:"select",options:["Unknown","Yes","No"]},
+            {key:"dispensationRelatedToDetention",label:"Dispensation related to this detention?",type:"select",options:["Unknown","Yes","No"]},
           ]}
           data={v||{}}
           onSave={updates=>{saveVesselEdit(updates);setEditModal(null);}}

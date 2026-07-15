@@ -235,5 +235,5 @@ button:focus-visible { outline: 2px solid var(--blue); }
   #case-brief-print-area { position: absolute; left: 0; top: 0; width: 100%; }
   #case-brief-print-area .no-print { display: none !important; }
   #case-brief-print-area { background: #fff !important; color: #000 !important; }
-  #case-brief-print-area * { background: #fff !important; color: #000 !important; border-color: #999 !important; }
+  #case-brief-print-area * { background: #fff !important; color: #000 !important; border-color: #999 !important; font-family: "Times New Roman", Times, serif !important; font-size: 12pt !important; }
 }
