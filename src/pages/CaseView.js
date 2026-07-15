@@ -1883,6 +1883,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const lastFlagGroup = lastFlagDate?lastFlagFindings.filter(f=>f.insp_date===lastFlagDate):[];
                   const flagInspsSorted = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
                   const lastFlagInsp = flagInspsSorted[0];
+                  const portHistory = (intel?.inspections||[]).filter(i=>i.port).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
                   const daysBeforeDet = lastFlagDate?Math.floor((detDate-new Date(lastFlagDate))/86400000):(lastFlagInsp?.inspection_date?Math.floor((detDate-new Date(lastFlagInsp.inspection_date))/86400000):null);
                   // simple code-overlap check between flag findings and this case's deficiencies
                   const flagCodes = new Set(lastFlagGroup.map(f=>f.defect_code).filter(Boolean));
@@ -1923,13 +1924,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"<h3>Administrative Summary</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("Age",vesselAge?vesselAge+" yrs":"")+rows("RO / Class",v.ro)+rows("Type",v.type)
                       +rows("Registration Date",v.regDate?fmtDate(v.regDate):"")+rows("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record")
-                      +rows("Last Detention Port",lastDetention?.port)+rows("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.finding_count!=null?" · "+lastFlagInsp.finding_count+" findings":""):"")
+                      +rows("Last Detention Port",lastDetention?.port)+rows("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):"")
                       +rows("Company",v.company)
                       +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
                       +rows("Task Owners",v.taskOwners?.join(", "))+rows("FSI Case Owner",v.fsiCaseOwner)+rows("PSC Case Owner",v.pscOwner)+rows("Open Tasks",openTasksForCase.length)
                       +"</table>"
                       +"<h3>Company Detention History</h3><table style='border-collapse:collapse;width:100%;'>"
-                      +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—"))).join(""):rows("Other Cases","None on record"))
+                      +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""))).join(""):rows("Other Cases","None on record"))
                       +"</table>"
                       +"<h3>Detention Details</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)+rows("PSCO",v.psco)
@@ -1955,8 +1956,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +rows("Days Before Detention",daysBeforeDet)
                       +rows("Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches")
                       +"</table>"
+                      +"<h3>Full Flag Inspection History</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(flagInspsSorted.length?flagInspsSorted.map(f=>rows(fmtDate(f.inspection_date),(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—"))).join(""):rows("Flag Inspections","None on record"))
+                      +"</table>"
                       +"<h3>Additional / FSI Inspections After Detention</h3><table style='border-collapse:collapse;width:100%;'>"
-                      +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.finding_count!=null?" — "+ins.finding_count+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
+                      +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
+                      +"</table>"
+                      +"<h3>Port History</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(portHistory.length?portHistory.map(p=>rows(fmtDate(p.inspection_date),p.port+" — "+(p.mou||"")+" — "+(p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"DETAINED":(p.num_findings??0)+" defs"))).join(""):rows("Port History","None on record"))
                       +"</table>"
                       +"<h3>RO Survey History</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Last RO Survey Date",v.roSurveyDate)+rows("Findings",v.roFindings)+rows("Outstanding Conditions of Class",v.roStatus)+rows("Other Findings / Notes",v.roNotes)
@@ -2035,7 +2042,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Registration Date" value={v.regDate?fmtDate(v.regDate):"—"} />
                           <Row label="Last Detention (prior)" value={lastDetention?fmtDate(lastDetention.detentionDate):"None on record"} red={!!lastDetention} />
                           <Row label="Last Detention Port" value={lastDetention?.port||"—"} />
-                          <Row label="Last FSI" value={lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.finding_count!=null?" · "+lastFlagInsp.finding_count+" findings":""):"—"} />
+                          <Row label="Last FSI" value={lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):"—"} />
                           <Row label="Company" value={v.company} />
                           <Row label="Liberian Fleet" value={intel?.client?.vsls_with_insps?intel.client.vsls_with_insps+" vessels":"—"} />
                           <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
@@ -2053,6 +2060,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                                 <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(c.detentionDate)}</span>
                                 <span style={{color:"var(--text2)"}}>{c.name}</span>
                                 <span style={{color:"var(--text3)"}}>{c.port||"—"}</span>
+                                <span style={{color:c.detainable>0?"var(--red2)":"var(--text3)",marginLeft:"auto",flexShrink:0}}>{c.defs??0} defs{c.detainable?" ("+c.detainable+" detainable)":""}</span>
                               </div>
                             ))}
                           </div>
@@ -2131,16 +2139,41 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
                         ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag Inspection History ({flagInspsSorted.length})</div>
+                          {flagInspsSorted.length>0?flagInspsSorted.map((f,i)=>(
+                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<flagInspsSorted.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
+                              <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(f.inspection_date)}</span>
+                              <span style={{color:"var(--text2)"}}>{f.port||"—"}</span>
+                              <span style={{color:f.num_findings>=5?"var(--red2)":"var(--text3)"}}>{f.num_findings??0} findings</span>
+                              <span style={{color:"var(--text3)",marginLeft:"auto"}}>{f.car_status||"—"}</span>
+                            </div>
+                          )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No flag inspections on record.</div>}
+                        </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Additional / FSI Inspections After Detention ({postDetInspections.length})</div>
                           {postDetInspections.length>0?postDetInspections.map((ins,i)=>(
                             <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<postDetInspections.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
                               <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(ins.inspection_date)}</span>
                               <span style={{color:"var(--text2)"}}>{ins.inspection_type||"—"}</span>
-                              <span style={{color:"var(--text3)"}}>{ins.finding_count!=null?ins.finding_count+" findings":""}</span>
+                              <span style={{color:"var(--text3)"}}>{ins.num_findings!=null?ins.num_findings+" findings":""}</span>
                             </div>
                           )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspections recorded after this detention.</div>}
                         </div>
+                      </div>
+
+                      {/* Port History */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Port History ({portHistory.length} inspections)</div>
+                        {portHistory.length>0?portHistory.map((p,i)=>(
+                          <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<portHistory.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
+                            <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(p.inspection_date)}</span>
+                            <span style={{color:"var(--text2)"}}>{p.port}</span>
+                            <span style={{color:"var(--text3)"}}>{p.mou||""}</span>
+                            <span style={{color:"var(--text3)"}}>{p.flag_psc||""}</span>
+                            <span style={{color:p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"var(--red2)":"var(--text3)",marginLeft:"auto",flexShrink:0}}>{p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"DETAINED":(p.num_findings??0)+" defs"}</span>
+                          </div>
+                        )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No port history on record.</div>}
                       </div>
 
                       {/* RO Survey History */}
