@@ -1904,6 +1904,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   // Vetting Status info (vetted / client rejection / ASI-preemptive before PSC) — as of detention date, since this is post-detention analysis
                   const wasVetted = dppBeforeDet.length>0;
                   const asiDone = asiTask&&(asiTask.status==="Executed"||asiTask.status==="Completed");
+                  const briefAlerts = getSmartAlerts(v, intel, vesselTasks);
 
                   const printBrief = ()=>window.print();
                   const downloadWordBrief = ()=>{
@@ -1912,6 +1913,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"<p><b>Internal Use Only</b></p>"
                       +"<h2>Case Brief — "+v.name+" (IMO "+v.imo+")</h2>"
                       +"<p>Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+"</p>"
+                      +"<h3>Notes</h3><p>"+(briefAlerts.length?briefAlerts.map(a=>"• "+a.msg).join("<br/>"):"No alerts on this case.")+"</p>"
                       +"<h3>Administrative Summary</h3><table style='border-collapse:collapse;width:100%;'>"
                       +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("RO / Class",v.ro)+rows("Type",v.type)
                       +rows("Registry Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
@@ -1968,6 +1970,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <button onClick={downloadWordBrief} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Export Word</button>
                           <button onClick={printBrief} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Export PDF</button>
                         </div>
+                      </div>
+
+                      {/* Notes — same case alerts shown as badges at the top of the case */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Notes</div>
+                        {briefAlerts.length>0?(
+                          <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                            {briefAlerts.map((a,i)=>(
+                              <div key={i} style={{padding:"4px 10px",borderRadius:"5px",background:a.sev==="red"?"var(--red-bg)":"var(--amber-bg)",border:"1px solid "+(a.sev==="red"?"#3D1A1A":"var(--amber)"),fontSize:"13px",fontWeight:600,color:a.sev==="red"?"var(--red2)":"var(--amber2)",fontFamily:"var(--mono)"}}>{a.msg}</div>
+                            ))}
+                          </div>
+                        ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No alerts on this case.</div>}
                       </div>
 
                       {/* Administrative Summary */}
