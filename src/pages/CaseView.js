@@ -155,6 +155,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [modalFull, setModalFull] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+  const [reportView, setReportView] = useState("final"); // "final" | "brief" — sub-tabs inside EVP Report
 
   useEffect(() => {
     loadAll(preSelectImo, preSelectDate);
@@ -624,7 +625,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",marginBottom:"14px",overflowX:"auto"}}>
             {[{id:"overview",l:"Overview"},{id:"documents",l:"Documents ("+dbDocs.length+")"},{id:"deficiencies",l:"Deficiencies ("+(v.deficiencies?.length||0)+")"},{id:"gaps",l:"Gaps ("+(v.gaps?.length||0)+")"},{id:"tasks",l:"Tasks ("+vesselTasks.length+")"},{id:"evp",l:"EVP Q&A ("+(v.evpQA?.length||0)+")"},{id:"history",l:"Vetting Status"},{id:"intelligence",l:"Vessel History"},{id:"timeline",l:"Timeline"},{id:"summary",l:"Summary"},{id:"report",l:"EVP Report"}].map(t=>(
-              <div key={t.id} onClick={()=>{setTab(t.id);if((t.id==="intelligence"||t.id==="history")&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
+              <div key={t.id} onClick={()=>{setTab(t.id);if((t.id==="intelligence"||t.id==="history"||t.id==="report")&&sel)loadIntelligence(sel.imo,sel.company);}} style={{padding:"8px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(tab===t.id?"var(--blue)":"transparent"),color:tab===t.id?"var(--blue)":"var(--text3)",fontWeight:tab===t.id?500:400,whiteSpace:"nowrap",flexShrink:0}}>{t.l}</div>
             ))}
           </div>
 
@@ -1565,6 +1566,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
             return (
               <div>
+                {/* EVP Report sub-tabs */}
+                <div style={{display:"flex",gap:"4px",marginBottom:"16px",borderBottom:"1px solid var(--border)"}}>
+                  {[{id:"final",l:"Final Summary"},{id:"brief",l:"Case Brief"}].map(rt=>(
+                    <div key={rt.id} onClick={()=>setReportView(rt.id)} style={{padding:"7px 14px",fontSize:"13px",cursor:"pointer",borderBottom:"2px solid "+(reportView===rt.id?"var(--blue)":"transparent"),color:reportView===rt.id?"var(--blue)":"var(--text3)",fontWeight:reportView===rt.id?600:400}}>{rt.l}</div>
+                  ))}
+                </div>
+
+                {reportView==="final"&&(<div>
                 {/* Header */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
                   <div>
@@ -1862,6 +1871,182 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     (v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)",flexShrink:0}}>•</span><div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}
                   </div>
                 )}
+                </div>)}
+
+                {reportView==="brief"&&(()=>{
+                  const casualties = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").trim()==="VSL Casualty");
+                  const mlc = intel?.mlc||[];
+                  const flagFindingsAll = (intel?.findings||[]).filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+                  const detDate = v.detentionDate?new Date(v.detentionDate):new Date();
+                  const lastFlagFindings = flagFindingsAll.filter(f=>!f.insp_date||new Date(f.insp_date)<=detDate);
+                  const lastFlagDate = lastFlagFindings[0]?.insp_date;
+                  const lastFlagGroup = lastFlagDate?lastFlagFindings.filter(f=>f.insp_date===lastFlagDate):[];
+                  const flagInspsSorted = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
+                  const lastFlagInsp = flagInspsSorted[0];
+                  const daysBeforeDet = lastFlagDate?Math.floor((detDate-new Date(lastFlagDate))/86400000):(lastFlagInsp?.inspection_date?Math.floor((detDate-new Date(lastFlagInsp.inspection_date))/86400000):null);
+                  // simple code-overlap check between flag findings and this case's deficiencies
+                  const flagCodes = new Set(lastFlagGroup.map(f=>f.defect_code).filter(Boolean));
+                  const caseCodes = new Set((v.deficiencies||[]).map(d=>d.code).filter(Boolean));
+                  const matchingCodes = [...flagCodes].filter(c=>caseCodes.has(c));
+                  const latestDpp = (intel?.dpp||[])[0];
+                  const printBrief = ()=>window.print();
+                  const downloadWordBrief = ()=>{
+                    const rows = (label,value)=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;color:#555;width:180px;'><b>"+label+"</b></td><td style='padding:6px 10px;border:1px solid #ccc;'>"+(value==null||value===""?"—":value)+"</td></tr>";
+                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:Calibri,Arial,sans-serif;font-size:13px;'>"
+                      +"<p><b>Internal Use Only</b></p>"
+                      +"<h2>Case Brief — "+v.name+" (IMO "+v.imo+")</h2>"
+                      +"<p>Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+"</p>"
+                      +"<h3>Administrative Summary</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("RO / Class",v.ro)+rows("Type",v.type)
+                      +rows("Registry Date",v.regDate?fmtDate(v.regDate):"")+rows("Company",v.company)
+                      +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets)
+                      +"</table>"
+                      +"<h3>Detention Details</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)
+                      +rows("Total Deficiencies",allDefs.length)+rows("Total Detainable",detainableDefs.length)
+                      +"</table>"
+                      +"<h3>Detention Assessment</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Potential for Appeal",v.appeal)+rows("Detention Notes",v.detentionNotes)
+                      +"</table>"
+                      +"<h3>Flag Inspection History (Previous to Detention)</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Last Flag Inspection Date",lastFlagDate||lastFlagInsp?.inspection_date||"")
+                      +rows("Days Before Detention",daysBeforeDet)
+                      +rows("Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches")
+                      +"</table>"
+                      +"<h3>RO Survey History</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +rows("Last RO Survey Date",v.roSurveyDate)+rows("Findings",v.roFindings)+rows("Outstanding Conditions of Class",v.roStatus)+rows("Other Findings / Notes",v.roNotes)
+                      +"</table>"
+                      +"<h3>Vessel Casualty</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(casualties.length?casualties.map(c=>rows(fmtDate(c.inspection_date),c.inspection_type+(c.finding_note?" — "+c.finding_note:""))).join(""):rows("Casualty Records","None on record"))
+                      +"</table>"
+                      +"<h3>MLC Complaints</h3><table style='border-collapse:collapse;width:100%;'>"
+                      +(mlc.length?mlc.map(m=>rows(m.reported_date,m.mlc_status+(m.inspection_type?" — "+m.inspection_type:""))).join(""):rows("MLC Complaints","None on record"))
+                      +"</table>"
+                      +"<h3>Dispensations</h3><table style='border-collapse:collapse;width:100%;'>"+rows("Details",v.dispensation)+"</table>"
+                      +"<h3>Final Recommendations</h3><p>"+(v.finalRecommendations||"—")+"</p>"
+                      +"</body></html>";
+                    const blob = new Blob(['\ufeff', html], {type:"application/msword"});
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "CaseBrief_"+v.name.replace(/\s+/g,"_")+"_"+v.imo+"_"+(v.detentionDate||"").replace(/-/g,"")+".doc";
+                    a.click();
+                  };
+                  return (
+                    <div id="case-brief-print-area">
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}} className="no-print">
+                        <div>
+                          <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",letterSpacing:".02em"}}>Case Brief</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                        </div>
+                        <div style={{display:"flex",gap:"8px"}}>
+                          <button onClick={()=>setEditModal(v)} style={{padding:"7px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>✎ Edit Fields</button>
+                          <button onClick={downloadWordBrief} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Export Word</button>
+                          <button onClick={printBrief} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Export PDF</button>
+                        </div>
+                      </div>
+
+                      {/* Administrative Summary */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Administrative Summary</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                          <Row label="Vessel / IMO" value={v.name+" · "+v.imo} />
+                          <Row label="RO / Class" value={v.ro} />
+                          <Row label="Type" value={v.type} />
+                          <Row label="Registry Date" value={v.regDate?fmtDate(v.regDate):"—"} />
+                          <Row label="Company" value={v.company} />
+                          <Row label="Liberian Fleet" value={intel?.client?.vsls_with_insps?intel.client.vsls_with_insps+" vessels":"—"} />
+                          <Row label="Previous Detentions" value={intel?.client?.num_dets??"—"} red={intel?.client?.num_dets>0} />
+                          <Row label="Peer Rank" value={intel?.client?.peer_rank||"—"} red={String(intel?.client?.peer_rank).includes("Bottom")} />
+                        </div>
+                      </div>
+
+                      {/* Detention Details */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Details</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                          <Row label="Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
+                          <Row label="Port" value={v.port} />
+                          <Row label="MoU" value={v.mou} />
+                          <Row label="Total Deficiencies" value={allDefs.length} />
+                          <Row label="Total Detainable" value={detainableDefs.length} red={detainableDefs.length>0} />
+                        </div>
+                      </div>
+
+                      {/* Detention Assessment */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Assessment</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
+                          <Row label="Potential for Appeal" value={v.appeal||"—"} />
+                          <Row label="Case File Opened" value={(intel?.dpp?.length>0)?"Yes":"—"} />
+                          <Row label="Current Vetting Status" value={latestDpp?.cf_vetting||"—"} />
+                        </div>
+                        {v.detentionNotes&&<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.detentionNotes}</div>}
+                      </div>
+
+                      {/* Flag Inspection History */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag Inspection History (Previous to Detention)</div>
+                        {(lastFlagDate||lastFlagInsp)?(
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                            <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
+                            <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
+                            <Row label="Matching Deficiency Codes" value={matchingCodes.length?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
+                            <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
+                          </div>
+                        ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No Flag State inspection found in history before this detention.</div>}
+                      </div>
+
+                      {/* RO Survey History */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>RO Survey History</div>
+                        {v.roSurveyDate?(
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
+                            <Row label="Last RO Survey" value={v.roSurveyDate} />
+                            <Row label="Findings" value={v.roFindings??"—"} />
+                            <Row label="Outstanding Conditions" value={v.roStatus||"—"} red={!!v.roStatus} />
+                          </div>
+                        ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"8px"}}>No RO survey data on file. Click "Edit Fields" to enter manually.</div>}
+                        {v.roNotes&&<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap",background:"var(--bg3)",padding:"10px",borderRadius:"6px",border:"1px solid var(--border)"}}>{v.roNotes}</div>}
+                      </div>
+
+                      {/* Vessel Casualty */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Vessel Casualty ({casualties.length} records)</div>
+                        {casualties.length>0?casualties.map((c,i)=>(
+                          <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}>
+                            <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(c.inspection_date)}</span>
+                            <span style={{fontSize:"13px",color:"var(--red2)"}}>{c.inspection_type}{c.finding_note?" — "+c.finding_note:""}</span>
+                          </div>
+                        )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No casualty records on file.</div>}
+                      </div>
+
+                      {/* MLC Complaints */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>MLC Complaints ({mlc.length} records)</div>
+                        {mlc.length>0?mlc.slice(0,5).map((m,i)=>(
+                          <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}>
+                            <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{m.reported_date||"—"}</span>
+                            <span style={{fontSize:"13px",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontWeight:600}}>{m.mlc_status||"—"}</span>
+                            <span style={{fontSize:"13px",color:"var(--text3)"}}>{m.inspection_type||""}</span>
+                          </div>
+                        )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No MLC complaints on file.</div>}
+                      </div>
+
+                      {/* Dispensations */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Dispensations</div>
+                        {v.dispensation?<div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{v.dispensation}</div>:
+                        <div style={{fontSize:"13px",color:"var(--text3)"}}>{intel?.vip?.tech_disp_365?intel.vip.tech_disp_365+" technical dispensation(s) in last 365 days on file — no detail imported yet.":"No dispensation data on file."}</div>}
+                      </div>
+
+                      {/* Final Recommendations */}
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations||"None recorded"}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -2050,6 +2235,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             {key:"dispensation",label:"Dispensation details",type:"textarea"},
             {key:"caseStatus",label:"Case status",type:"select",options:["New","Pending Review","Pending CAR","In Progress","Close Case"]},
             {key:"release",label:"Release condition",type:"textarea"},
+            {key:"roSurveyDate",label:"RO Survey date (last, previous to detention)",type:"date"},
+            {key:"roFindings",label:"RO Survey findings (count)",type:"text"},
+            {key:"roStatus",label:"RO Survey status / outstanding conditions of class",type:"text"},
+            {key:"roNotes",label:"RO Survey notes (other outstanding findings)",type:"textarea"},
           ]}
           data={v||{}}
           onSave={updates=>{saveVesselEdit(updates);setEditModal(null);}}
