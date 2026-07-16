@@ -1608,11 +1608,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 </div>
 
                 {reportView==="final"&&(<div>
-                {/* Header */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
+                {/* Hero header */}
+                <div style={{background:"linear-gradient(135deg,var(--bg2),var(--bg3))",border:"1px solid var(--border)",borderRadius:"10px",padding:"18px 20px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px"}}>
                   <div>
-                    <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",letterSpacing:".02em"}}>Final Case Summary</div>
-                    <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"4px"}}>
+                      <div style={{fontSize:"19px",fontWeight:700,color:"var(--text)",letterSpacing:".01em"}}>{v.name}</div>
+                      <span style={{fontSize:"13px",padding:"3px 10px",borderRadius:"5px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.1)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontWeight:700,letterSpacing:".03em"}}>{v.detained?"DETAINED":"ACTIVE / RELEASED"}</span>
+                    </div>
+                    <div style={{fontSize:"13px",color:"var(--text3)"}}>IMO {v.imo} · {v.port||"—"} · {v.mou||"—"} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
                   </div>
                   <button onClick={()=>{
                     const carStatus = carChain.map(c=>c.step+": "+(c.done?"Done":"Pending")+(c.note?" ("+c.note+")":"")).join(" | ");
@@ -1651,12 +1654,28 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     a.href=URL.createObjectURL(b);
                     a.download="FinalSummary_"+v.name+"_"+v.imo+".txt";
                     a.click();
-                  }} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>↓ Download Summary</button>
+                  }} style={{padding:"8px 16px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"13px",fontWeight:600,flexShrink:0}}>↓ Download Summary</button>
+                </div>
+
+                {/* Quick stats strip */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"10px",marginBottom:"14px"}}>
+                  {[
+                    {l:"Days Detained",v:daysDetained??"—",c:daysDetained>7?"var(--red2)":"var(--text)",bg:daysDetained>7?"var(--red-bg)":"var(--bg2)",b:daysDetained>7?"#3D1A1A":"var(--border)"},
+                    {l:"Total Deficiencies",v:allDefs.length,c:"var(--text)",bg:"var(--bg2)",b:"var(--border)"},
+                    {l:"Detainable",v:detainableDefs.length,c:detainableDefs.length>0?"var(--red2)":"var(--green2)",bg:detainableDefs.length>0?"var(--red-bg)":"rgba(34,197,94,0.08)",b:detainableDefs.length>0?"#3D1A1A":"rgba(34,197,94,0.3)"},
+                    {l:"CAR Status",v:v.carStatus||"Not Received",c:v.carStatus&&v.carStatus!=="Not Received"?"var(--green2)":"var(--red2)",bg:v.carStatus&&v.carStatus!=="Not Received"?"rgba(34,197,94,0.08)":"var(--red-bg)",b:v.carStatus&&v.carStatus!=="Not Received"?"rgba(34,197,94,0.3)":"#3D1A1A"},
+                    {l:"Company Response",v:isUnresponsive?"Unresponsive":"OK",c:isUnresponsive?"var(--red2)":"var(--green2)",bg:isUnresponsive?"var(--red-bg)":"rgba(34,197,94,0.08)",b:isUnresponsive?"#3D1A1A":"rgba(34,197,94,0.3)"},
+                  ].map((s,i)=>(
+                    <div key={i} style={{background:s.bg,border:"1px solid "+s.b,borderRadius:"8px",padding:"10px 14px"}}>
+                      <div style={{fontSize:"13px",color:s.c,opacity:0.75,textTransform:"uppercase",letterSpacing:".04em",marginBottom:"4px"}}>{s.l}</div>
+                      <div style={{fontSize:"18px",fontWeight:700,color:s.c,fontFamily:"var(--mono)"}}>{s.v}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Case Details */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Case Details</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>📋 Case Details</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                     <Row label="Vessel" value={v.name} />
                     <Row label="IMO" value={v.imo} />
@@ -1675,7 +1694,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Deficiency Overview */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Deficiency Overview</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>⚠️ Deficiency Overview</div>
                   <div style={{display:"flex",gap:"16px",marginBottom:"12px"}}>
                     <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 16px",textAlign:"center"}}>
                       <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Total</div>
@@ -1704,7 +1723,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* CAR Status Chain */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>CAR Status Chain</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>🔗 CAR Status Chain</div>
                   <div style={{display:"flex",alignItems:"center",gap:"0"}}>
                     {carChain.map((c,i)=>(
                       <React.Fragment key={i}>
@@ -1724,7 +1743,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* Flag State Actions */}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag State Actions</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>🚩 Flag State Actions</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                     <Row label="ASI / Preemptive Insp." value={asiTask?(asiTask.title+" ["+asiTask.status+"]"+(asiTask.due?" | Due: "+asiTask.due+(new Date(asiTask.due)<new Date()?" — OVERDUE":""):"")):"Not scheduled"} red={!asiTask} />
                     <Row label="Email / Client Notif." value={emailTask?emailTask.title+" ["+emailTask.status+"]":"Not recorded"} />
@@ -1737,7 +1756,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {/* EVP Q&A */}
                 {v.evpQA?.length>0&&(
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>EVP Q&A ({v.evpQA.length} questions)</div>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>💬 EVP Q&A ({v.evpQA.length} questions)</div>
                     {v.evpQA.map((qa,i)=>(
                       <div key={i} style={{marginBottom:"10px",paddingBottom:"10px",borderBottom:"1px solid var(--border)"}}>
                         <div style={{fontSize:"13px",fontWeight:600,color:"var(--blue)",marginBottom:"4px"}}>{i+1}. {qa.q}</div>
