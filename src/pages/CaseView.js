@@ -1968,95 +1968,117 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const postDetInspections = v.detentionDate?(intel?.inspections||[]).filter(i=>i.inspection_date&&new Date(i.inspection_date)>new Date(v.detentionDate)).sort((a,b)=>new Date(a.inspection_date)-new Date(b.inspection_date)):[];
                   const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
-                  const rows = (label,value,alert)=>"<tr><td style='padding:6px 10px;border:1px solid #999;color:#000;width:220px;background:#f2f2f2;font-weight:bold;'>"+label+"</td><td style='padding:6px 10px;border:1px solid #999;color:"+(alert?"#a30000;font-weight:bold;":"#000;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
-                  const sec = (title,bodyHtml)=>"<div style='margin:0 0 16px;'><p style='font-weight:bold;font-size:12pt;margin:0 0 6px;'>- "+title+"</p>"+bodyHtml+"</div>";
-                  const cell = (v,alert)=>"<td style='padding:6px 10px;border:1px solid #999;color:"+(alert?"#a30000;font-weight:bold;":"#000;")+"'>"+(v==null||v===""?"—":v)+"</td>";
-                  const lbl = (l)=>"<td style='padding:6px 10px;border:1px solid #999;background:#f2f2f2;font-weight:bold;width:210px;'>"+l+"</td>";
-                  const pair = (l1,v1,l2,v2,a1,a2)=>"<tr>"+lbl(l1)+cell(v1,a1)+(l2!=null?lbl(l2)+cell(v2,a2):"<td style='border:1px solid #999;'></td><td style='border:1px solid #999;'></td>")+"</tr>";
-                  const boxHead = (title)=>"<tr><td colspan='4' style='padding:6px 10px;border:1px solid #999;background:#dcdcdc;font-weight:bold;text-align:center;'>"+title+"</td></tr>";
+                  const SEC_COLORS = {admin:"#1e3a5f",detention:"#8b2020",vetting:"#8a5a00",flag:"#0e6b7a",ro:"#5b3a8a",casualty:"#8b2020",mlc:"#8a5a00",disp:"#5b3a8a",flags:"#4a4a4a",rec:"#1e6b45"};
+                  const rows = (label,value,alert)=>"<tr><td style='padding:7px 12px;border:1px solid #ccc;color:#222;width:32%;background:#f4f5f7;font-weight:600;'>"+label+"</td><td style='padding:7px 12px;border:1px solid #ccc;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
+                  const sec = (title,bodyHtml,color)=>{ const c=color||"#333"; return "<div style='margin:0 0 18px;'><p style='font-weight:700;font-size:12.5pt;margin:0 0 8px;padding-left:9px;border-left:4px solid "+c+";color:"+c+";'>"+title+"</p>"+bodyHtml+"</div>"; };
+                  const cell = (v,alert)=>"<td style='padding:7px 12px;border:1px solid #ccc;width:18%;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(v==null||v===""?"—":v)+"</td>";
+                  const lbl = (l)=>"<td style='padding:7px 12px;border:1px solid #ccc;background:#f4f5f7;font-weight:600;color:#222;width:32%;'>"+l+"</td>";
+                  const pair = (l1,v1,l2,v2,a1,a2)=>"<tr>"+lbl(l1)+cell(v1,a1)+(l2!=null?lbl(l2)+cell(v2,a2):"<td style='border:1px solid #ccc;'></td><td style='border:1px solid #ccc;'></td>")+"</tr>";
+                  const boxHead = (title,color)=>"<tr><td colspan='4' style='padding:7px 12px;border:1px solid #ccc;background:"+(color||"#eee")+";color:#fff;font-weight:700;letter-spacing:.03em;'>"+title+"</td></tr>";
+                  const barChart = (title,items,color)=>{
+                    const max = Math.max(1,...items.map(i=>i.v));
+                    return "<div style='margin:0 0 18px;'>"
+                      +"<p style='font-weight:700;font-size:12.5pt;margin:0 0 10px;padding-left:9px;border-left:4px solid "+color+";color:"+color+";'>"+title+"</p>"
+                      +items.map(i=>"<div style='display:flex;align-items:center;margin-bottom:6px;'>"
+                        +"<div style='width:26%;font-size:10pt;color:#333;padding-right:8px;'>"+i.l+"</div>"
+                        +"<div style='flex:1;background:#eee;border-radius:3px;overflow:hidden;height:16px;'><div style='width:"+Math.max(3,(i.v/max*100))+"%;background:"+color+";height:16px;'></div></div>"
+                        +"<div style='width:40px;text-align:right;font-size:10pt;font-weight:700;color:"+color+";padding-left:8px;'>"+i.v+"</div>"
+                        +"</div>").join("")
+                      +"</div>";
+                  };
                   const buildBriefBodyHtml = ()=>{
                     return (
-                      "<p style='margin:0 0 10px;font-weight:bold;'>Internal Use Only</p>"
-                      +"<table style='border-collapse:collapse;width:100%;margin-bottom:16px;'>"
-                      +"<tr><td style='padding:5px 10px;font-weight:bold;width:120px;'>Vessel Name:</td><td style='padding:5px 10px;'>"+v.name+"</td></tr>"
-                      +"<tr><td style='padding:5px 10px;font-weight:bold;'>IMO #:</td><td style='padding:5px 10px;'>"+v.imo+"</td></tr>"
-                      +"<tr><td style='padding:5px 10px;font-weight:bold;'>Date:</td><td style='padding:5px 10px;'>"+(v.detentionDate?fmtDate(v.detentionDate):"—")+"</td></tr>"
-                      +"<tr><td style='padding:5px 10px;font-weight:bold;'>Port:</td><td style='padding:5px 10px;'>"+(v.port||"—")+"</td></tr>"
-                      +"</table>"
-                      +sec("Notes",briefAlerts.length?("<table style='border-collapse:collapse;width:100%;'>"+briefAlerts.map(a=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:"+(a.sev==="red"?"#a30000":"#8a5a00")+";font-weight:bold;'>"+a.msg+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No alerts on this case.</p>")
-                      +sec("Administrative Summary","<table style='border-collapse:collapse;width:100%;'>"
-                        +boxHead("VESSEL DETAILS")
+                      "<div style='background:#1e293b;color:#fff;padding:14px 18px;border-radius:6px;margin-bottom:14px;'>"
+                      +"<div style='font-size:9pt;letter-spacing:.08em;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;'>Internal Use Only</div>"
+                      +"<div style='font-size:16pt;font-weight:700;'>"+v.name+" <span style='font-weight:400;color:#cbd5e1;font-size:11pt;'>· IMO "+v.imo+"</span></div>"
+                      +"<div style='font-size:10pt;color:#cbd5e1;margin-top:3px;'>"+(v.port||"—")+" · "+(v.detentionDate?fmtDate(v.detentionDate):"—")+" · "+(v.mou||"—")+"</div>"
+                      +"</div>"
+                      +"<div style='display:table;width:100%;margin-bottom:16px;border-spacing:8px 0;'>"
+                      +[
+                        {l:"Deficiencies",v:totalDefsCount,c:SEC_COLORS.detention},
+                        {l:"Detainable",v:totalDetainableCount,c:totalDetainableCount>0?SEC_COLORS.detention:SEC_COLORS.rec},
+                        {l:"CAR Status",v:v.carStatus||"Not Received",c:v.carStatus&&v.carStatus!=="Not Received"?SEC_COLORS.rec:SEC_COLORS.detention},
+                        {l:"DPP Risk",v:dppRisk||"—",c:(dppRisk==="High"||dppRisk==="Highest")?SEC_COLORS.detention:SEC_COLORS.rec},
+                      ].map(s=>"<div style='display:table-cell;width:25%;border:1px solid "+s.c+";border-left:4px solid "+s.c+";border-radius:4px;padding:8px 12px;background:"+s.c+"11;'>"
+                        +"<div style='font-size:8.5pt;color:"+s.c+";text-transform:uppercase;letter-spacing:.03em;'>"+s.l+"</div>"
+                        +"<div style='font-size:15pt;font-weight:700;color:"+s.c+";'>"+s.v+"</div></div>").join("")
+                      +"</div>"
+                      +sec("Notes",briefAlerts.length?("<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+briefAlerts.map(a=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:"+(a.sev==="red"?"#a30000":"#8a5a00")+";font-weight:bold;'>"+a.msg+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No alerts on this case.</p>",SEC_COLORS.flags)
+                      +sec("Administrative Summary","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +boxHead("VESSEL DETAILS",SEC_COLORS.admin)
                         +pair("Name",v.name,"RO / Class",v.ro)
                         +pair("IMO #",v.imo,"Age",vesselAge?vesselAge+" yrs":null)
                         +pair("Type",v.type,"Registration Date",v.regDate?fmtDate(v.regDate):null)
                         +pair("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record","Last Detention Port",lastDetention?.port,!!lastDetention)
                         +pair("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):null,null,null)
-                        +boxHead("COMPANY DETAILS")
+                        +boxHead("COMPANY DETAILS",SEC_COLORS.admin)
                         +pair("Company",v.company,"Previous Detentions (36 mo)",intel?.client?.num_dets,false,intel?.client?.num_dets>0)
                         +pair("Liberian Fleet",intel?.client?.vsls_with_insps,"Peer Rank",intel?.client?.peer_rank,false,String(intel?.client?.peer_rank).includes("Bottom"))
                         +pair("Task Owners",v.taskOwners?.join(", "),"Open Tasks",openTasksForCase.length,false,openTasksForCase.length>0)
                         +pair("FSI Case Owner",v.fsiCaseOwner,"PSC Case Owner",v.pscOwner)
-                        +"</table>")
-                      +sec("Company Detention History","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.admin)
+                      +sec("Company Detention History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""),c.detainable>0?true:null)).join(""):rows("Other Cases","None on record"))
-                        +"</table>")
-                      +sec("Detention Details","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.admin)
+                      +(companyHistory.length>0?barChart("Deficiencies by Case — Company History",[{l:v.name+" (this case)",v:totalDefsCount},...companyHistory.slice(0,6).map(c=>({l:c.name,v:c.defs??0}))],SEC_COLORS.admin):"")
+                      +sec("Detention Details","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Date",v.detentionDate,"Port (Country)",v.port)
                         +pair("MoU",v.mou,"PSCO",v.psco)
                         +pair("Total Deficiencies",totalDefsCount,"Total Detainable",totalDetainableCount,false,totalDetainableCount>0)
-                        +"</table>")
-                      +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.detention)
+                      +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
-                        +"</table>")
-                      +sec("Detention Assessment","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.detention)
+                      +sec("Detention Assessment","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("PSC Report Supports Detention?",totalDetainableCount>0?"Detention well-supported by PSC Report":"—","Potential for Appeal",v.appeal)
                         +pair("Release Condition",v.release,null,null)
                         +"</table>"
-                        +(v.detentionNotes?"<p style='margin:10px 0 0;'><b>Detention Notes:</b><br/>"+v.detentionNotes+"</p>":""))
-                      +sec("Vetting Details","<table style='border-collapse:collapse;width:100%;'>"
+                        +(v.detentionNotes?"<p style='margin:10px 0 0;'><b>Detention Notes:</b><br/>"+v.detentionNotes+"</p>":""),SEC_COLORS.detention)
+                      +sec("Vetting Details","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Vessel Risk",dppRisk,"Previous Detentions?",intel?.client?.num_dets>0?"Yes":"No",dppRisk==="High"||dppRisk==="Highest",intel?.client?.num_dets>0)
                         +pair("Dispensations (365d)",intel?.vip?.tech_disp_365,"Open During Detention",v.dispensationOpenAtDetention||"Unknown",intel?.vip?.tech_disp_365>2,v.dispensationOpenAtDetention==="Yes")
                         +pair("Case File Opened?",wasVetted?"Yes":"No","Vetted?",wasVetted?"Yes":"No — not vetted before detention",!wasVetted,!wasVetted)
                         +pair("Vetting Status at Detention",vettingAtDetention?.cf_vetting,"Client Rejection",v.clientRejection,false,!!v.clientRejection)
                         +pair("ASI / Preemptive Insp. Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"),"MoU",v.mou,!asiDone)
                         +pair("CAR Status",v.carStatus||"Not Received","CAR Requested Date",v.carRequestedDate,!v.carStatus||v.carStatus==="Not Received")
-                        +"</table>")
-                      +sec("Vetting Activity — 60 Days Before Detention","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.vetting)
+                      +sec("Vetting Activity — 60 Days Before Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
-                        +"</table>")
-                      +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;'>"
-                        +boxHead("FLAG INSPECTION HISTORY")
+                        +"</table>",SEC_COLORS.vetting)
+                      +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
                         +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No","Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",lastFlagInsp?.num_findings>0,matchingCodes.length>0)
                         +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
-                        +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY")
+                        +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY",SEC_COLORS.ro)
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
-                        +"</table>")
-                      +sec("Full Flag Inspection History","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.flag)
+                      +sec("Full Flag Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(flagInspsSorted.length?flagInspsSorted.map(f=>rows(fmtDate(f.inspection_date),(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—"))).join(""):rows("Flag Inspections","None on record"))
-                        +"</table>")
-                      +sec("Additional / FSI Inspections After Detention","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.flag)
+                      +(flagInspsSorted.length>0?barChart("Flag Inspection Findings Trend",flagInspsSorted.slice(0,8).reverse().map(f=>({l:fmtDate(f.inspection_date),v:f.num_findings??0})),SEC_COLORS.flag):"")
+                      +sec("Additional / FSI Inspections After Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
-                        +"</table>")
-                      +sec("Port History","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.flag)
+                      +sec("Port History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(portHistory.length?portHistory.map(p=>rows(fmtDate(p.inspection_date),p.port+" — "+(p.mou||"")+" — "+(p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"DETAINED":(p.num_findings??0)+" defs"),(p.was_detained===true||String(p.was_detained).toLowerCase()==="true")?true:null)).join(""):rows("Port History","None on record"))
-                        +"</table>")
-                      +sec("RO Survey History","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.flag)
+                      +sec("RO Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +rows("Last RO Survey Date",v.roSurveyDate)+rows("Findings",v.roFindings)+rows("Outstanding Conditions of Class",v.roStatus,v.roStatus?true:null)+rows("Other Findings / Notes",v.roNotes)
-                        +"</table>")
-                      +sec("Vessel Casualty","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.ro)
+                      +sec("Vessel Casualty","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(casualties.length?casualties.map(c=>rows(fmtDate(c.inspection_date),c.inspection_type+(c.finding_note?" — "+c.finding_note:""),true)).join(""):rows("Casualty Records","None on record"))
-                        +"</table>")
-                      +sec("MLC Complaints","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.casualty)
+                      +sec("MLC Complaints","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(mlc.length?mlc.map(m=>rows(m.reported_date,m.mlc_status+(m.inspection_type?" — "+m.inspection_type:""),m.mlc_status==="UNRESOLVED"?true:false)).join(""):rows("MLC Complaints","None on record"))
-                        +"</table>")
-                      +sec("Dispensations","<table style='border-collapse:collapse;width:100%;'>"
+                        +"</table>",SEC_COLORS.mlc)
+                      +sec("Dispensations","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +rows("Dispensations (365d)",intel?.vip?.tech_disp_365,intel?.vip?.tech_disp_365>2?true:null)+rows("Open During Detention",v.dispensationOpenAtDetention||"Unknown",v.dispensationOpenAtDetention==="Yes"?true:null)
                         +rows("Related to This Detention",v.dispensationRelatedToDetention||"Unknown",v.dispensationRelatedToDetention==="Yes"?true:null)+rows("Details",v.dispensation)
-                        +"</table>")
-                      +sec("Case Flags",(v.flags||[]).length?("<table style='border-collapse:collapse;width:100%;'>"+v.flags.map(f=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+f+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No flags on this case.</p>")
-                      +sec("Final Recommendations","<p style='margin:0;'>"+(v.finalRecommendations||"None recorded")+"</p>")
+                        +"</table>",SEC_COLORS.disp)
+                      +sec("Case Flags",(v.flags||[]).length?("<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+v.flags.map(f=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+f+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No flags on this case.</p>",SEC_COLORS.flags)
+                      +sec("Final Recommendations","<p style='margin:0;'>"+(v.finalRecommendations||"None recorded")+"</p>",SEC_COLORS.rec)
                     );
                   };
                   const printBrief = ()=>{
@@ -2066,7 +2088,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const w = window.open("", "_blank", "width=900,height=1000");
                     if (!w) { alert("Please allow pop-ups for this site to export the PDF."); return; }
                     w.document.write("<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title>"
-                      +"<style>@page{margin:0.75in} body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;} table{page-break-inside:avoid;} h2,h3{page-break-after:avoid;}</style>"
+                      +"<style>@page{margin:0.75in} body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:11pt;color:#111;} table{page-break-inside:avoid;} p{page-break-after:avoid;}</style>"
                       +"</head><body>"+buildBriefBodyHtml()+"</body></html>");
                     w.document.close();
                     w.onload = ()=>{ w.focus(); w.print(); };
@@ -2074,7 +2096,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
                   };
                   const downloadWordBrief = ()=>{
-                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:\"Times New Roman\",Times,serif;font-size:12pt;'>"
+                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:Calibri,\"Segoe UI\",Arial,sans-serif;font-size:11pt;color:#111;'>"
                       +buildBriefBodyHtml()
                       +"</body></html>";
                     const blob = new Blob(['\ufeff', html], {type:"application/msword"});
