@@ -1950,10 +1950,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
                   const rows = (label,value,alert)=>"<tr><td style='padding:6px 10px;border:1px solid #999;color:#000;width:220px;background:#f2f2f2;font-weight:bold;'>"+label+"</td><td style='padding:6px 10px;border:1px solid #999;color:"+(alert?"#a30000;font-weight:bold;":"#000;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
-                  let secNum = 0;
-                  const sec = (title,bodyHtml)=>{ secNum++; return "<div style='margin:0 0 16px;'><div style='font-size:12pt;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;border-bottom:1.5px solid #000;padding-bottom:3px;margin-bottom:8px;'>"+secNum+". "+title+"</div>"+bodyHtml+"</div>"; };
+                  const sec = (title,bodyHtml)=>"<div style='margin:0 0 16px;'><p style='font-weight:bold;font-size:12pt;margin:0 0 6px;'>- "+title+"</p>"+bodyHtml+"</div>";
+                  const cell = (v,alert)=>"<td style='padding:6px 10px;border:1px solid #999;color:"+(alert?"#a30000;font-weight:bold;":"#000;")+"'>"+(v==null||v===""?"—":v)+"</td>";
+                  const lbl = (l)=>"<td style='padding:6px 10px;border:1px solid #999;background:#f2f2f2;font-weight:bold;width:210px;'>"+l+"</td>";
+                  const pair = (l1,v1,l2,v2,a1,a2)=>"<tr>"+lbl(l1)+cell(v1,a1)+(l2!=null?lbl(l2)+cell(v2,a2):"<td style='border:1px solid #999;'></td><td style='border:1px solid #999;'></td>")+"</tr>";
+                  const boxHead = (title)=>"<tr><td colspan='4' style='padding:6px 10px;border:1px solid #999;background:#dcdcdc;font-weight:bold;text-align:center;'>"+title+"</td></tr>";
                   const buildBriefBodyHtml = ()=>{
-                    secNum = 0;
                     return (
                       "<p style='margin:0 0 10px;font-weight:bold;'>Internal Use Only</p>"
                       +"<table style='border-collapse:collapse;width:100%;margin-bottom:16px;'>"
@@ -1964,39 +1966,53 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +"</table>"
                       +sec("Notes",briefAlerts.length?("<table style='border-collapse:collapse;width:100%;'>"+briefAlerts.map(a=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:"+(a.sev==="red"?"#a30000":"#8a5a00")+";font-weight:bold;'>"+a.msg+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No alerts on this case.</p>")
                       +sec("Administrative Summary","<table style='border-collapse:collapse;width:100%;'>"
-                        +rows("Vessel Name",v.name)+rows("IMO #",v.imo)+rows("Age",vesselAge?vesselAge+" yrs":"")+rows("RO / Class",v.ro)+rows("Type",v.type)
-                        +rows("Registration Date",v.regDate?fmtDate(v.regDate):"")+rows("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record",!!lastDetention)
-                        +rows("Last Detention Port",lastDetention?.port)+rows("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):"")
-                        +rows("Company",v.company)
-                        +rows("Liberian Fleet",intel?.client?.vsls_with_insps)+rows("Previous Detentions",intel?.client?.num_dets,intel?.client?.num_dets>0)
-                        +rows("Task Owners",v.taskOwners?.join(", "))+rows("FSI Case Owner",v.fsiCaseOwner)+rows("PSC Case Owner",v.pscOwner)+rows("Open Tasks",openTasksForCase.length,openTasksForCase.length>0)
+                        +boxHead("VESSEL DETAILS")
+                        +pair("Name",v.name,"RO / Class",v.ro)
+                        +pair("IMO #",v.imo,"Age",vesselAge?vesselAge+" yrs":null)
+                        +pair("Type",v.type,"Registration Date",v.regDate?fmtDate(v.regDate):null)
+                        +pair("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record","Last Detention Port",lastDetention?.port,!!lastDetention)
+                        +pair("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):null,null,null)
+                        +boxHead("COMPANY DETAILS")
+                        +pair("Company",v.company,"Previous Detentions (36 mo)",intel?.client?.num_dets,false,intel?.client?.num_dets>0)
+                        +pair("Liberian Fleet",intel?.client?.vsls_with_insps,"Peer Rank",intel?.client?.peer_rank,false,String(intel?.client?.peer_rank).includes("Bottom"))
+                        +pair("Task Owners",v.taskOwners?.join(", "),"Open Tasks",openTasksForCase.length,false,openTasksForCase.length>0)
+                        +pair("FSI Case Owner",v.fsiCaseOwner,"PSC Case Owner",v.pscOwner)
                         +"</table>")
                       +sec("Company Detention History","<table style='border-collapse:collapse;width:100%;'>"
                         +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""),c.detainable>0?true:null)).join(""):rows("Other Cases","None on record"))
                         +"</table>")
                       +sec("Detention Details","<table style='border-collapse:collapse;width:100%;'>"
-                        +rows("Date",v.detentionDate)+rows("Port",v.port)+rows("MoU",v.mou)+rows("PSCO",v.psco)
-                        +rows("Total Deficiencies",totalDefsCount)+rows("Total Detainable",totalDetainableCount,totalDetainableCount>0?true:null)
+                        +pair("Date",v.detentionDate,"Port (Country)",v.port)
+                        +pair("MoU",v.mou,"PSCO",v.psco)
+                        +pair("Total Deficiencies",totalDefsCount,"Total Detainable",totalDetainableCount,false,totalDetainableCount>0)
                         +"</table>")
                       +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;'>"
                         +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
                         +"</table>")
                       +sec("Detention Assessment","<table style='border-collapse:collapse;width:100%;'>"
-                        +rows("Potential for Appeal",v.appeal)+rows("Release Condition",v.release)+rows("Detention Notes",v.detentionNotes)
-                        +"</table>")
-                      +sec("Vetting Status (as of detention date)","<table style='border-collapse:collapse;width:100%;'>"
-                        +rows("Vetted",wasVetted?"Yes":"No — not vetted before detention",wasVetted?null:true)+rows("Vetting Status at Detention",vettingAtDetention?.cf_vetting)
-                        +rows("DPP Risk",dppRisk,dppRisk==="High"||dppRisk==="Highest")
-                        +rows("Client Rejection",v.clientRejection,v.clientRejection?true:null)+rows("ASI / Preemptive Insp. Done Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"),asiDone?null:true)
-                        +rows("CAR Status",v.carStatus||"Not Received",v.carStatus&&v.carStatus!=="Not Received"?false:true)+rows("CAR Requested Date",v.carRequestedDate)
+                        +pair("PSC Report Supports Detention?",totalDetainableCount>0?"Detention well-supported by PSC Report":"—","Potential for Appeal",v.appeal)
+                        +pair("Release Condition",v.release,null,null)
+                        +"</table>"
+                        +(v.detentionNotes?"<p style='margin:10px 0 0;'><b>Detention Notes:</b><br/>"+v.detentionNotes+"</p>":""))
+                      +sec("Vetting Details","<table style='border-collapse:collapse;width:100%;'>"
+                        +pair("Vessel Risk",dppRisk,"Previous Detentions?",intel?.client?.num_dets>0?"Yes":"No",dppRisk==="High"||dppRisk==="Highest",intel?.client?.num_dets>0)
+                        +pair("Dispensations (365d)",intel?.vip?.tech_disp_365,"Open During Detention",v.dispensationOpenAtDetention||"Unknown",intel?.vip?.tech_disp_365>2,v.dispensationOpenAtDetention==="Yes")
+                        +pair("Case File Opened?",wasVetted?"Yes":"No","Vetted?",wasVetted?"Yes":"No — not vetted before detention",!wasVetted,!wasVetted)
+                        +pair("Vetting Status at Detention",vettingAtDetention?.cf_vetting,"Client Rejection",v.clientRejection,false,!!v.clientRejection)
+                        +pair("ASI / Preemptive Insp. Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"),"MoU",v.mou,!asiDone)
+                        +pair("CAR Status",v.carStatus||"Not Received","CAR Requested Date",v.carRequestedDate,!v.carStatus||v.carStatus==="Not Received")
                         +"</table>")
                       +sec("Vetting Activity — 60 Days Before Detention","<table style='border-collapse:collapse;width:100%;'>"
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
                         +"</table>")
-                      +sec("Flag Inspection History (Previous to Detention)","<table style='border-collapse:collapse;width:100%;'>"
-                        +rows("Last Flag Inspection Date",lastFlagDate||lastFlagInsp?.inspection_date||"")
-                        +rows("Days Before Detention",daysBeforeDet,daysBeforeDet!=null&&daysBeforeDet<90?true:null)
-                        +rows("Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",matchingCodes.length?true:null)
+                      +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;'>"
+                        +boxHead("FLAG INSPECTION HISTORY")
+                        +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
+                        +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No","Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",lastFlagInsp?.num_findings>0,matchingCodes.length>0)
+                        +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
+                        +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY")
+                        +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
+                        +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
                         +"</table>")
                       +sec("Full Flag Inspection History","<table style='border-collapse:collapse;width:100%;'>"
                         +(flagInspsSorted.length?flagInspsSorted.map(f=>rows(fmtDate(f.inspection_date),(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—"))).join(""):rows("Flag Inspections","None on record"))
