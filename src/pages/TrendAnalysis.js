@@ -227,14 +227,29 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   const totalDetentions = detained.length;
   const avgPerMonth = (() => {
-    const activeMonths = monthData.filter(m=>m.count>0).length || monthData.length;
-    const total = monthData.reduce((a,m)=>a+m.count,0);
-    return activeMonths ? (total/activeMonths).toFixed(1) : 0;
+    const monthsSet = {};
+    detained.forEach(v => {
+      if (v.detentionDate && String(v.detentionDate).match(/^\d{4}-\d{2}/)) {
+        const key = String(v.detentionDate).slice(0,7); // YYYY-MM, across every year present
+        monthsSet[key] = (monthsSet[key]||0)+1;
+      }
+    });
+    const activeMonths = Object.keys(monthsSet).length || 1;
+    const total = Object.values(monthsSet).reduce((a,b)=>a+b,0);
+    return (total/activeMonths).toFixed(1);
   })();
   const currentYearAvgDefs = (() => {
     const yr = new Date().getFullYear().toString();
     const row = yoyData.find(y=>y.year===yr);
     return row ? row.avgDefs : "—";
+  })();
+  const currentYearDefsPct = (() => {
+    const yr = new Date().getFullYear().toString();
+    const idx = yoyData.findIndex(y=>y.year===yr);
+    if (idx<1) return null; // no prior year to compare
+    const cur = yoyData[idx], prev = yoyData[idx-1];
+    if (!prev.totalDefs) return null;
+    return Math.round((cur.totalDefs-prev.totalDefs)/prev.totalDefs*100);
   })();
   const currentYearAvgPerMonth = (() => {
     const yr = new Date().getFullYear().toString();
@@ -261,12 +276,11 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </div>
 
       {/* KPI row — right under the header, like Home dashboard */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"14px"}}>
-        <Stat l="Total Detentions" v={totalDetentions} s={selectedYear==="All"?"All years":selectedYear} />
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
+        <Stat l="Total Detentions" v={totalDetentions} s={selectedYear==="All"?yoyData.map(y=>y.year+": "+y.count).join(" · "):selectedYear} />
         <Stat l="Avg / Month (selected range)" v={avgPerMonth} s="follows Year filter above" />
         <Stat l={"Avg Detentions/Mo. ("+new Date().getFullYear()+" YTD)"} v={currentYearAvgPerMonth} s="always current year" />
-        <Stat l={"Avg Def./Detention ("+new Date().getFullYear()+" YTD)"} v={currentYearAvgDefs} s="fleet-wide, YTD-aligned" />
-        <Stat l="Weekend Detentions" v={weekendVsWeekday.weekendPct+"%"} s={weekendVsWeekday.weekend+" of "+totalDetentions} c={weekendVsWeekday.weekendPct>30?"var(--amber2)":"var(--text)"} />
+        <Stat l={"Avg Def./Detention ("+new Date().getFullYear()+" YTD)"} v={currentYearAvgDefs} s={currentYearDefsPct!=null?(currentYearDefsPct>0?"+":"")+currentYearDefsPct+"% total defs vs prior yr":"fleet-wide, YTD-aligned"} c={currentYearDefsPct>0?"var(--red2)":currentYearDefsPct<0?"var(--green2)":"var(--text)"} />
         <Stat l="Repeat Vessels" v={topVessels.length} s="detained 2+ times" c={topVessels.length>0?"var(--red2)":"var(--green2)"} />
       </div>
 
