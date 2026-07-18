@@ -59,9 +59,12 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return d.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
   }, [vessels, selectedYear]);
 
+  // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
+  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
   // ---- Repeat deficiency codes (fleet-wide, broken down by year — uses all detained vessels regardless of Year filter) ----
   const defectCodeByYear = useMemo(() => {
-    const allDetained = vessels.filter(v=>v.detained);
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
     const byCode = {};
     allDetained.forEach(v => {
       if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
@@ -75,7 +78,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       });
     });
     return Object.values(byCode).sort((a,b)=>b.total-a.total).slice(0,12);
-  }, [vessels]);
+  }, [vessels, todayMD]);
 
   // ---- Detention rate by MoU (detentions / total inspections) ----
   useEffect(() => {
@@ -94,9 +97,6 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     })();
     return () => { cancelled = true; };
   }, [detained]);
-
-  // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
-  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
 
   // ---- Year-over-year comparison (YTD-aligned, always all years, independent of filter) ----
   const yoyData = useMemo(() => {
@@ -422,7 +422,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
               </tr>
             ))}</tbody>
           </table>}
-          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Sourced from each vessel's own deficiency records, all years combined and broken out by year.</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Sourced from each vessel's own deficiency records, YTD-aligned per year so a partial current year isn't undercounted.</div>
         </Card>
       </div>
 
