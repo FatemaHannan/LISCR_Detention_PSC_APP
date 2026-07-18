@@ -283,17 +283,6 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count).slice(0,10);
   }, [detained]);
 
-  // ---- Inspection monitoring ----
-  const overdueActions = useMemo(() => tasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()), [tasks]);
-  const upcomingInspections = useMemo(() => tasks.filter(t=>{
-    const isInsp = ((t.title||"")+" "+(t.actions||"")).toLowerCase().match(/asi|preemptive|pesi/);
-    if (!isInsp || !t.due || t.status==="Executed") return false;
-    const due = new Date(t.due);
-    const daysOut = Math.floor((due-new Date())/86400000);
-    return daysOut >= 0 && daysOut <= 30;
-  }).sort((a,b)=>new Date(a.due)-new Date(b.due)), [tasks]);
-  const pendingReviews = useMemo(() => detained.filter(v=>v.carStatus==="Received"), [detained]);
-
   const totalDetentions = detained.length;
   const avgPerMonth = (() => {
     const activeMonths = monthData.filter(m=>m.count>0).length || monthData.length;
@@ -512,43 +501,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         </Card>
       </div>
 
-      {/* Section 5: Inspection Monitoring */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Inspection Monitoring<ScopeBadge filtered={false} /></div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"20px"}}>
-        <Card title={"Upcoming Inspections ("+upcomingInspections.length+")"}>
-          <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>ASI / PESI tasks due within 30 days</div>
-          {upcomingInspections.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>None scheduled in the next 30 days.</div>:
-          upcomingInspections.slice(0,8).map((t,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--border)",fontSize:"12px"}}>
-              <span style={{color:"var(--text2)"}}>{t.vessel||t.title}</span>
-              <span style={{color:"var(--amber2)",fontFamily:"var(--mono)"}}>{t.due}</span>
-            </div>
-          ))}
-        </Card>
-        <Card title={"Pending Reviews ("+pendingReviews.length+")"}>
-          <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>CAR received, awaiting acceptance decision</div>
-          {pendingReviews.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>None pending.</div>:
-          pendingReviews.slice(0,8).map((v,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--border)",fontSize:"12px"}}>
-              <span style={{color:"var(--text2)"}}>{v.name}</span>
-              <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.detentionDate}</span>
-            </div>
-          ))}
-        </Card>
-        <Card title={"Overdue Actions ("+overdueActions.length+")"}>
-          <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>Open tasks past their due date</div>
-          {overdueActions.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>None overdue.</div>:
-          overdueActions.slice(0,8).map((t,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid var(--border)",fontSize:"12px"}}>
-              <span style={{color:"var(--text2)"}}>{t.vessel||t.title}</span>
-              <span style={{color:"var(--red2)",fontFamily:"var(--mono)"}}>{t.due}</span>
-            </div>
-          ))}
-        </Card>
-      </div>
-
       {/* Section 6: Fleet Composition & Case Ownership Trends */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Fleet Composition & Case Ownership Trends</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Fleet Composition & Case Ownership Trends</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
         <YearBreakdownTable title="Detentions by Vessel Type" rows={vesselTypeByYear} keyLabel="Vessel Type" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />
         <YearBreakdownTable title="Detentions by Vessel Age" subtitle="Age bracket at time of detention" rows={ageByYear} keyLabel="Age Bracket" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />

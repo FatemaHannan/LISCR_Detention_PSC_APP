@@ -10,9 +10,7 @@ import VIPProtocol from "./pages/VIPProtocol";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import PatternDetection from "./pages/PatternDetection";
-import TrendAnalysis from "./pages/TrendAnalysis";
-import MouDetentionReport from "./pages/MouDetentionReport";
-import PerformanceReview from "./pages/PerformanceReview";
+import TrendAnalysisHub from "./pages/TrendAnalysisHub";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
 import { MASTER_PROMPT } from "./lib/masterPrompt";
@@ -39,8 +37,6 @@ const NAV = [
   ]},
   { section:"INTELLIGENCE", items:[
     { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
-    { id:"mou", label:"Detention Trend by MoU", icon:"ti-map-pin", badge:null },
-    { id:"perf", label:"Performance Review", icon:"ti-report-analytics", badge:null },
     { id:"patterns", label:"Pattern detection", icon:"ti-scan", badge:{n:2,c:"nb-r"} },
     { id:"ais", label:"AIS monitor", icon:"ti-radar", badge:{n:2,c:"nb-r"} },
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
@@ -805,9 +801,7 @@ export default function App() {
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
-          {page === "trends" && <TrendAnalysis vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
-          {page === "mou" && <MouDetentionReport vessels={fleetVessels||[]} />}
-          {page === "perf" && <PerformanceReview vessels={fleetVessels||[]} />}
+          {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
