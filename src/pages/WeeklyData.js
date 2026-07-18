@@ -238,35 +238,33 @@ const UPLOADS = [
   },
   {
     key: "dpp_case_files",
-    onConflictKey: "imo,created_date,case_file_port,mou_zone,action_type",
-    label: "DPP Case File History (Vetting)",
-    desc: "Weekly vetting export — case file status, MoU zone, action queue, vessel note history",
+    onConflictKey: "imo,inspection_date,port",
+    label: "DPP Case File PSC Detention Count",
+    desc: "Weekly PSC inspection/detention export — vessel, port, MoU, deficiency count, detained flag, CAR & case action status",
     icon: "ti-radar", color: "var(--amber2)", bg: "var(--amber-bg)",
     table: "dpp_case_files",
     exportColumns: {
-      created_date:"Created", days_ago:"Days Ago", cf_eta:"CF ETA", eta_span:"ETA Span",
-      mou_zone:"Mou Zone", action_type:"Action Type", action_status:"Action Status",
-      case_file_port:"Case File Port", cf_vetting:"CF - Vetting",
-      latest_case_file_note:"Latest Case File Note", casefile_type:"CaseFile Type",
-      last_updated_date:"Last Updated", vessel:"Vessel", imo:"IMO", risk_level_at_time:"Risk Level",
+      vessel:"Vessel Name", imo:"IMO Number", inspection_date:"Inspection Date", port:"Port", mou:"MOU",
+      num_deficiencies:"Number Of Deficiencies", detained:"Detained", psc_vessel_owner:"PSC Vessel Owner",
+      psc_report_status:"PSC Report Status", inspection_type:"Inspection Type", car_status:"CAR Status",
+      case_action_type:"Case Action Type", case_action_status:"Case Action Status", flag_state:"Flag",
     },
-    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO"]||r["imo"]),
+    filter: (r) => s(r["Vessel Name"]||r["vessel"]) && s(r["IMO Number"]||r["imo"]),
     map: (r) => ({
-      vessel: s(r["Vessel"]||r["vessel"]),
-      imo: imo(r["IMO"]||r["imo"]),
-      created_date: d(r["Created"]||r["created_date"]),
-      days_ago: r["Days Ago"]===""||r["Days Ago"]==null ? null : i(r["Days Ago"]),
-      cf_eta: d(r["CF ETA"]||r["cf_eta"]),
-      eta_span: r["ETA Span"]===""||r["ETA Span"]==null ? null : i(r["ETA Span"]),
-      mou_zone: s(r["Mou Zone"]||r["mou_zone"]),
-      action_type: s(r["Action Type"]||r["action_type"]),
-      action_status: s(r["Action Status"]||r["action_status"]),
-      case_file_port: s(r["Case File Port"]||r["case_file_port"]),
-      cf_vetting: s(r["CF - Vetting"]||r["cf_vetting"]),
-      latest_case_file_note: s(r["Latest Case File Note"]||r["latest_case_file_note"]),
-      casefile_type: s(r["CaseFile Type"]||r["casefile_type"]),
-      last_updated_date: d(r["Last Updated"]||r["last_updated_date"]),
-      risk_level_at_time: s(r["Risk Level"]||r["risk_level_at_time"]),
+      vessel: s(r["Vessel Name"]||r["vessel"]),
+      imo: imo(r["IMO Number"]||r["imo"]),
+      inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
+      port: s(r["Port"]||r["port"]),
+      mou: s(r["MOU"]||r["mou"]),
+      num_deficiencies: i(r["Number Of Deficiencies"]||r["num_deficiencies"]),
+      detained: s(r["Detained"]||r["detained"]),
+      psc_vessel_owner: s(r["PSC Vessel Owner"]||r["psc_vessel_owner"]),
+      psc_report_status: s(r["PSC Report Status"]||r["psc_report_status"]),
+      inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
+      car_status: s(r["CAR Status"]||r["car_status"]),
+      case_action_type: s(r["Case Action Type"]||r["case_action_type"]),
+      case_action_status: s(r["Case Action Status"]||r["case_action_status"]),
+      flag_state: s(r["Flag"]||r["flag_state"]),
     }),
   },
   {
@@ -624,10 +622,10 @@ export default function WeeklyData({ currentUser }) {
         } catch(syncErr) { console.warn("CVD company sync:", syncErr); }
       }
 
-      // Note: dpp_case_files (weekly vetting export) intentionally does NOT
-      // auto-create or modify vessel/detention records. It's a routine case-file
-      // and vetting-status feed, not a detention report — most rows have no
-      // detention at all. Its data surfaces read-only in the Vetting Status tab.
+      // Note: dpp_case_files (weekly "DPP Case File PSC Detention Count" export)
+      // intentionally does NOT auto-create or modify vessel/detention records.
+      // It's a raw inspection/detention count feed for reporting, not a substitute
+      // for the main Weekly Data detention import.
 
       const uploadTime = new Date().toLocaleString();
       const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
