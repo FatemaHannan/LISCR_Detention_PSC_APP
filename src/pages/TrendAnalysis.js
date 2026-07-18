@@ -1,8 +1,18 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const AGE_BRACKET_ORDER = ["0-5 yrs","6-10 yrs","11-15 yrs","16-20 yrs","21-25 yrs","26+ yrs","Unknown"];
+function ageBracket(age) {
+  if (age==null || isNaN(age)) return "Unknown";
+  if (age<=5) return "0-5 yrs";
+  if (age<=10) return "6-10 yrs";
+  if (age<=15) return "11-15 yrs";
+  if (age<=20) return "16-20 yrs";
+  if (age<=25) return "21-25 yrs";
+  return "26+ yrs";
+}
 
 function extractCountry(port) {
   if (!port || port === "—") return "Unknown";
@@ -11,10 +21,13 @@ function extractCountry(port) {
   return parts[parts.length-1];
 }
 
-function Card({ title, children, style }) {
+function Card({ title, subtitle, children, style }) {
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",...style}}>
-      <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>{title}</div>
+      <div style={{marginBottom:"12px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>
+        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em"}}>{title}</div>
+        {subtitle&&<div style={{fontSize:"10px",color:"var(--text3)",marginTop:"3px",textTransform:"none",letterSpacing:"normal"}}>{subtitle}</div>}
+      </div>
       {children}
     </div>
   );
@@ -27,6 +40,24 @@ function Stat({ l, v, s, c }) {
       <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:c||"var(--text)",lineHeight:1}}>{v}</div>
       {s&&<div style={{fontSize:"11px",color:"var(--text3)",marginTop:"3px"}}>{s}</div>}
     </div>
+  );
+}
+
+function YearBreakdownTable({ title, subtitle, rows, keyLabel, years, currentYear }) {
+  return (
+    <Card title={<>{title}<ScopeBadge filtered={false} /></>} subtitle={subtitle}>
+      {rows.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No data available.</div>:
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+        <thead><tr>{[keyLabel,...years,"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:h===currentYear?"var(--blue)":"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}{h===currentYear?" (YTD)":""}</th>)}</tr></thead>
+        <tbody>{rows.map(r=>(
+          <tr key={r.key} style={{borderBottom:"1px solid var(--border)"}}>
+            <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{r.key}</td>
+            {years.map(y=><td key={y} style={{padding:"7px 10px",color:y===currentYear?"var(--blue)":"var(--text2)",fontWeight:y===currentYear?600:400}}>{r.years[y]||0}</td>)}
+            <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{r.total}</td>
+          </tr>
+        ))}</tbody>
+      </table>}
+    </Card>
   );
 }
 
@@ -45,6 +76,7 @@ function ScopeBadge({ filtered }) {
 export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [selectedYear, setSelectedYear] = useState("All");
   const [mouRates, setMouRates] = useState([]);
+  const [ageMap, setAgeMap] = useState({});
   const [rateLoading, setRateLoading] = useState(true);
 
   const availableYears = useMemo(() => {
@@ -61,6 +93,21 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
+  // ---- Vessel age lookup (not in the bulk vessels table, needs a separate query against client_vessel_details) ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(vessels.filter(v=>v.detained && v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("client_vessel_details").select("imo,age").in("imo", imos);
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(d => { if (d.age!=null) map[d.imo] = d.age; });
+      setAgeMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [vessels]);
 
   // ---- Repeat deficiency codes (fleet-wide, broken down by year — uses all detained vessels regardless of Year filter) ----
   const defectCodeByYear = useMemo(() => {
@@ -79,6 +126,30 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     });
     return Object.values(byCode).sort((a,b)=>b.total-a.total).slice(0,12);
   }, [vessels, todayMD]);
+
+  // ---- Generic YTD-aligned "group by X, per year" builder ----
+  const groupByYear = useCallback((getKey, limit) => {
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
+    const byKey = {};
+    allDetained.forEach(v => {
+      if (!String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const key = getKey(v) || "Unknown";
+      if (!byKey[key]) byKey[key] = { key, years:{}, total:0 };
+      byKey[key].years[yr] = (byKey[key].years[yr]||0)+1;
+      byKey[key].total++;
+    });
+    const sorted = Object.values(byKey).sort((a,b)=>b.total-a.total);
+    return limit ? sorted.slice(0, limit) : sorted;
+  }, [vessels, todayMD]);
+
+  const vesselTypeByYear = useMemo(() => groupByYear(v=>v.type&&v.type!=="—"?v.type:"Unknown"), [groupByYear]);
+  const ageByYear = useMemo(() => {
+    const rows = groupByYear(v=>ageBracket(ageMap[v.imo]));
+    return rows.slice().sort((a,b)=>AGE_BRACKET_ORDER.indexOf(a.key)-AGE_BRACKET_ORDER.indexOf(b.key));
+  }, [groupByYear, ageMap]);
+  const fsiOwnerByYear = useMemo(() => groupByYear(v=>v.fsiCaseOwner||"Unassigned"), [groupByYear]);
+  const pscOwnerByYear = useMemo(() => groupByYear(v=>v.pscOwner||"Unassigned"), [groupByYear]);
 
   // ---- Detention rate by MoU (detentions / total inspections) ----
   useEffect(() => {
@@ -474,6 +545,17 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             </div>
           ))}
         </Card>
+      </div>
+
+      {/* Section 6: Fleet Composition & Case Ownership Trends */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Fleet Composition & Case Ownership Trends</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+        <YearBreakdownTable title="Detentions by Vessel Type" rows={vesselTypeByYear} keyLabel="Vessel Type" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />
+        <YearBreakdownTable title="Detentions by Vessel Age" subtitle="Age bracket at time of detention" rows={ageByYear} keyLabel="Age Bracket" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <YearBreakdownTable title="Detentions by FSI Case Owner" rows={fsiOwnerByYear} keyLabel="FSI Case Owner" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />
+        <YearBreakdownTable title="Detentions by PSC Case Owner" rows={pscOwnerByYear} keyLabel="PSC Case Owner" years={availableYears.slice().reverse()} currentYear={String(new Date().getFullYear())} />
       </div>
     </div>
   );
