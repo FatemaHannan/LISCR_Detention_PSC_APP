@@ -96,9 +96,12 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return () => { cancelled = true; };
   }, [detained]);
 
-  // ---- Year-over-year comparison (always all years, independent of filter) ----
+  // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
+  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
+  // ---- Year-over-year comparison (YTD-aligned, always all years, independent of filter) ----
   const yoyData = useMemo(() => {
-    const allDetained = vessels.filter(v=>v.detained);
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
     const byYear = {};
     allDetained.forEach(v => {
       if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
@@ -117,9 +120,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       carRate: y.count ? Math.round(y.carComplete/y.count*100) : 0,
       weekendPct: y.count ? Math.round(y.weekend/y.count*100) : 0,
     }));
-  }, [vessels]);
+  }, [vessels, todayMD]);
 
-  // ---- Multi-year monthly overlay (Jan-Dec rows, one column per year) ----
+  // ---- Multi-year monthly overlay (Jan-Dec rows, one column per year) — full year, not YTD-capped, since a chart makes a partial year self-evident ----
   const yearOverlayData = useMemo(() => {
     const allDetained = vessels.filter(v=>v.detained);
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -135,9 +138,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return { grid, years: [...years].sort() };
   }, [vessels]);
 
-  // ---- PSC authority trend (most recent year vs prior year, per MoU) ----
+  // ---- PSC authority trend (most recent year vs prior year, per MoU, YTD-aligned) ----
   const mouTrend = useMemo(() => {
-    const allDetained = vessels.filter(v=>v.detained);
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
     const byMouYear = {};
     allDetained.forEach(v => {
       if (!v.mou || !v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
@@ -159,7 +162,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       }
       return { mou, total, trend, trendColor };
     }).sort((a,b)=>b.total-a.total);
-  }, [vessels]);
+  }, [vessels, todayMD]);
 
   const monthData = useMemo(() => {
     const months = {};
@@ -241,7 +244,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </div>
 
       {/* Year-over-Year Comparison — always shows every year, independent of the filter above */}
-      <Card title="Year-over-Year Comparison" style={{marginBottom:"20px"}}>
+      <Card title="Year-over-Year Comparison (YTD-aligned)" style={{marginBottom:"20px"}}>
         {yoyData.length<1?<div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough dated detention records to compare years.</div>:(
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies","CAR Complete Rate","Weekend %"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
@@ -344,7 +347,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </ResponsiveContainer>
         </Card>
       </div>
-      <Card title="PSC Authority Trend (latest year vs prior year)" style={{marginBottom:"20px"}}>
+      <Card title="PSC Authority Trend (latest year vs prior year, YTD-aligned)" style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["PSC Authority","Detentions","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
           <tbody>{mouTrend.map(m=>(
@@ -355,7 +358,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             </tr>
           ))}</tbody>
         </table>
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares each authority's most recent full year to the year before it (±10% = Stable).</div>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares each authority's most recent year to the year before it, both counted through the same day of year (YTD), so a partial current year isn't unfairly compared against a full prior year (±10% = Stable).</div>
       </Card>
 
       {/* Section 3: Time Pattern Analysis */}
