@@ -30,13 +30,26 @@ function Stat({ l, v, s, c }) {
   );
 }
 
+const CHART_COLORS = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#06b6d4","#ec4899","#84cc16"];
+
 export default function TrendAnalysis({ vessels = [], tasks = [] }) {
+  const [selectedYear, setSelectedYear] = useState("All");
   const [defectCodeData, setDefectCodeData] = useState([]);
   const [defectLoading, setDefectLoading] = useState(true);
   const [mouRates, setMouRates] = useState([]);
   const [rateLoading, setRateLoading] = useState(true);
 
-  const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    vessels.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
+    return [...years].sort((a,b)=>b.localeCompare(a));
+  }, [vessels]);
+
+  const detained = useMemo(() => {
+    const d = vessels.filter(v=>v.detained);
+    if (selectedYear === "All") return d;
+    return d.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
+  }, [vessels, selectedYear]);
 
   // ---- Repeat deficiency codes (fleet-wide) ----
   useEffect(() => {
@@ -83,7 +96,44 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return () => { cancelled = true; };
   }, [detained]);
 
-  // ---- Monthly trend ----
+  // ---- Year-over-year comparison (always all years, independent of filter) ----
+  const yoyData = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained);
+    const byYear = {};
+    allDetained.forEach(v => {
+      if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      if (!byYear[yr]) byYear[yr] = { year: yr, count: 0, totalDefs: 0, detainableTotal: 0, carComplete: 0, weekend: 0 };
+      byYear[yr].count++;
+      byYear[yr].totalDefs += v.defs||0;
+      byYear[yr].detainableTotal += v.detainable||0;
+      if (v.carStatus === "Complete") byYear[yr].carComplete++;
+      const dow = new Date(v.detentionDate).getDay();
+      if (dow===0||dow===6) byYear[yr].weekend++;
+    });
+    return Object.values(byYear).sort((a,b)=>a.year.localeCompare(b.year)).map(y => ({
+      ...y,
+      avgDefs: y.count ? (y.totalDefs/y.count).toFixed(1) : "—",
+      carRate: y.count ? Math.round(y.carComplete/y.count*100) : 0,
+      weekendPct: y.count ? Math.round(y.weekend/y.count*100) : 0,
+    }));
+  }, [vessels]);
+
+  // ---- Multi-year monthly overlay (Jan-Dec rows, one column per year) ----
+  const yearOverlayData = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained);
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const grid = monthNames.map(m => ({ month: m }));
+    const years = new Set();
+    allDetained.forEach(v => {
+      if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}-\d{2}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const mo = parseInt(String(v.detentionDate).slice(5,7))-1;
+      years.add(yr);
+      grid[mo][yr] = (grid[mo][yr]||0) + 1;
+    });
+    return { grid, years: [...years].sort() };
+  }, [vessels]);
   const monthData = useMemo(() => {
     const months = {};
     detained.forEach(v => {
@@ -129,9 +179,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   // ---- Top vessels (repeat detentions) ----
   const topVessels = useMemo(() => {
     const counts = {};
-    vessels.forEach(v => { if (v.imo) { counts[v.imo] = counts[v.imo] || { name:v.name, imo:v.imo, count:0 }; counts[v.imo].count++; } });
+    detained.forEach(v => { if (v.imo) { counts[v.imo] = counts[v.imo] || { name:v.name, imo:v.imo, count:0 }; counts[v.imo].count++; } });
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count).slice(0,10);
-  }, [vessels]);
+  }, [detained]);
 
   // ---- Inspection monitoring ----
   const overdueActions = useMemo(() => tasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()), [tasks]);
@@ -149,20 +199,72 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   return (
     <div className="pg active">
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Trend Analysis Dashboard</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and why detentions are happening — live from Supabase</div>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
+        <div>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Trend Analysis Dashboard</div>
+          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and why detentions are happening — live from Supabase</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
+          <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"6px 10px"}}>
+            <option value="All">All Years</option>
+            {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
       </div>
 
+      {/* Year-over-Year Comparison — always shows every year, independent of the filter above */}
+      <Card title="Year-over-Year Comparison" style={{marginBottom:"20px"}}>
+        {yoyData.length<1?<div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough dated detention records to compare years.</div>:(
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies","CAR Complete Rate","Weekend %"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{yoyData.map((y,i)=>{
+            const prev = yoyData[i-1];
+            const delta = prev ? Math.round((y.count-prev.count)/prev.count*100) : null;
+            return (
+              <tr key={y.year} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{y.year}</td>
+                <td style={{padding:"8px 10px",color:"var(--text)",fontFamily:"var(--mono)"}}>{y.count}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:delta==null?"var(--text3)":delta>0?"var(--red2)":delta<0?"var(--green2)":"var(--text3)",fontWeight:600}}>{delta==null?"—":(delta>0?"+":"")+delta+"%"}</td>
+                <td style={{padding:"8px 10px",color:"var(--text2)"}}>{y.avgDefs}</td>
+                <td style={{padding:"8px 10px",color:y.carRate>=70?"var(--green2)":y.carRate>=50?"var(--amber2)":"var(--red2)"}}>{y.carRate}%</td>
+                <td style={{padding:"8px 10px",color:"var(--text2)"}}>{y.weekendPct}%</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+        )}
+      </Card>
+      <Card title="Detentions by Month — Year over Year" style={{marginBottom:"20px"}}>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={yearOverlayData.grid}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            {yearOverlayData.years.map((yr,i)=>(
+              <Line key={yr} type="monotone" dataKey={yr} stroke={CHART_COLORS[i%CHART_COLORS.length]} strokeWidth={2} dot={{r:2}} connectNulls />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+        <div style={{display:"flex",gap:"14px",marginTop:"8px",flexWrap:"wrap"}}>
+          {yearOverlayData.years.map((yr,i)=>(
+            <div key={yr} style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"11px",color:"var(--text3)"}}>
+              <span style={{width:"10px",height:"10px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{yr}
+            </div>
+          ))}
+        </div>
+      </Card>
+
       {/* Section 1: Detention Overview */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"}}>
-        <Stat l="Total Detentions" v={totalDetentions} s="YTD" />
-        <Stat l="Avg / Month" v={avgPerMonth} s="last 12 months" />
+        <Stat l="Total Detentions" v={totalDetentions} s={selectedYear==="All"?"All years":selectedYear} />
+        <Stat l="Avg / Month" v={avgPerMonth} s="in selected range" />
         <Stat l="Weekend Detentions" v={weekendVsWeekday.weekendPct+"%"} s={weekendVsWeekday.weekend+" of "+totalDetentions} c={weekendVsWeekday.weekendPct>30?"var(--amber2)":"var(--text)"} />
         <Stat l="Repeat Vessels" v={topVessels.length} s="detained 2+ times" c={topVessels.length>0?"var(--red2)":"var(--green2)"} />
       </div>
-      <Card title="Monthly Detention Trend (12 mo)" style={{marginBottom:"14px"}}>
+      <Card title={"Monthly Detention Trend"+(selectedYear!=="All"?" — "+selectedYear:" (last 12 mo)")} style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
