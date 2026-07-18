@@ -165,18 +165,18 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   }, [vessels, todayMD]);
 
   const monthData = useMemo(() => {
-    const months = {};
+    const targetYear = selectedYear !== "All" ? selectedYear : new Date().getFullYear().toString();
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const grid = monthNames.map(mn => ({ month: mn, count: 0 }));
     detained.forEach(v => {
-      if (v.detentionDate && String(v.detentionDate).match(/^\d{4}-\d{2}/)) {
-        const m = String(v.detentionDate).slice(0,7);
-        months[m] = (months[m]||0)+1;
+      if (v.detentionDate && String(v.detentionDate).slice(0,4) === targetYear) {
+        const moIdx = parseInt(String(v.detentionDate).slice(5,7))-1;
+        if (moIdx>=0 && moIdx<12) grid[moIdx].count++;
       }
     });
-    return Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-12).map(([m,count])=>{
-      const mn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1];
-      return { month: mn+"'"+m.slice(2,4), count };
-    });
-  }, [detained]);
+    return grid;
+  }, [detained, selectedYear]);
+  const monthDataYear = selectedYear !== "All" ? selectedYear : new Date().getFullYear().toString();
 
   // ---- Day of week + weekend/weekday ----
   const dowData = useMemo(() => {
@@ -225,7 +225,11 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const pendingReviews = useMemo(() => detained.filter(v=>v.carStatus==="Received"), [detained]);
 
   const totalDetentions = detained.length;
-  const avgPerMonth = monthData.length ? (monthData.reduce((a,m)=>a+m.count,0)/monthData.length).toFixed(1) : 0;
+  const avgPerMonth = (() => {
+    const activeMonths = monthData.filter(m=>m.count>0).length || monthData.length;
+    const total = monthData.reduce((a,m)=>a+m.count,0);
+    return activeMonths ? (total/activeMonths).toFixed(1) : 0;
+  })();
 
   return (
     <div className="pg active">
@@ -294,7 +298,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         <Stat l="Weekend Detentions" v={weekendVsWeekday.weekendPct+"%"} s={weekendVsWeekday.weekend+" of "+totalDetentions} c={weekendVsWeekday.weekendPct>30?"var(--amber2)":"var(--text)"} />
         <Stat l="Repeat Vessels" v={topVessels.length} s="detained 2+ times" c={topVessels.length>0?"var(--red2)":"var(--green2)"} />
       </div>
-      <Card title={"Monthly Detention Trend"+(selectedYear!=="All"?" — "+selectedYear:" (last 12 mo)")} style={{marginBottom:"14px"}}>
+      <Card title={"Monthly Detention Trend — Jan-Dec "+monthDataYear} style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
