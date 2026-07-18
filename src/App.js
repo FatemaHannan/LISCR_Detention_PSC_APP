@@ -11,7 +11,7 @@ import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import PatternDetection from "./pages/PatternDetection";
 import TrendAnalysis from "./pages/TrendAnalysis";
-import ChinaDetentionReport from "./pages/ChinaDetentionReport";
+import MouDetentionReport from "./pages/MouDetentionReport";
 import PerformanceReview from "./pages/PerformanceReview";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
@@ -39,7 +39,7 @@ const NAV = [
   ]},
   { section:"INTELLIGENCE", items:[
     { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
-    { id:"china", label:"China Detention Report", icon:"ti-map-pin", badge:null },
+    { id:"mou", label:"MoU Detention Report", icon:"ti-map-pin", badge:null },
     { id:"perf", label:"Performance Review", icon:"ti-report-analytics", badge:null },
     { id:"patterns", label:"Pattern detection", icon:"ti-scan", badge:{n:2,c:"nb-r"} },
     { id:"ais", label:"AIS monitor", icon:"ti-radar", badge:{n:2,c:"nb-r"} },
@@ -806,7 +806,7 @@ export default function App() {
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
           {page === "trends" && <TrendAnalysis vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
-          {page === "china" && <ChinaDetentionReport vessels={fleetVessels||[]} />}
+          {page === "mou" && <MouDetentionReport vessels={fleetVessels||[]} />}
           {page === "perf" && <PerformanceReview vessels={fleetVessels||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
