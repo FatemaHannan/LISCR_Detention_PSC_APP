@@ -229,6 +229,11 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     const total = monthData.reduce((a,m)=>a+m.count,0);
     return activeMonths ? (total/activeMonths).toFixed(1) : 0;
   })();
+  const currentYearAvgDefs = (() => {
+    const yr = new Date().getFullYear().toString();
+    const row = yoyData.find(y=>y.year===yr);
+    return row ? row.avgDefs : "—";
+  })();
 
   return (
     <div className="pg active">
@@ -289,9 +294,10 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
       {/* Section 1: Detention Overview */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}<ScopeBadge filtered={true} /></div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
         <Stat l="Total Detentions" v={totalDetentions} s={selectedYear==="All"?"All years":selectedYear} />
         <Stat l="Avg / Month" v={avgPerMonth} s="in selected range" />
+        <Stat l={"Avg Def./Detention ("+new Date().getFullYear()+" YTD)"} v={currentYearAvgDefs} s="fleet-wide, YTD-aligned" />
         <Stat l="Weekend Detentions" v={weekendVsWeekday.weekendPct+"%"} s={weekendVsWeekday.weekend+" of "+totalDetentions} c={weekendVsWeekday.weekendPct>30?"var(--amber2)":"var(--text)"} />
         <Stat l="Repeat Vessels" v={topVessels.length} s="detained 2+ times" c={topVessels.length>0?"var(--red2)":"var(--green2)"} />
       </div>
