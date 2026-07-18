@@ -411,18 +411,19 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         </Card>
         <Card title={<>Top Recurring Deficiency Codes (fleet-wide)<ScopeBadge filtered={false} /></>}>
           {defectCodeByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No deficiency data available.</div>:
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-            <thead><tr>{["Code",...availableYears.slice().reverse(),"Total","Detainable"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
+            <thead><tr>{["Code","Description",...availableYears.slice().reverse(),"Total","Detainable"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px",width:h==="Description"?"auto":"70px"}}>{h}</th>)}</tr></thead>
             <tbody>{defectCodeByYear.map(d=>(
-              <tr key={d.code} style={{borderBottom:"1px solid var(--border)"}} title={d.text}>
+              <tr key={d.code} style={{borderBottom:"1px solid var(--border)"}}>
                 <td style={{padding:"7px 10px",color:"var(--text)",fontFamily:"var(--mono)"}}>{d.code}</td>
+                <td style={{padding:"7px 10px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={d.text}>{d.text||"—"}</td>
                 {availableYears.slice().reverse().map(y=><td key={y} style={{padding:"7px 10px",color:"var(--text2)"}}>{d.years[y]||0}</td>)}
                 <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{d.total}</td>
                 <td style={{padding:"7px 10px",color:d.detainable>0?"var(--red2)":"var(--text3)",fontWeight:d.detainable>0?600:400}}>{d.detainable}</td>
               </tr>
             ))}</tbody>
           </table>}
-          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Sourced from each vessel's own deficiency records, YTD-aligned per year so a partial current year isn't undercounted.</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Sourced from each vessel's own deficiency records, YTD-aligned per year so a partial current year isn't undercounted. Hover a description to see the full text.</div>
         </Card>
       </div>
 
