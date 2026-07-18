@@ -251,7 +251,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       <Card title="Year-over-Year Comparison (YTD-aligned)" style={{marginBottom:"20px"}}>
         {yoyData.length<1?<div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough dated detention records to compare years.</div>:(
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies","CAR Complete Rate","Weekend %"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
           <tbody>{yoyData.map((y,i)=>{
             const prev = yoyData[i-1];
             const delta = prev ? Math.round((y.count-prev.count)/prev.count*100) : null;
@@ -261,8 +261,6 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
                 <td style={{padding:"8px 10px",color:"var(--text)",fontFamily:"var(--mono)"}}>{y.count}</td>
                 <td style={{padding:"8px 10px",fontFamily:"var(--mono)",color:delta==null?"var(--text3)":delta>0?"var(--red2)":delta<0?"var(--green2)":"var(--text3)",fontWeight:600}}>{delta==null?"—":(delta>0?"+":"")+delta+"%"}</td>
                 <td style={{padding:"8px 10px",color:"var(--text2)"}}>{y.avgDefs}</td>
-                <td style={{padding:"8px 10px",color:y.carRate>=70?"var(--green2)":y.carRate>=50?"var(--amber2)":"var(--red2)"}}>{y.carRate}%</td>
-                <td style={{padding:"8px 10px",color:"var(--text2)"}}>{y.weekendPct}%</td>
               </tr>
             );
           })}</tbody>
