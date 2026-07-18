@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -28,6 +28,7 @@ function pctChange(a,b) {
   if (a === 0) return b>0 ? 100 : 0;
   return +((b-a)/a*100).toFixed(1);
 }
+const CHART_COLORS = ["#94a3b8","#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6"];
 
 function Card({ title, subtitle, children, style }) {
   return (
@@ -103,6 +104,18 @@ export default function MouDetentionReport({ vessels = [] }) {
       rows.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}-\d{2}/)) { const m=String(v.detentionDate).slice(0,7); months[m]=(months[m]||0)+1; } });
       const monthly = Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-12).map(([m,count])=>({ month: MONTH_NAMES[parseInt(m.slice(5,7))-1]+"'"+m.slice(2,4), count }));
 
+      // Multi-year overlay (Jan-Dec, one column per year) — answers "Paris MoU trend 2024-2025-2026"
+      const yearGrid = MONTH_NAMES.map(mn => ({ month: mn }));
+      const yrs = new Set();
+      rows.forEach(v => {
+        if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}-\d{2}/)) return;
+        const yr = String(v.detentionDate).slice(0,4);
+        const mo = parseInt(String(v.detentionDate).slice(5,7))-1;
+        yrs.add(yr);
+        yearGrid[mo][yr] = (yearGrid[mo][yr]||0)+1;
+      });
+      const yearOverlay = { grid: yearGrid, years: [...yrs].sort() };
+
       // Day of week
       const dowCounts = [0,0,0,0,0,0,0];
       rows.forEach(v => { if (v.detentionDate) dowCounts[new Date(v.detentionDate).getDay()]++; });
@@ -133,7 +146,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       rows.forEach(v => { if (!v.imo) return; vesCounts[v.imo]=vesCounts[v.imo]||{name:v.name,imo:v.imo,count:0,totalDefs:0}; vesCounts[v.imo].count++; vesCounts[v.imo].totalDefs+=v.defs||0; });
       const riskVessels = Object.values(vesCounts).sort((a,b)=>b.count-a.count||b.totalDefs-a.totalDefs).slice(0,8);
 
-      result[mou] = { monthly, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, total:rows.length };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, total:rows.length };
     });
     return result;
   }, [detained, mouList]);
@@ -193,27 +206,41 @@ export default function MouDetentionReport({ vessels = [] }) {
                     <Stat l="Repeat Vessels" v={(dd.riskVessels||[]).filter(v=>v.count>1).length} c={((dd.riskVessels||[]).filter(v=>v.count>1).length>0)?"var(--red2)":"var(--green2)"} />
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
-                    <Card title="Monthly Trend">
-                      {(dd.monthly||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No dated records.</div>:
-                      <ResponsiveContainer width="100%" height={160}>
-                        <LineChart data={dd.monthly}>
+                    <Card title="Year-over-Year Trend" subtitle={(dd.yearOverlay?.years||[]).join(" vs ")}>
+                      {(dd.yearOverlay?.years||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No dated records.</div>:
+                      <>
+                      <ResponsiveContainer width="100%" height={170}>
+                        <LineChart data={dd.yearOverlay.grid} margin={{top:16}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                           <XAxis dataKey="month" tick={{fontSize:10,fill:"var(--text3)"}} />
                           <YAxis tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
                           <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
-                          <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{r:2}} />
+                          {dd.yearOverlay.years.map((yr,i)=>(
+                            <Line key={yr} type="monotone" dataKey={yr} stroke={CHART_COLORS[i%CHART_COLORS.length]} strokeWidth={2} dot={{r:2}} connectNulls>
+                              <LabelList dataKey={yr} position="top" style={{fontSize:9,fill:CHART_COLORS[i%CHART_COLORS.length]}} />
+                            </Line>
+                          ))}
                         </LineChart>
-                      </ResponsiveContainer>}
+                      </ResponsiveContainer>
+                      <div style={{display:"flex",gap:"12px",marginTop:"4px",flexWrap:"wrap"}}>
+                        {dd.yearOverlay.years.map((yr,i)=>(
+                          <div key={yr} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"10px",color:"var(--text3)"}}>
+                            <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{yr}
+                          </div>
+                        ))}
+                      </div>
+                      </>}
                     </Card>
                     <Card title="Day of Week">
-                      <ResponsiveContainer width="100%" height={160}>
-                        <BarChart data={dd.dow||[]}>
+                      <ResponsiveContainer width="100%" height={170}>
+                        <BarChart data={dd.dow||[]} margin={{top:16}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                           <XAxis dataKey="day" tick={{fontSize:10,fill:"var(--text3)"}} />
                           <YAxis tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
                           <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
                           <Bar dataKey="count" radius={[2,2,0,0]}>
                             {(dd.dow||[]).map((d,i)=><Cell key={i} fill={[1,2].includes(d.idx)?"#ef4444":[5,6,0].includes(d.idx)?"#f59e0b":"#3b82f6"} />)}
+                            <LabelList dataKey="count" position="top" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
