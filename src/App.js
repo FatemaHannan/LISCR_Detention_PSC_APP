@@ -10,6 +10,7 @@ import VIPProtocol from "./pages/VIPProtocol";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import PatternDetection from "./pages/PatternDetection";
+import TrendAnalysis from "./pages/TrendAnalysis";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
 import { MASTER_PROMPT } from "./lib/masterPrompt";
@@ -35,6 +36,7 @@ const NAV = [
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
   ]},
   { section:"INTELLIGENCE", items:[
+    { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
     { id:"patterns", label:"Pattern detection", icon:"ti-scan", badge:{n:2,c:"nb-r"} },
     { id:"ais", label:"AIS monitor", icon:"ti-radar", badge:{n:2,c:"nb-r"} },
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
@@ -252,6 +254,7 @@ export default function App() {
               {id:"gaps",icon:"ti-alert-triangle",label:"Critical Gaps",desc:carOverdue60.length+" urgent items",color:"var(--red2)",badge:carOverdue60.length},
               {id:"fleet",icon:"ti-ship",label:"Fleet Dashboard",desc:"Charts & MoU breakdown",color:"var(--blue)",badge:null},
               {id:"patterns",icon:"ti-chart-dots",label:"Pattern Detection",desc:"Live intelligence patterns",color:"var(--amber2)",badge:null},
+              {id:"trends",icon:"ti-chart-line",label:"Trend Analysis",desc:"Where, when & why detentions happen",color:"var(--blue)",badge:null},
               {id:"ais",icon:"ti-radar",label:"AIS Monitor",desc:carOverdue60.length+" vessels DARK",color:"var(--red2)",badge:carOverdue60.length||null},
               {id:"vip",icon:"ti-shield-check",label:"VIP Protocol",desc:"Targeted companies",color:"var(--amber2)",badge:null},
               {id:"initiatives",icon:"ti-checklist",label:"PDAIP & Tasks",desc:openTasks+" open tasks",color:"var(--green2)",badge:openTasks||null},
@@ -798,6 +801,7 @@ export default function App() {
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
+          {page === "trends" && <TrendAnalysis vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
