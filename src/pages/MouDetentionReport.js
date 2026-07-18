@@ -69,19 +69,41 @@ export default function MouDetentionReport({ vessels = [] }) {
   }, [detained]);
 
   // ---- MoU performance by year ----
-  const mouByYear = useMemo(() => {
+  // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
+  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+  const detainedYtd = useMemo(() => detained.filter(v=>v.detentionDate && String(v.detentionDate).slice(5,10) <= todayMD), [detained, todayMD]);
+
+  const mouMetricsByYear = useMemo(() => {
+    // per mou per year: detentions, defs sum, car complete count, repeat-vessel detentions
     const grid = {};
-    detained.forEach(v => {
+    const imoSeenPerMouYear = {}; // mou|year|imo -> count, to find repeat vessels within that mou+year
+    detainedYtd.forEach(v => {
       if (!v.mou || !v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
       const yr = String(v.detentionDate).slice(0,4);
       grid[v.mou] = grid[v.mou] || {};
-      grid[v.mou][yr] = (grid[v.mou][yr]||0)+1;
+      grid[v.mou][yr] = grid[v.mou][yr] || { count:0, defs:0, carComplete:0 };
+      grid[v.mou][yr].count++;
+      grid[v.mou][yr].defs += v.defs||0;
+      if (v.carStatus === "Complete") grid[v.mou][yr].carComplete++;
+      const key = v.mou+"|"+yr+"|"+v.imo;
+      imoSeenPerMouYear[key] = (imoSeenPerMouYear[key]||0)+1;
+    });
+    // repeat-vessel detentions = detentions belonging to an imo that appears 2+ times within that mou+year
+    const repeatCounts = {};
+    detainedYtd.forEach(v => {
+      if (!v.mou || !v.detentionDate) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const key = v.mou+"|"+yr+"|"+v.imo;
+      if ((imoSeenPerMouYear[key]||0) > 1) {
+        repeatCounts[v.mou] = repeatCounts[v.mou] || {};
+        repeatCounts[v.mou][yr] = (repeatCounts[v.mou][yr]||0)+1;
+      }
     });
     return mouList.map(m => {
       const years = grid[m.mou]||{};
       const sortedYr = availableYears;
       const latest = sortedYr[sortedYr.length-1], prior = sortedYr[sortedYr.length-2];
-      const latestCount = years[latest]||0, priorCount = prior?years[prior]||0:null;
+      const latestCount = years[latest]?.count||0, priorCount = prior?(years[prior]?.count||0):null;
       let trend="—", trendColor="var(--text3)";
       if (priorCount!=null) {
         const pct = pctChange(priorCount, latestCount);
@@ -89,9 +111,17 @@ export default function MouDetentionReport({ vessels = [] }) {
         else if (pct<-10) { trend="↓ Improving"; trendColor="var(--green2)"; }
         else { trend="→ Stable"; trendColor="var(--text3)"; }
       }
-      return { mou:m.mou, years, total:m.count, trend, trendColor };
+      const avgDefsByYear = {}, carRateByYear = {}, repeatPctByYear = {}, countByYear = {};
+      availableYears.forEach(y => {
+        const yd = years[y];
+        countByYear[y] = yd?.count||0;
+        avgDefsByYear[y] = yd?.count ? +(yd.defs/yd.count).toFixed(1) : null;
+        carRateByYear[y] = yd?.count ? Math.round((yd.carComplete/yd.count)*100) : null;
+        repeatPctByYear[y] = yd?.count ? Math.round(((repeatCounts[m.mou]?.[y]||0)/yd.count)*100) : null;
+      });
+      return { mou:m.mou, countByYear, avgDefsByYear, carRateByYear, repeatPctByYear, total:m.count, trend, trendColor };
     });
-  }, [detained, mouList, availableYears]);
+  }, [detainedYtd, mouList, availableYears]);
 
   // ---- Per-MoU deep dive (computed for all, rendered only when expanded) ----
   const deepDive = useMemo(() => {
@@ -160,27 +190,80 @@ export default function MouDetentionReport({ vessels = [] }) {
         <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and how detentions are happening — broken down by PSC authority</div>
       </div>
 
-      {/* MoU Performance by Year */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>MoU Performance by Year</div>
-      <Card style={{marginBottom:"20px"}}>
-        {mouByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No MoU data found.</div>:
+      {/* MoU Metrics by Year (YTD) */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
+
+      <Card style={{marginBottom:"14px"}} subtitle="Detentions per year, YTD-aligned so partial years compare fairly">
+        {mouMetricsByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No MoU data found.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
             {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
-            <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Total</th>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Trend</th>
           </tr></thead>
-          <tbody>{mouByYear.map(m=>(
+          <tbody>{mouMetricsByYear.map(m=>(
             <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
               <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
-              {availableYears.map(y=><td key={y} style={{padding:"8px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{m.years[y]||0}</td>)}
-              <td style={{padding:"8px 10px",color:"var(--text)",fontFamily:"var(--mono)",fontWeight:600}}>{m.total}</td>
+              {availableYears.map(y=><td key={y} style={{padding:"8px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{m.countByYear[y]}</td>)}
               <td style={{padding:"8px 10px",color:m.trendColor,fontWeight:600}}>{m.trend}</td>
             </tr>
           ))}</tbody>
         </table>}
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares the most recent year to the year before it (±10% = Stable).</div>
+      </Card>
+
+      <Card style={{marginBottom:"14px"}} subtitle="Deficiency severity — is it improving even if detention count isn't?">
+        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Avg Deficiencies per Detention by Year (YTD)</div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>
+            <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
+            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
+          </tr></thead>
+          <tbody>{mouMetricsByYear.map(m=>(
+            <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
+              {availableYears.map(y=><td key={y} style={{padding:"8px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{m.avgDefsByYear[y]??"—"}</td>)}
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+
+      <Card style={{marginBottom:"14px"}} subtitle="% of that year's detentions with CAR status Complete">
+        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>CAR Compliance Rate by Year (YTD)</div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>
+            <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
+            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
+          </tr></thead>
+          <tbody>{mouMetricsByYear.map(m=>(
+            <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
+              {availableYears.map(y=>{
+                const v = m.carRateByYear[y];
+                return <td key={y} style={{padding:"8px 10px",fontFamily:"var(--mono)",color:v==null?"var(--text3)":v>=70?"var(--green2)":v>=50?"var(--amber2)":"var(--red2)"}}>{v==null?"—":v+"%"}</td>;
+              })}
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+
+      <Card style={{marginBottom:"20px"}} subtitle="% of that MoU's detentions coming from vessels detained more than once that same year">
+        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Repeat-Detention Concentration by Year (YTD)</div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>
+            <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
+            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
+          </tr></thead>
+          <tbody>{mouMetricsByYear.map(m=>(
+            <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
+              {availableYears.map(y=>{
+                const v = m.repeatPctByYear[y];
+                return <td key={y} style={{padding:"8px 10px",fontFamily:"var(--mono)",color:v==null?"var(--text3)":v>20?"var(--red2)":v>0?"var(--amber2)":"var(--text2)"}}>{v==null?"—":v+"%"}</td>;
+              })}
+            </tr>
+          ))}</tbody>
+        </table>
       </Card>
 
       {/* Expandable per-MoU analysis */}
