@@ -31,6 +31,16 @@ function Stat({ l, v, s, c }) {
 }
 
 const CHART_COLORS = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#06b6d4","#ec4899","#84cc16"];
+function ScopeBadge({ filtered }) {
+  return (
+    <span style={{fontSize:"10px",fontWeight:600,padding:"2px 8px",borderRadius:"4px",marginLeft:"8px",verticalAlign:"middle",
+      background: filtered ? "rgba(59,130,246,0.12)" : "rgba(148,163,184,0.12)",
+      color: filtered ? "var(--blue)" : "var(--text3)",
+      border: "1px solid "+(filtered ? "rgba(59,130,246,0.3)" : "var(--border)")}}>
+      {filtered ? "📅 Follows Year selector" : "🔒 Always all years"}
+    </span>
+  );
+}
 
 export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [selectedYear, setSelectedYear] = useState("All");
@@ -248,7 +258,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </div>
 
       {/* Year-over-Year Comparison — always shows every year, independent of the filter above */}
-      <Card title="Year-over-Year Comparison (YTD-aligned)" style={{marginBottom:"20px"}}>
+      <Card title={<>Year-over-Year Comparison (YTD-aligned)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         {yoyData.length<1?<div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough dated detention records to compare years.</div>:(
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
@@ -267,7 +277,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         </table>
         )}
       </Card>
-      <Card title="Detentions by Month — Year over Year" style={{marginBottom:"20px"}}>
+      <Card title={<>Detentions by Month — Year over Year<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={yearOverlayData.grid}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -289,7 +299,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </Card>
 
       {/* Section 1: Detention Overview */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"}}>
         <Stat l="Total Detentions" v={totalDetentions} s={selectedYear==="All"?"All years":selectedYear} />
         <Stat l="Avg / Month" v={avgPerMonth} s="in selected range" />
@@ -324,7 +334,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </Card>
 
       {/* Section 2: Geographic Risk */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Geographic Risk</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Geographic Risk<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Countries by Detentions">
           <ResponsiveContainer width="100%" height={280}>
@@ -349,7 +359,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </ResponsiveContainer>
         </Card>
       </div>
-      <Card title="PSC Authority Trend (latest year vs prior year, YTD-aligned)" style={{marginBottom:"20px"}}>
+      <Card title={<>PSC Authority Trend (latest year vs prior year, YTD-aligned)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["PSC Authority","Detentions","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
           <tbody>{mouTrend.map(m=>(
@@ -364,7 +374,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </Card>
 
       {/* Section 3: Time Pattern Analysis */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Time Pattern Analysis</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Time Pattern Analysis<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Day of Week">
           <ResponsiveContainer width="100%" height={220}>
@@ -396,7 +406,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </div>
 
       {/* Section 4: High-Risk Areas */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. High-Risk Areas</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. High-Risk Areas<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top Repeat Vessels (2+ detentions)">
           {topVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No repeat detentions on record.</div>:
@@ -428,7 +438,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </div>
 
       {/* Section 5: Inspection Monitoring */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Inspection Monitoring</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Inspection Monitoring<ScopeBadge filtered={false} /></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"20px"}}>
         <Card title={"Upcoming Inspections ("+upcomingInspections.length+")"}>
           <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"8px"}}>ASI / PESI tasks due within 30 days</div>
