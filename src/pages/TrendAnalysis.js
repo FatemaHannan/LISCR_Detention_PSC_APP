@@ -44,8 +44,6 @@ function ScopeBadge({ filtered }) {
 
 export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [selectedYear, setSelectedYear] = useState("All");
-  const [defectCodeData, setDefectCodeData] = useState([]);
-  const [defectLoading, setDefectLoading] = useState(true);
   const [mouRates, setMouRates] = useState([]);
   const [rateLoading, setRateLoading] = useState(true);
 
@@ -61,32 +59,23 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return d.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
   }, [vessels, selectedYear]);
 
-  // ---- Repeat deficiency codes (fleet-wide) ----
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setDefectLoading(true);
-      const { data, error } = await supabase
-        .from("flag_psc_findings")
-        .select("defect_code,main_defect_text,full_description,detainable,action")
-        .eq("flag_psc", "PSC")
-        .order("insp_date", { ascending: false })
-        .limit(5000);
-      if (cancelled) return;
-      if (error || !data) { setDefectCodeData([]); setDefectLoading(false); return; }
-      const counts = {};
-      data.forEach(d => {
-        const code = d.defect_code || "Unknown";
-        if (!counts[code]) counts[code] = { code, count: 0, detainable: 0, text: d.main_defect_text || d.full_description || "" };
-        counts[code].count++;
-        if (d.detainable || String(d.action).trim()==="30" || d.action===30) counts[code].detainable++;
+  // ---- Repeat deficiency codes (fleet-wide, broken down by year — uses all detained vessels regardless of Year filter) ----
+  const defectCodeByYear = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained);
+    const byCode = {};
+    allDetained.forEach(v => {
+      if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      (v.deficiencies||[]).forEach(d => {
+        const code = d.code || "Unknown";
+        if (!byCode[code]) byCode[code] = { code, text: d.desc||"", years:{}, total:0, detainable:0 };
+        byCode[code].years[yr] = (byCode[code].years[yr]||0)+1;
+        byCode[code].total++;
+        if (d.detainable || String(d.action).trim()==="30" || d.action===30) byCode[code].detainable++;
       });
-      const ranked = Object.values(counts).sort((a,b)=>b.count-a.count).slice(0,10);
-      setDefectCodeData(ranked);
-      setDefectLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    });
+    return Object.values(byCode).sort((a,b)=>b.total-a.total).slice(0,12);
+  }, [vessels]);
 
   // ---- Detention rate by MoU (detentions / total inspections) ----
   useEffect(() => {
@@ -420,20 +409,20 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             ))}</tbody>
           </table>}
         </Card>
-        <Card title="Top Recurring Deficiency Codes (fleet-wide)">
-          {defectLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading findings…</div>:
-          defectCodeData.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No PSC findings data available.</div>:
+        <Card title={<>Top Recurring Deficiency Codes (fleet-wide)<ScopeBadge filtered={false} /></>}>
+          {defectCodeByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No deficiency data available.</div>:
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-            <thead><tr>{["Code","Occurrences","Detainable"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
-            <tbody>{defectCodeData.map(d=>(
+            <thead><tr>{["Code",...availableYears.slice().reverse(),"Total","Detainable"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+            <tbody>{defectCodeByYear.map(d=>(
               <tr key={d.code} style={{borderBottom:"1px solid var(--border)"}} title={d.text}>
                 <td style={{padding:"7px 10px",color:"var(--text)",fontFamily:"var(--mono)"}}>{d.code}</td>
-                <td style={{padding:"7px 10px",color:"var(--text2)"}}>{d.count}</td>
+                {availableYears.slice().reverse().map(y=><td key={y} style={{padding:"7px 10px",color:"var(--text2)"}}>{d.years[y]||0}</td>)}
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{d.total}</td>
                 <td style={{padding:"7px 10px",color:d.detainable>0?"var(--red2)":"var(--text3)",fontWeight:d.detainable>0?600:400}}>{d.detainable}</td>
               </tr>
             ))}</tbody>
           </table>}
-          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Based on most recent 5,000 PSC findings on record.</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Sourced from each vessel's own deficiency records, all years combined and broken out by year.</div>
         </Card>
       </div>
 
