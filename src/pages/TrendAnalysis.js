@@ -134,6 +134,33 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     });
     return { grid, years: [...years].sort() };
   }, [vessels]);
+
+  // ---- PSC authority trend (most recent year vs prior year, per MoU) ----
+  const mouTrend = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained);
+    const byMouYear = {};
+    allDetained.forEach(v => {
+      if (!v.mou || !v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      byMouYear[v.mou] = byMouYear[v.mou] || {};
+      byMouYear[v.mou][yr] = (byMouYear[v.mou][yr]||0)+1;
+    });
+    return Object.entries(byMouYear).map(([mou,years]) => {
+      const sortedYears = Object.keys(years).sort((a,b)=>b.localeCompare(a));
+      const latest = sortedYears[0], prior = sortedYears[1];
+      const latestCount = years[latest]||0, priorCount = prior?years[prior]||0:null;
+      const total = Object.values(years).reduce((a,b)=>a+b,0);
+      let trend = "—", trendColor = "var(--text3)";
+      if (priorCount != null) {
+        const pctChange = priorCount ? (latestCount-priorCount)/priorCount*100 : (latestCount>0?100:0);
+        if (pctChange > 10) { trend = "↑ Increasing"; trendColor = "var(--red2)"; }
+        else if (pctChange < -10) { trend = "↓ Improving"; trendColor = "var(--green2)"; }
+        else { trend = "→ Stable"; trendColor = "var(--text3)"; }
+      }
+      return { mou, total, trend, trendColor };
+    }).sort((a,b)=>b.total-a.total);
+  }, [vessels]);
+
   const monthData = useMemo(() => {
     const months = {};
     detained.forEach(v => {
@@ -317,6 +344,19 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </ResponsiveContainer>
         </Card>
       </div>
+      <Card title="PSC Authority Trend (latest year vs prior year)" style={{marginBottom:"20px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["PSC Authority","Detentions","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{mouTrend.map(m=>(
+            <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",color:"var(--text)"}}>{m.mou}</td>
+              <td style={{padding:"8px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{m.total}</td>
+              <td style={{padding:"8px 10px",color:m.trendColor,fontWeight:600}}>{m.trend}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares each authority's most recent full year to the year before it (±10% = Stable).</div>
+      </Card>
 
       {/* Section 3: Time Pattern Analysis */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Time Pattern Analysis</div>
