@@ -39,7 +39,7 @@ const NAV = [
   ]},
   { section:"INTELLIGENCE", items:[
     { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
-    { id:"mou", label:"MoU Detention Report", icon:"ti-map-pin", badge:null },
+    { id:"mou", label:"Detention Trend by MoU", icon:"ti-map-pin", badge:null },
     { id:"perf", label:"Performance Review", icon:"ti-report-analytics", badge:null },
     { id:"patterns", label:"Pattern detection", icon:"ti-scan", badge:{n:2,c:"nb-r"} },
     { id:"ais", label:"AIS monitor", icon:"ti-radar", badge:{n:2,c:"nb-r"} },

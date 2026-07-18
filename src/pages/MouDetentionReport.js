@@ -186,7 +186,7 @@ export default function MouDetentionReport({ vessels = [] }) {
   return (
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>MoU Detention Report</div>
+        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Detention Trend by MoU</div>
         <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and how detentions are happening — broken down by PSC authority</div>
       </div>
 
