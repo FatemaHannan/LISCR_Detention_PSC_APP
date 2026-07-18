@@ -4,12 +4,9 @@ import AdminPanel from "./pages/AdminPanel";
 import WeeklyData from "./pages/WeeklyData";
 import CaseView from "./pages/CaseView";
 import PdaipPage from "./pages/PdaipPage";
-import AISMonitor from "./pages/AISMonitor";
 import InspectorNetwork from "./pages/InspectorNetwork";
-import VIPProtocol from "./pages/VIPProtocol";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
-import PatternDetection from "./pages/PatternDetection";
 import TrendAnalysisHub from "./pages/TrendAnalysisHub";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
@@ -37,10 +34,7 @@ const NAV = [
   ]},
   { section:"INTELLIGENCE", items:[
     { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
-    { id:"patterns", label:"Pattern detection", icon:"ti-scan", badge:{n:2,c:"nb-r"} },
-    { id:"ais", label:"AIS monitor", icon:"ti-radar", badge:{n:2,c:"nb-r"} },
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
-    { id:"vip", label:"VIP protocol", icon:"ti-shield-check", badge:null },
     { id:"meeting", label:"Meeting minutes", icon:"ti-notes", badge:null },
     { id:"initiatives", label:"PDAIP & Tasks", icon:"ti-chart-dots", badge:null },
   ]},
@@ -253,10 +247,7 @@ export default function App() {
               {id:"evp",icon:"ti-presentation",label:"EVP Briefing",desc:"Live executive summary",color:"var(--amber2)",badge:null},
               {id:"gaps",icon:"ti-alert-triangle",label:"Critical Gaps",desc:carOverdue60.length+" urgent items",color:"var(--red2)",badge:carOverdue60.length},
               {id:"fleet",icon:"ti-ship",label:"Fleet Dashboard",desc:"Charts & MoU breakdown",color:"var(--blue)",badge:null},
-              {id:"patterns",icon:"ti-chart-dots",label:"Pattern Detection",desc:"Live intelligence patterns",color:"var(--amber2)",badge:null},
-              {id:"trends",icon:"ti-chart-line",label:"Trend Analysis",desc:"Where, when & why detentions happen",color:"var(--blue)",badge:null},
-              {id:"ais",icon:"ti-radar",label:"AIS Monitor",desc:carOverdue60.length+" vessels DARK",color:"var(--red2)",badge:carOverdue60.length||null},
-              {id:"vip",icon:"ti-shield-check",label:"VIP Protocol",desc:"Targeted companies",color:"var(--amber2)",badge:null},
+              {id:"trends",icon:"ti-chart-line",label:"Trend Analysis",desc:"Where, when & why detentions happen — plus patterns, AIS, VIP",color:"var(--blue)",badge:null},
               {id:"initiatives",icon:"ti-checklist",label:"PDAIP & Tasks",desc:openTasks+" open tasks",color:"var(--green2)",badge:openTasks||null},
             ];
 
@@ -697,7 +688,6 @@ export default function App() {
 
           {page === "case" && <CaseView preSelectImo={openCaseImo} preSelectDate={openCaseDate} onClearPreSelect={()=>{setOpenCaseImo(null);setOpenCaseDate(null);}} canEdit={canEdit} canDelete={canDelete} canDownload={canDownload} currentUser={currentUser} importedVessels={importedVessels} />}
           {page === "pdaip" && <InitiativeTracker />}
-          {page === "ais" && <AISMonitor vessels={fleetVessels||[]} />}
           {page === "tasks" && (()=>{
             const myTasks = fleetTasks.filter(t=>t.status!=="Executed");
             const overdue = myTasks.filter(t=>t.due&&new Date(t.due)<new Date());
@@ -797,10 +787,8 @@ export default function App() {
             );
           })()}
           {page === "inspector" && <InspectorNetwork />}
-          {page === "vip" && <VIPProtocol vessels={fleetVessels||[]} />}
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
-          {page === "patterns" && <PatternDetection vessels={fleetVessels||[]} learnedPatterns={window._learnedPatterns||[]} />}
           {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}

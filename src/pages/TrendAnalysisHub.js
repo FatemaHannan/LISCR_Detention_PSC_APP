@@ -2,11 +2,17 @@ import React, { useState } from "react";
 import TrendAnalysisDashboard from "./TrendAnalysis";
 import MouDetentionReport from "./MouDetentionReport";
 import PerformanceReview from "./PerformanceReview";
+import PatternDetection from "./PatternDetection";
+import AISMonitor from "./AISMonitor";
+import VIPProtocol from "./VIPProtocol";
 
 const SUB_TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
+  { id: "patterns", label: "Pattern Detection" },
+  { id: "ais", label: "AIS Monitor" },
+  { id: "vip", label: "VIP Protocol" },
 ];
 
 export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
@@ -37,6 +43,9 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
         {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
+        {subTab === "patterns" && <PatternDetection vessels={vessels} learnedPatterns={window._learnedPatterns||[]} />}
+        {subTab === "ais" && <AISMonitor vessels={vessels} />}
+        {subTab === "vip" && <VIPProtocol vessels={vessels} />}
       </div>
     </div>
   );
