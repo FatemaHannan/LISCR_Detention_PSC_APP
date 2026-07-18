@@ -1,0 +1,76 @@
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { supabase } from "../lib/supabase";
+import { YearBreakdownTable, ageBracket, AGE_BRACKET_ORDER } from "./TrendAnalysis";
+
+export default function FleetCompositionTrends({ vessels = [] }) {
+  const [ageMap, setAgeMap] = useState({});
+
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    vessels.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
+    return [...years].sort((a,b)=>b.localeCompare(a));
+  }, [vessels]);
+
+  // YTD cutoff = today's month-day, applied to every year for a fair comparison of a partial current year
+  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
+  // ---- Vessel age lookup (not in the bulk vessels table, needs a separate query against client_vessel_details) ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(vessels.filter(v=>v.detained && v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("client_vessel_details").select("imo,age").in("imo", imos);
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(d => { if (d.age!=null) map[d.imo] = d.age; });
+      setAgeMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [vessels]);
+
+  // ---- Generic YTD-aligned "group by X, per year" builder ----
+  const groupByYear = useCallback((getKey, limit) => {
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
+    const byKey = {};
+    allDetained.forEach(v => {
+      if (!String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const key = getKey(v) || "Unknown";
+      if (!byKey[key]) byKey[key] = { key, years:{}, total:0 };
+      byKey[key].years[yr] = (byKey[key].years[yr]||0)+1;
+      byKey[key].total++;
+    });
+    const sorted = Object.values(byKey).sort((a,b)=>b.total-a.total);
+    return limit ? sorted.slice(0, limit) : sorted;
+  }, [vessels, todayMD]);
+
+  const vesselTypeByYear = useMemo(() => groupByYear(v=>v.type&&v.type!=="—"?v.type:"Unknown"), [groupByYear]);
+  const ageByYear = useMemo(() => {
+    const rows = groupByYear(v=>ageBracket(ageMap[v.imo]));
+    return rows.slice().sort((a,b)=>AGE_BRACKET_ORDER.indexOf(a.key)-AGE_BRACKET_ORDER.indexOf(b.key));
+  }, [groupByYear, ageMap]);
+  const fsiOwnerByYear = useMemo(() => groupByYear(v=>v.fsiCaseOwner||"Unassigned"), [groupByYear]);
+  const pscOwnerByYear = useMemo(() => groupByYear(v=>v.pscOwner||"Unassigned"), [groupByYear]);
+
+  const yearsCol = availableYears.slice().reverse();
+  const currentYear = String(new Date().getFullYear());
+
+  return (
+    <div className="pg active">
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
+        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Fleet Composition & Case Ownership Trends</div>
+        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Detentions broken down by vessel type, age, and case owner — year over year, YTD-aligned</div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+        <YearBreakdownTable title="Detentions by Vessel Type" rows={vesselTypeByYear} keyLabel="Vessel Type" years={yearsCol} currentYear={currentYear} />
+        <YearBreakdownTable title="Detentions by Vessel Age" subtitle="Age bracket at time of detention" rows={ageByYear} keyLabel="Age Bracket" years={yearsCol} currentYear={currentYear} />
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <YearBreakdownTable title="Detentions by FSI Case Owner" rows={fsiOwnerByYear} keyLabel="FSI Case Owner" years={yearsCol} currentYear={currentYear} />
+        <YearBreakdownTable title="Detentions by PSC Case Owner" rows={pscOwnerByYear} keyLabel="PSC Case Owner" years={yearsCol} currentYear={currentYear} />
+      </div>
+    </div>
+  );
+}
