@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { supabase } from "../lib/supabase";
+import { ageBracket, AGE_BRACKET_ORDER } from "./TrendAnalysis";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -53,7 +55,23 @@ function Stat({ l, v, s, c }) {
 
 export default function MouDetentionReport({ vessels = [] }) {
   const [expanded, setExpanded] = useState({});
+  const [ageMap, setAgeMap] = useState({});
   const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+
+  // ---- Vessel age lookup (not in the bulk vessels table, needs a separate query against client_vessel_details) ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("client_vessel_details").select("imo,age").in("imo", imos);
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(d => { if (d.age!=null) map[d.imo] = d.age; });
+      setAgeMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [detained]);
 
   // ---- All MoUs, totals ----
   const mouList = useMemo(() => {
@@ -176,10 +194,15 @@ export default function MouDetentionReport({ vessels = [] }) {
       rows.forEach(v => { if (!v.imo) return; vesCounts[v.imo]=vesCounts[v.imo]||{name:v.name,imo:v.imo,count:0,totalDefs:0}; vesCounts[v.imo].count++; vesCounts[v.imo].totalDefs+=v.defs||0; });
       const riskVessels = Object.values(vesCounts).sort((a,b)=>b.count-a.count||b.totalDefs-a.totalDefs).slice(0,8);
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, total:rows.length };
+      // Age breakdown
+      const ageCounts = {};
+      rows.forEach(v => { const b = ageBracket(ageMap[v.imo]); ageCounts[b] = (ageCounts[b]||0)+1; });
+      const ageBreakdown = AGE_BRACKET_ORDER.filter(b=>ageCounts[b]>0).map(b=>({bracket:b, count:ageCounts[b]}));
+
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, total:rows.length };
     });
     return result;
-  }, [detained, mouList]);
+  }, [detained, mouList, ageMap]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -435,20 +458,33 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                   </div>
-                  <Card title="Risk Vessels (repeated detentions or high deficiencies)">
-                    {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                      <thead><tr><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Vessel</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>IMO</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Count</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Avg Def.</th></tr></thead>
-                      <tbody>{dd.riskVessels.map(v=>(
-                        <tr key={v.imo} style={{borderBottom:"1px solid var(--border)"}}>
-                          <td style={{padding:"5px 8px",color:"var(--text)"}}>{v.name}</td>
-                          <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
-                          <td style={{padding:"5px 8px",color:v.count>1?"var(--red2)":"var(--text2)",fontWeight:v.count>1?600:400}}>{v.count}x</td>
-                          <td style={{padding:"5px 8px",color:"var(--text2)"}}>{v.count?(v.totalDefs/v.count).toFixed(1):"—"}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table>}
-                  </Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                    <Card title="Risk Vessels (repeated detentions or high deficiencies)">
+                      {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                        <thead><tr><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Vessel</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>IMO</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Count</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Avg Def.</th></tr></thead>
+                        <tbody>{dd.riskVessels.map(v=>(
+                          <tr key={v.imo} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text)"}}>{v.name}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
+                            <td style={{padding:"5px 8px",color:v.count>1?"var(--red2)":"var(--text2)",fontWeight:v.count>1?600:400}}>{v.count}x</td>
+                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{v.count?(v.totalDefs/v.count).toFixed(1):"—"}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
+                    </Card>
+                    <Card title="Detentions by Vessel Age">
+                      {(dd.ageBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No age data available for this MoU's vessels.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                        <tbody>{dd.ageBreakdown.map(a=>(
+                          <tr key={a.bracket} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{a.bracket}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{a.count}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
+                    </Card>
+                  </div>
                 </div>
               )}
             </div>
