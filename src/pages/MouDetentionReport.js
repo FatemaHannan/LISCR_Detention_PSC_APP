@@ -107,23 +107,33 @@ export default function MouDetentionReport({ vessels = [] }) {
   const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
   useEffect(() => {
     let cancelled = false;
-    const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
+    // Scope to only the top-5 MoU vessels actually shown in the report — fetching for all 500+ detained
+    // vessels fleet-wide was wasteful and fired too many parallel batches, likely hitting rate limits.
+    const mouCounts = {};
+    detained.forEach(v => { if (v.mou) mouCounts[v.mou] = (mouCounts[v.mou]||0)+1; });
+    const top5Mous = new Set(Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([mou])=>mou));
+    const missingImos = [...new Set(detained.filter(v=>v.imo && top5Mous.has(v.mou) && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
     if (missingImos.length === 0) return;
     (async () => {
-      // Batch into chunks — a single .in() with a large IMO list can silently fail (URL too long / request error)
-      const CHUNK = 40;
+      // Batch into chunks, with limited concurrency (3 in flight at a time) to avoid rate limits
+      const CHUNK = 30, CONCURRENCY = 3;
       const chunks = [];
       for (let i=0; i<missingImos.length; i+=CHUNK) chunks.push(missingImos.slice(i, i+CHUNK));
-      const results = await Promise.all(chunks.map(async (chunk) => {
-        const { data, error } = await supabase.from("flag_psc_findings")
-          .select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
-          .in("imo", chunk).ilike("flag_psc", "PSC");
-        if (error) { console.error("flag_psc_findings fetch error:", error.message, "chunk size:", chunk.length); return []; }
-        return data || [];
-      }));
+      const allResults = [];
+      for (let i=0; i<chunks.length; i+=CONCURRENCY) {
+        const batch = chunks.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async (chunk) => {
+          const { data, error } = await supabase.from("flag_psc_findings")
+            .select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
+            .in("imo", chunk).ilike("flag_psc", "PSC");
+          if (error) { console.error("flag_psc_findings fetch error:", error.message, "chunk size:", chunk.length); return []; }
+          return data || [];
+        }));
+        allResults.push(...batchResults);
+      }
       if (cancelled) return;
       const map = {};
-      results.flat().forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
+      allResults.flat().forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
       setFindingsMap(map);
     })();
     return () => { cancelled = true; };
