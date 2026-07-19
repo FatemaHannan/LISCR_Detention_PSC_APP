@@ -109,7 +109,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         for (const yr of years) {
           const detCount = allDetained.filter(v=>v.mou===mou && String(v.detentionDate).startsWith(yr)).length;
           const { count } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
-            .eq("mou", mou).gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+            .eq("mou", mou).eq("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
           byYear[yr] = { detentions: detCount, totalInspections: count||0, rate: count ? +(detCount/count*100).toFixed(2) : null };
         }
         results.push({ mou, byYear });
@@ -368,7 +368,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             ))}</tbody>
           </table>
         )}
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Rate = detentions ÷ total inspection records for that MoU and year, from inspection_history.</div>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Rate = PSC detentions ÷ PSC inspection records for that MoU and year (Flag State inspections excluded from both sides for an apples-to-apples comparison).</div>
       </Card>
 
       {/* Section 2: Geographic Risk */}
