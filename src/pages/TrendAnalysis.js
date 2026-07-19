@@ -108,9 +108,14 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         const byYear = {};
         for (const yr of years) {
           const detCount = allDetained.filter(v=>v.mou===mou && String(v.detentionDate).startsWith(yr)).length;
-          const { count } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
+          const { count: pscCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
             .eq("mou", mou).eq("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
-          byYear[yr] = { detentions: detCount, totalInspections: count||0, rate: count ? +(detCount/count*100).toFixed(2) : null };
+          const { count: flagCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
+            .eq("mou", mou).eq("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+          byYear[yr] = {
+            detentions: detCount, totalInspections: pscCount||0, rate: pscCount ? +(detCount/pscCount*100).toFixed(2) : null,
+            flagInspections: flagCount||0,
+          };
         }
         results.push({ mou, byYear });
       }
@@ -382,6 +387,52 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         )}
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each cell: Detentions / Inspections (Rate%). Trend: one arrow per year-over-year change in Rate% (↑ worsening, ↓ improving) — PSC detentions ÷ PSC inspections only, Flag State excluded from both sides.</div>
       </Card>
+
+      {(()=>{
+        const countTrendTable = (title, field, color) => (
+          <Card title={<>{title}<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
+            {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                <thead><tr>
+                  <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>MoU</th>
+                  {mouRates.years.map(yr=>(
+                    <th key={yr} style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr}</th>
+                  ))}
+                  <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Trend</th>
+                </tr></thead>
+                <tbody>{mouRates.rows.map(r=>{
+                  const arrows = mouRates.years.slice(1).map((yr,i)=>{
+                    const prevYr = mouRates.years[i];
+                    const prevVal = r.byYear[prevYr]?.[field], curVal = r.byYear[yr]?.[field];
+                    if (prevVal==null || curVal==null) return "—";
+                    if (curVal > prevVal) return "↑";
+                    if (curVal < prevVal) return "↓";
+                    return "→";
+                  });
+                  return (
+                    <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"9px 10px",color:"var(--text)",fontWeight:600}}>{r.mou}</td>
+                      {mouRates.years.map(yr=>(
+                        <td key={yr} style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{(r.byYear[yr]?.[field]??0).toLocaleString()}</td>
+                      ))}
+                      <td style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)",fontSize:"14px"}}>
+                        {arrows.map((a,i)=>(
+                          <span key={i} style={{color:a==="↑"?color:a==="↓"?"var(--text3)":"var(--text3)",marginRight:"4px"}}>{a}</span>
+                        ))}
+                      </td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            )}
+            <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Inspection volume per year (count of records), same top-5 MoUs as above. Trend: one arrow per year-over-year change in count.</div>
+          </Card>
+        );
+        return (<>
+          {countTrendTable("Flag Inspection Trend", "flagInspections", "var(--blue)")}
+          {countTrendTable("PSC Inspection Trend", "totalInspections", "var(--amber2)")}
+        </>);
+      })()}
 
       {/* Section 2: Geographic Risk */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Geographic Risk<ScopeBadge filtered={true} /></div>
