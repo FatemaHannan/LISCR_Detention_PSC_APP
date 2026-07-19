@@ -193,9 +193,31 @@ export default function MouDetentionReport({ vessels = [] }) {
       {/* MoU Metrics by Year (YTD) */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
 
-      <Card style={{marginBottom:"14px"}} subtitle="Detentions per year, YTD-aligned so partial years compare fairly">
-        {mouMetricsByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No MoU data found.</div>:
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+      <Card style={{marginBottom:"14px"}} subtitle="Detentions per year, YTD-aligned so partial years compare fairly (top 8 by volume — full list in table below)">
+        {mouMetricsByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No MoU data found.</div>:<>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={mouMetricsByYear.slice(0,8).map(m=>({mou:m.mou,...m.countByYear}))} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="mou" tick={{fontSize:10,fill:"var(--text3)"}} interval={0} angle={-20} textAnchor="end" height={60} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            {availableYears.map((y,i)=>(
+              <Bar key={y} dataKey={y} fill={CHART_COLORS[i%CHART_COLORS.length]} radius={[3,3,0,0]}>
+                <LabelList dataKey={y} position="top" style={{fontSize:9,fill:"var(--text2)"}} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+        <div style={{display:"flex",gap:"14px",marginTop:"4px",flexWrap:"wrap"}}>
+          {availableYears.map((y,i)=>(
+            <div key={y} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:"var(--text3)"}}>
+              <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{y}
+            </div>
+          ))}
+        </div>
+        </>}
+        {mouMetricsByYear.length===0?null:
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",marginTop:"14px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
             {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
@@ -212,8 +234,28 @@ export default function MouDetentionReport({ vessels = [] }) {
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares the most recent year to the year before it (±10% = Stable).</div>
       </Card>
 
-      <Card style={{marginBottom:"14px"}} subtitle="Deficiency severity — is it improving even if detention count isn't?">
+      <Card style={{marginBottom:"14px"}} subtitle="Deficiency severity — is it improving even if detention count isn't? (top 8 by volume — full list in table below)">
         <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Avg Deficiencies per Detention by Year (YTD)</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={mouMetricsByYear.slice(0,8).map(m=>({mou:m.mou,...m.avgDefsByYear}))} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="mou" tick={{fontSize:10,fill:"var(--text3)"}} interval={0} angle={-20} textAnchor="end" height={60} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            {availableYears.map((y,i)=>(
+              <Bar key={y} dataKey={y} fill={CHART_COLORS[i%CHART_COLORS.length]} radius={[3,3,0,0]}>
+                <LabelList dataKey={y} position="top" style={{fontSize:9,fill:"var(--text2)"}} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+        <div style={{display:"flex",gap:"14px",marginTop:"4px",marginBottom:"14px",flexWrap:"wrap"}}>
+          {availableYears.map((y,i)=>(
+            <div key={y} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:"var(--text3)"}}>
+              <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{y}
+            </div>
+          ))}
+        </div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
@@ -228,8 +270,28 @@ export default function MouDetentionReport({ vessels = [] }) {
         </table>
       </Card>
 
-      <Card style={{marginBottom:"14px"}} subtitle="% of that year's detentions with CAR status Complete">
+      <Card style={{marginBottom:"14px"}} subtitle="% of that year's detentions with CAR status Complete (top 8 by volume — full list in table below)">
         <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>CAR Compliance Rate by Year (YTD)</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={mouMetricsByYear.slice(0,8).map(m=>({mou:m.mou,...m.carRateByYear}))} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="mou" tick={{fontSize:10,fill:"var(--text3)"}} interval={0} angle={-20} textAnchor="end" height={60} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            {availableYears.map((y,i)=>(
+              <Bar key={y} dataKey={y} fill={CHART_COLORS[i%CHART_COLORS.length]} radius={[3,3,0,0]}>
+                <LabelList dataKey={y} position="top" style={{fontSize:9,fill:"var(--text2)"}} formatter={(v)=>v!=null?v+"%":""} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+        <div style={{display:"flex",gap:"14px",marginTop:"4px",marginBottom:"14px",flexWrap:"wrap"}}>
+          {availableYears.map((y,i)=>(
+            <div key={y} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:"var(--text3)"}}>
+              <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{y}
+            </div>
+          ))}
+        </div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
@@ -247,8 +309,28 @@ export default function MouDetentionReport({ vessels = [] }) {
         </table>
       </Card>
 
-      <Card style={{marginBottom:"20px"}} subtitle="% of that MoU's detentions coming from vessels detained more than once that same year">
+      <Card style={{marginBottom:"20px"}} subtitle="% of that MoU's detentions coming from vessels detained more than once that same year (top 8 by volume — full list in table below)">
         <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Repeat-Detention Concentration by Year (YTD)</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={mouMetricsByYear.slice(0,8).map(m=>({mou:m.mou,...m.repeatPctByYear}))} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="mou" tick={{fontSize:10,fill:"var(--text3)"}} interval={0} angle={-20} textAnchor="end" height={60} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            {availableYears.map((y,i)=>(
+              <Bar key={y} dataKey={y} fill={CHART_COLORS[i%CHART_COLORS.length]} radius={[3,3,0,0]}>
+                <LabelList dataKey={y} position="top" style={{fontSize:9,fill:"var(--text2)"}} formatter={(v)=>v!=null?v+"%":""} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+        <div style={{display:"flex",gap:"14px",marginTop:"4px",marginBottom:"14px",flexWrap:"wrap"}}>
+          {availableYears.map((y,i)=>(
+            <div key={y} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:"var(--text3)"}}>
+              <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{y}
+            </div>
+          ))}
+        </div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
