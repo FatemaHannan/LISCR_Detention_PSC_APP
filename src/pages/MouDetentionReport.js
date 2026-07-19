@@ -91,6 +91,24 @@ export default function MouDetentionReport({ vessels = [] }) {
     return () => { cancelled = true; };
   }, [detained]);
 
+  // ---- Fallback deficiency findings for vessels missing itemized v.deficiencies (mainly 2024/2025 backfilled cases) ----
+  // flag_psc_findings covers more history than the app-native deficiencies field, so use it to fill the gap.
+  const [findingsMap, setFindingsMap] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>v.imo))];
+    if (missingImos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("flag_psc_findings").select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
+        .in("imo", missingImos).ilike("flag_psc", "PSC");
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(f => { (map[f.imo] = map[f.imo]||[]).push(f); });
+      setFindingsMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [detained]);
+
   // ---- All MoUs, totals ----
   const mouList = useMemo(() => {
     const counts = {};
@@ -191,16 +209,25 @@ export default function MouDetentionReport({ vessels = [] }) {
       rows.forEach(v => { const l=extractLocation(v.port); locCounts[l]=(locCounts[l]||0)+1; });
       const locations = Object.entries(locCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([location,count])=>({location,count}));
 
-      // Causes
+      // Causes — use v.deficiencies where available, fall back to flag_psc_findings (matched near detention date) otherwise
       const catCounts = {};
       const codeCounts = {};
-      rows.forEach(v => { (v.deficiencies||[]).forEach(d => {
-        const cat = catDef(d.desc); catCounts[cat]=(catCounts[cat]||0)+1;
-        const code = d.code||"Unknown";
-        if (!codeCounts[code]) codeCounts[code] = {code,count:0,detainable:0,desc:d.desc};
-        codeCounts[code].count++;
-        if (d.detainable || String(d.action).trim()==="30") codeCounts[code].detainable++;
-      }); });
+      rows.forEach(v => {
+        let defs = v.deficiencies||[];
+        if (defs.length === 0 && v.imo && v.detentionDate) {
+          const detTime = new Date(v.detentionDate).getTime();
+          defs = (findingsMap[v.imo]||[])
+            .filter(f => f.insp_date && Math.abs(new Date(f.insp_date).getTime()-detTime) <= 7*24*60*60*1000)
+            .map(f => ({ desc: f.main_defect_text||f.full_description, code: f.defect_code, detainable: f.detainable, action: f.action }));
+        }
+        defs.forEach(d => {
+          const cat = catDef(d.desc); catCounts[cat]=(catCounts[cat]||0)+1;
+          const code = d.code||"Unknown";
+          if (!codeCounts[code]) codeCounts[code] = {code,count:0,detainable:0,desc:d.desc};
+          codeCounts[code].count++;
+          if (d.detainable || String(d.action).trim()==="30") codeCounts[code].detainable++;
+        });
+      });
       const causes = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cause,count])=>({cause,count}));
       const topCodes = Object.values(codeCounts).sort((a,b)=>b.count-a.count).slice(0,8);
 
@@ -226,7 +253,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, total:rows.length };
     });
     return result;
-  }, [detained, mouList, ageMap, riskMap]);
+  }, [detained, mouList, ageMap, riskMap, findingsMap]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
