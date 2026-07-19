@@ -56,19 +56,37 @@ function Stat({ l, v, s, c }) {
 export default function MouDetentionReport({ vessels = [] }) {
   const [expanded, setExpanded] = useState({});
   const [ageMap, setAgeMap] = useState({});
+  const [riskMap, setRiskMap] = useState({});
   const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
 
-  // ---- Vessel age lookup (not in the bulk vessels table, needs a separate query against client_vessel_details) ----
+  // ---- Vessel age lookup — sourced from Consolidated Inspection History (inspection_history), not client_vessel_details ----
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
     if (imos.length === 0) return;
     (async () => {
-      const { data } = await supabase.from("client_vessel_details").select("imo,age").in("imo", imos);
+      const { data } = await supabase.from("inspection_history").select("imo,age,inspection_date").in("imo", imos)
+        .not("age", "is", null).order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
       const map = {};
-      data.forEach(d => { if (d.age!=null) map[d.imo] = d.age; });
+      data.forEach(d => { if (d.age!=null && map[d.imo]==null) map[d.imo] = d.age; }); // first hit per imo = most recent, since sorted desc
       setAgeMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [detained]);
+
+  // ---- Vessel risk lookup — sourced from DPP Vetting History (dpp_vetting_history), most recent risk_level_at_time per vessel ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("dpp_vetting_history").select("imo,risk_level_at_time,created_date").in("imo", imos)
+        .not("risk_level_at_time", "is", null).order("created_date", { ascending: false });
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(d => { if (d.risk_level_at_time && map[d.imo]==null) map[d.imo] = d.risk_level_at_time; });
+      setRiskMap(map);
     })();
     return () => { cancelled = true; };
   }, [detained]);
@@ -85,8 +103,6 @@ export default function MouDetentionReport({ vessels = [] }) {
     detained.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
     return [...years].sort();
   }, [detained]);
-  const currentYearStr = String(new Date().getFullYear());
-
   // ---- MoU performance by year ----
   // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
@@ -100,10 +116,9 @@ export default function MouDetentionReport({ vessels = [] }) {
       if (!v.mou || !v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
       const yr = String(v.detentionDate).slice(0,4);
       grid[v.mou] = grid[v.mou] || {};
-      grid[v.mou][yr] = grid[v.mou][yr] || { count:0, defs:0, carComplete:0 };
+      grid[v.mou][yr] = grid[v.mou][yr] || { count:0, defs:0 };
       grid[v.mou][yr].count++;
       grid[v.mou][yr].defs += v.defs||0;
-      if (v.carStatus === "Complete") grid[v.mou][yr].carComplete++;
       const key = v.mou+"|"+yr+"|"+v.imo;
       imoSeenPerMouYear[key] = (imoSeenPerMouYear[key]||0)+1;
     });
@@ -130,15 +145,14 @@ export default function MouDetentionReport({ vessels = [] }) {
         else if (pct<-10) { trend="↓ Improving"; trendColor="var(--green2)"; }
         else { trend="→ Stable"; trendColor="var(--text3)"; }
       }
-      const avgDefsByYear = {}, carRateByYear = {}, repeatPctByYear = {}, countByYear = {};
+      const avgDefsByYear = {}, repeatPctByYear = {}, countByYear = {};
       availableYears.forEach(y => {
         const yd = years[y];
         countByYear[y] = yd?.count||0;
         avgDefsByYear[y] = yd?.count ? +(yd.defs/yd.count).toFixed(1) : null;
-        carRateByYear[y] = yd?.count ? Math.round((yd.carComplete/yd.count)*100) : null;
         repeatPctByYear[y] = yd?.count ? Math.round(((repeatCounts[m.mou]?.[y]||0)/yd.count)*100) : null;
       });
-      return { mou:m.mou, countByYear, avgDefsByYear, carRateByYear, repeatPctByYear, total:m.count, trend, trendColor };
+      return { mou:m.mou, countByYear, avgDefsByYear, repeatPctByYear, total:m.count, trend, trendColor };
     });
   }, [detainedYtd, mouList, availableYears]);
 
@@ -200,10 +214,19 @@ export default function MouDetentionReport({ vessels = [] }) {
       rows.forEach(v => { const b = ageBracket(ageMap[v.imo]); ageCounts[b] = (ageCounts[b]||0)+1; });
       const ageBreakdown = AGE_BRACKET_ORDER.filter(b=>ageCounts[b]>0).map(b=>({bracket:b, count:ageCounts[b]}));
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, total:rows.length };
+      // Vessel risk breakdown (from DPP Vetting History)
+      const RISK_ORDER = ["Low","Medium","High","Highest","Unknown"];
+      const riskCounts = {};
+      rows.forEach(v => { const r = riskMap[v.imo] || "Unknown"; riskCounts[r] = (riskCounts[r]||0)+1; });
+      const riskBreakdown = Object.keys(riskCounts).sort((a,b)=>{
+        const ia = RISK_ORDER.indexOf(a), ib = RISK_ORDER.indexOf(b);
+        return (ia===-1?99:ia)-(ib===-1?99:ib);
+      }).map(r=>({level:r, count:riskCounts[r]}));
+
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, total:rows.length };
     });
     return result;
-  }, [detained, mouList, ageMap]);
+  }, [detained, mouList, ageMap, riskMap]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -294,47 +317,6 @@ export default function MouDetentionReport({ vessels = [] }) {
         </table>
       </Card>
 
-      <Card style={{marginBottom:"14px"}} subtitle="% of that year's detentions with CAR status Complete (top 8 by volume — full list in table below)">
-        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>CAR Compliance Rate by Year (YTD)</div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={mouMetricsByYear.slice(0,8).map(m=>({mou:m.mou,...m.carRateByYear}))} margin={{top:20}}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="mou" tick={{fontSize:10,fill:"var(--text3)"}} interval={0} angle={-20} textAnchor="end" height={60} />
-            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
-            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-            {availableYears.map((y,i)=>(
-              <Bar key={y} dataKey={y} fill={CHART_COLORS[i%CHART_COLORS.length]} radius={[3,3,0,0]}>
-                <LabelList dataKey={y} position="top" style={{fontSize:9,fill:"var(--text2)"}} formatter={(v)=>v!=null?v+"%":""} />
-              </Bar>
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-        <div style={{display:"flex",gap:"14px",marginTop:"4px",marginBottom:"14px",flexWrap:"wrap"}}>
-          {availableYears.map((y,i)=>(
-            <div key={y} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:"var(--text3)"}}>
-              <span style={{width:"8px",height:"8px",borderRadius:"2px",background:CHART_COLORS[i%CHART_COLORS.length],display:"inline-block"}}></span>{y}
-            </div>
-          ))}
-        </div>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr>
-            <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
-            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}{y!==currentYearStr?" *":""}</th>)}
-          </tr></thead>
-          <tbody>{mouMetricsByYear.map(m=>(
-            <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
-              <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
-              {availableYears.map(y=>{
-                const v = m.carRateByYear[y];
-                const isBackfilled = y !== currentYearStr;
-                const color = v==null?"var(--text3)":isBackfilled?"var(--text3)":v>=70?"var(--green2)":v>=50?"var(--amber2)":"var(--red2)";
-                return <td key={y} style={{padding:"8px 10px",fontFamily:"var(--mono)",color}}>{v==null?"—":v+"%"}</td>;
-              })}
-            </tr>
-          ))}</tbody>
-        </table>
-        <div style={{fontSize:"10px",color:"var(--amber2)",marginTop:"8px"}}>* {availableYears.filter(y=>y!==currentYearStr).join("/")} CAR status was backfilled from inspection history, which doesn't reliably track CAR completion — these figures likely undercount real compliance and shouldn't be read as true 0%. Only {currentYearStr} reflects CAR status tracked through your normal case workflow.</div>
-      </Card>
 
       <Card style={{marginBottom:"20px"}} subtitle="% of that MoU's detentions coming from vessels detained more than once that same year (top 8 by volume — full list in table below)">
         <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Repeat-Detention Concentration by Year (YTD)</div>
@@ -462,7 +444,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"12px"}}>
                     <Card title="Risk Vessels (repeated detentions or high deficiencies)">
                       {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
@@ -477,13 +459,24 @@ export default function MouDetentionReport({ vessels = [] }) {
                         ))}</tbody>
                       </table>}
                     </Card>
-                    <Card title="Detentions by Vessel Age">
+                    <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
                       {(dd.ageBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No age data available for this MoU's vessels.</div>:
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
                         <tbody>{dd.ageBreakdown.map(a=>(
                           <tr key={a.bracket} style={{borderBottom:"1px solid var(--border)"}}>
                             <td style={{padding:"5px 8px",color:"var(--text2)"}}>{a.bracket}</td>
                             <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{a.count}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
+                    </Card>
+                    <Card title="Vessel Risk" subtitle="Source: DPP Vetting History">
+                      {(dd.riskBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vetting risk data available for this MoU's vessels.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                        <tbody>{dd.riskBreakdown.map(r=>(
+                          <tr key={r.level} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:r.level==="High"||r.level==="Highest"?"var(--red2)":r.level==="Medium"?"var(--amber2)":r.level==="Low"?"var(--green2)":"var(--text3)"}}>{r.level}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{r.count}</td>
                           </tr>
                         ))}</tbody>
                       </table>}
