@@ -338,6 +338,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
               {mouRates.years.map(yr=>(
                 <React.Fragment key={yr}>
                   <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Det.</th>
+                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Insp.</th>
                   <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Rate</th>
                 </React.Fragment>
               ))}
@@ -350,6 +351,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
                   return (
                     <React.Fragment key={yr}>
                       <td style={{padding:"7px 10px",color:"var(--text2)"}}>{y.detentions??0}</td>
+                      <td style={{padding:"7px 10px",color:"var(--text3)"}}>{y.totalInspections??"—"}</td>
                       <td style={{padding:"7px 10px",color:y.rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{y.rate!=null?y.rate+"%":"—"}</td>
                     </React.Fragment>
                   );
