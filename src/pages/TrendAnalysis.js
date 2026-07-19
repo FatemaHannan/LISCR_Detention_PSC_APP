@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -160,19 +160,23 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   // ---- PSC authority trend (most recent year vs prior year, per MoU, YTD-aligned) ----
   const mouTrend = useMemo(() => {
-    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
+    const allDetained = vessels.filter(v=>v.detained);
     const byMouYear = {};
     allDetained.forEach(v => {
       if (!v.mou || !v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
       const yr = String(v.detentionDate).slice(0,4);
       byMouYear[v.mou] = byMouYear[v.mou] || {};
-      byMouYear[v.mou][yr] = (byMouYear[v.mou][yr]||0)+1;
+      byMouYear[v.mou][yr] = byMouYear[v.mou][yr] || { full:0, ytd:0 };
+      byMouYear[v.mou][yr].full++;
+      if (String(v.detentionDate).slice(5,10) <= todayMD) byMouYear[v.mou][yr].ytd++;
     });
     return Object.entries(byMouYear).map(([mou,years]) => {
       const sortedYears = Object.keys(years).sort((a,b)=>b.localeCompare(a));
       const latest = sortedYears[0], prior = sortedYears[1];
-      const latestCount = years[latest]||0, priorCount = prior?years[prior]||0:null;
-      const total = Object.values(years).reduce((a,b)=>a+b,0);
+      // Trend comparison uses YTD counts (fair: both years counted through the same day-of-year)
+      const latestCount = years[latest]?.ytd||0, priorCount = prior?(years[prior]?.ytd||0):null;
+      // Displayed total is the TRUE full count, not YTD-capped, so it matches raw detention numbers
+      const total = Object.values(years).reduce((a,y)=>a+y.full,0);
       let trend = "—", trendColor = "var(--text3)";
       if (priorCount != null) {
         const pctChange = priorCount ? (latestCount-priorCount)/priorCount*100 : (latestCount>0?100:0);
@@ -368,23 +372,27 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Countries by Detentions">
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={countryData} layout="vertical" margin={{left:10}}>
+            <BarChart data={countryData} layout="vertical" margin={{left:10,right:24}}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
               <YAxis type="category" dataKey="country" width={100} tick={{fontSize:11,fill:"var(--text3)"}} />
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-              <Bar dataKey="count" fill="#ef4444" radius={[0,3,3,0]} />
+              <Bar dataKey="count" fill="#ef4444" radius={[0,3,3,0]}>
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
         <Card title="PSC Authority (MoU) Ranking">
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={mouData} layout="vertical" margin={{left:10}}>
+            <BarChart data={mouData} layout="vertical" margin={{left:10,right:24}}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
               <YAxis type="category" dataKey="mou" width={100} tick={{fontSize:11,fill:"var(--text3)"}} />
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-              <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]} />
+              <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]}>
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -400,7 +408,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             </tr>
           ))}</tbody>
         </table>
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Trend compares each authority's most recent year to the year before it, both counted through the same day of year (YTD), so a partial current year isn't unfairly compared against a full prior year (±10% = Stable).</div>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Detentions = true full total, all years combined. Trend compares each authority's most recent year to the year before it, both counted through the same day of year (YTD-aligned), so a partial current year isn't unfairly compared against a full prior year (±10% = Stable).</div>
       </Card>
 
       {/* Section 3: Time Pattern Analysis */}
