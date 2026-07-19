@@ -302,13 +302,15 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </Card>
       <Card title={<>Detentions by Month — Year over Year<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={yearOverlayData.grid}>
+          <LineChart data={yearOverlayData.grid} margin={{top:20}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
             <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
             <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
             {yearOverlayData.years.map((yr,i)=>(
-              <Line key={yr} type="monotone" dataKey={yr} stroke={CHART_COLORS[i%CHART_COLORS.length]} strokeWidth={2} dot={{r:2}} connectNulls />
+              <Line key={yr} type="monotone" dataKey={yr} stroke={CHART_COLORS[i%CHART_COLORS.length]} strokeWidth={2} dot={{r:2}} connectNulls>
+                <LabelList dataKey={yr} position="top" style={{fontSize:10,fill:CHART_COLORS[i%CHART_COLORS.length]}} />
+              </Line>
             ))}
           </LineChart>
         </ResponsiveContainer>
@@ -325,12 +327,14 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}<ScopeBadge filtered={true} /></div>
       <Card title={"Monthly Detention Trend — Jan-Dec "+monthDataYear} style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={monthData}>
+          <LineChart data={monthData} margin={{top:20}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
             <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
             <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-            <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{r:3}} />
+            <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{r:3}}>
+              <LabelList dataKey="count" position="top" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Line>
           </LineChart>
         </ResponsiveContainer>
       </Card>
@@ -416,13 +420,14 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Day of Week">
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={dowData}>
+            <BarChart data={dowData} margin={{top:20}}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" tick={{fontSize:11,fill:"var(--text3)"}} />
               <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
               <Bar dataKey="count" radius={[3,3,0,0]}>
                 {dowData.map((d,i)=><Cell key={i} fill={d.weekend?"#f59e0b":"#3b82f6"} />)}
+                <LabelList dataKey="count" position="top" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

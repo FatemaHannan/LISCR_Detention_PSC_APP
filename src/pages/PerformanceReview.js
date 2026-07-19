@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -246,13 +246,17 @@ export default function PerformanceReview({ vessels = [] }) {
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Rate Trend by Month</div>
       <Card style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData}>
+          <LineChart data={chartData} margin={{top:20}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
             <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
             <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-            <Line type="monotone" dataKey={p1Label(p1Start,p1End)} stroke="#94a3b8" strokeWidth={2} dot={{r:3}} />
-            <Line type="monotone" dataKey={p2Label(p2Start,p2End)} stroke="#3b82f6" strokeWidth={2} dot={{r:3}} />
+            <Line type="monotone" dataKey={p1Label(p1Start,p1End)} stroke="#94a3b8" strokeWidth={2} dot={{r:3}}>
+              <LabelList dataKey={p1Label(p1Start,p1End)} position="top" style={{fontSize:10,fill:"#94a3b8"}} />
+            </Line>
+            <Line type="monotone" dataKey={p2Label(p2Start,p2End)} stroke="#3b82f6" strokeWidth={2} dot={{r:3}}>
+              <LabelList dataKey={p2Label(p2Start,p2End)} position="bottom" style={{fontSize:10,fill:"#3b82f6"}} />
+            </Line>
           </LineChart>
         </ResponsiveContainer>
       </Card>
