@@ -56,21 +56,26 @@ function Stat({ l, v, s, c }) {
 export default function MouDetentionReport({ vessels = [] }) {
   const [expanded, setExpanded] = useState({});
   const [ageMap, setAgeMap] = useState({});
+  const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
   const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
 
-  // ---- Vessel age lookup — sourced from Consolidated Inspection History (inspection_history), not client_vessel_details ----
+  // ---- Vessel age + type lookup — sourced from Consolidated Inspection History (inspection_history), not client_vessel_details ----
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
     if (imos.length === 0) return;
     (async () => {
-      const { data } = await supabase.from("inspection_history").select("imo,age,inspection_date").in("imo", imos)
-        .not("age", "is", null).order("inspection_date", { ascending: false });
+      const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date").in("imo", imos)
+        .order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
-      const map = {};
-      data.forEach(d => { if (d.age!=null && map[d.imo]==null) map[d.imo] = d.age; }); // first hit per imo = most recent, since sorted desc
-      setAgeMap(map);
+      const aMap = {}, tMap = {};
+      data.forEach(d => {
+        if (d.age!=null && aMap[d.imo]==null) aMap[d.imo] = d.age; // first hit per imo = most recent, since sorted desc
+        if (d.vessel_type && tMap[d.imo]==null) tMap[d.imo] = d.vessel_type;
+      });
+      setAgeMap(aMap);
+      setTypeMap(tMap);
     })();
     return () => { cancelled = true; };
   }, [detained]);
@@ -252,15 +257,19 @@ export default function MouDetentionReport({ vessels = [] }) {
         return (ia===-1?99:ia)-(ib===-1?99:ib);
       }).map(r=>({level:r, count:riskCounts[r]}));
 
-      // Vessel type breakdown
+      // Vessel type breakdown — prefer Consolidated Inspection History's vessel_type, fall back to the bulk vessels.type field
       const typeCounts = {};
-      rows.forEach(v => { const t = v.type && v.type!=="—" ? v.type : "Unknown"; typeCounts[t] = (typeCounts[t]||0)+1; });
+      rows.forEach(v => {
+        const fromHistory = typeMap[v.imo];
+        const t = fromHistory || (v.type && v.type!=="—" ? v.type : "Unknown");
+        typeCounts[t] = (typeCounts[t]||0)+1;
+      });
       const typeBreakdown = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
 
       result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, total:rows.length };
     });
     return result;
-  }, [detained, mouList, ageMap, riskMap, findingsMap]);
+  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -524,7 +533,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                         </BarChart>
                       </ResponsiveContainer>}
                     </Card>
-                    <Card title="Detentions by Vessel Type">
+                    <Card title="Detentions by Vessel Type" subtitle="Source: Consolidated Inspection History">
                       {(dd.typeBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel type data available.</div>:
                       <ResponsiveContainer width="100%" height={Math.max(140, dd.typeBreakdown.length*32)}>
                         <BarChart data={dd.typeBreakdown} layout="vertical" margin={{left:10,right:20}}>
