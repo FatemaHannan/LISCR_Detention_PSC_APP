@@ -342,33 +342,45 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
             <thead><tr>
-              <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>MoU</th>
+              <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>MoU</th>
               {mouRates.years.map(yr=>(
-                <React.Fragment key={yr}>
-                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Det.</th>
-                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Insp.</th>
-                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Rate</th>
-                </React.Fragment>
+                <th key={yr} style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr}</th>
               ))}
+              <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Trend</th>
             </tr></thead>
-            <tbody>{mouRates.rows.map(r=>(
-              <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
-                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{r.mou}</td>
-                {mouRates.years.map(yr=>{
-                  const y = r.byYear[yr]||{};
-                  return (
-                    <React.Fragment key={yr}>
-                      <td style={{padding:"7px 10px",color:"var(--text2)"}}>{y.detentions??0}</td>
-                      <td style={{padding:"7px 10px",color:"var(--text3)"}}>{y.totalInspections??"—"}</td>
-                      <td style={{padding:"7px 10px",color:y.rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{y.rate!=null?y.rate+"%":"—"}</td>
-                    </React.Fragment>
-                  );
-                })}
-              </tr>
-            ))}</tbody>
+            <tbody>{mouRates.rows.map(r=>{
+              // one arrow per year-to-year transition, based on the rate% (not raw detention count)
+              const arrows = mouRates.years.slice(1).map((yr,i)=>{
+                const prevYr = mouRates.years[i];
+                const prevRate = r.byYear[prevYr]?.rate, curRate = r.byYear[yr]?.rate;
+                if (prevRate==null || curRate==null) return "—";
+                if (curRate > prevRate) return "↑";
+                if (curRate < prevRate) return "↓";
+                return "→";
+              });
+              return (
+                <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
+                  <td style={{padding:"9px 10px",color:"var(--text)",fontWeight:600,verticalAlign:"top"}}>{r.mou}</td>
+                  {mouRates.years.map(yr=>{
+                    const y = r.byYear[yr]||{};
+                    return (
+                      <td key={yr} style={{padding:"9px 10px",color:"var(--text2)",verticalAlign:"top"}}>
+                        {(y.detentions??0)+" / "+(y.totalInspections!=null?y.totalInspections.toLocaleString():"—")}
+                        <span style={{color:y.rate>3?"var(--red2)":"var(--text3)",fontWeight:600}}> ({y.rate!=null?y.rate+"%":"—"})</span>
+                      </td>
+                    );
+                  })}
+                  <td style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)",fontSize:"14px",verticalAlign:"top"}}>
+                    {arrows.map((a,i)=>(
+                      <span key={i} style={{color:a==="↑"?"var(--red2)":a==="↓"?"var(--green2)":"var(--text3)",marginRight:"4px"}}>{a}</span>
+                    ))}
+                  </td>
+                </tr>
+              );
+            })}</tbody>
           </table>
         )}
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Rate = PSC detentions ÷ PSC inspection records for that MoU and year (Flag State inspections excluded from both sides for an apples-to-apples comparison).</div>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each cell: Detentions / Inspections (Rate%). Trend: one arrow per year-over-year change in Rate% (↑ worsening, ↓ improving) — PSC detentions ÷ PSC inspections only, Flag State excluded from both sides.</div>
       </Card>
 
       {/* Section 2: Geographic Risk */}
