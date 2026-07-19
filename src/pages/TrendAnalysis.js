@@ -109,9 +109,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         for (const yr of years) {
           const detCount = allDetained.filter(v=>v.mou===mou && String(v.detentionDate).startsWith(yr)).length;
           const { count: pscCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
-            .eq("mou", mou).eq("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+            .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
           const { count: flagCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
-            .eq("mou", mou).eq("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+            .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
           byYear[yr] = {
             detentions: detCount, totalInspections: pscCount||0, rate: pscCount ? +(detCount/pscCount*100).toFixed(2) : null,
             flagInspections: flagCount||0,
@@ -389,7 +389,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       </Card>
 
       {(()=>{
-        const countTrendTable = (title, field, color) => (
+        const detRateTrendTable = (title, field, subtitle) => (
           <Card title={<>{title}<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
             {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -401,23 +401,35 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
                   <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Trend</th>
                 </tr></thead>
                 <tbody>{mouRates.rows.map(r=>{
+                  const rateFor = (yr) => {
+                    const y = r.byYear[yr]||{};
+                    const insp = y[field];
+                    return insp ? +((y.detentions||0)/insp*100).toFixed(2) : null;
+                  };
                   const arrows = mouRates.years.slice(1).map((yr,i)=>{
-                    const prevYr = mouRates.years[i];
-                    const prevVal = r.byYear[prevYr]?.[field], curVal = r.byYear[yr]?.[field];
-                    if (prevVal==null || curVal==null) return "—";
-                    if (curVal > prevVal) return "↑";
-                    if (curVal < prevVal) return "↓";
+                    const prevRate = rateFor(mouRates.years[i]), curRate = rateFor(yr);
+                    if (prevRate==null || curRate==null) return "—";
+                    if (curRate > prevRate) return "↑";
+                    if (curRate < prevRate) return "↓";
                     return "→";
                   });
                   return (
                     <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
-                      <td style={{padding:"9px 10px",color:"var(--text)",fontWeight:600}}>{r.mou}</td>
-                      {mouRates.years.map(yr=>(
-                        <td key={yr} style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{(r.byYear[yr]?.[field]??0).toLocaleString()}</td>
-                      ))}
-                      <td style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)",fontSize:"14px"}}>
+                      <td style={{padding:"9px 10px",color:"var(--text)",fontWeight:600,verticalAlign:"top"}}>{r.mou}</td>
+                      {mouRates.years.map(yr=>{
+                        const y = r.byYear[yr]||{};
+                        const insp = y[field];
+                        const rate = rateFor(yr);
+                        return (
+                          <td key={yr} style={{padding:"9px 10px",color:"var(--text2)",verticalAlign:"top"}}>
+                            {(y.detentions??0)+" / "+(insp!=null?insp.toLocaleString():"—")}
+                            <span style={{color:rate>3?"var(--red2)":"var(--text3)",fontWeight:600}}> ({rate!=null?rate+"%":"—"})</span>
+                          </td>
+                        );
+                      })}
+                      <td style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)",fontSize:"14px",verticalAlign:"top"}}>
                         {arrows.map((a,i)=>(
-                          <span key={i} style={{color:a==="↑"?color:a==="↓"?"var(--text3)":"var(--text3)",marginRight:"4px"}}>{a}</span>
+                          <span key={i} style={{color:a==="↑"?"var(--red2)":a==="↓"?"var(--green2)":"var(--text3)",marginRight:"4px"}}>{a}</span>
                         ))}
                       </td>
                     </tr>
@@ -425,12 +437,12 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
                 })}</tbody>
               </table>
             )}
-            <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Inspection volume per year (count of records), same top-5 MoUs as above. Trend: one arrow per year-over-year change in count.</div>
+            <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>{subtitle}</div>
           </Card>
         );
         return (<>
-          {countTrendTable("Flag Inspection Trend", "flagInspections", "var(--blue)")}
-          {countTrendTable("PSC Inspection Trend", "totalInspections", "var(--amber2)")}
+          {detRateTrendTable("Flag Inspection Trend", "flagInspections", "Each cell: PSC Detentions / Flag Inspections (Rate%). Trend: one arrow per year-over-year change in Rate%.")}
+          {detRateTrendTable("PSC Inspection Trend", "totalInspections", "Each cell: PSC Detentions / PSC Inspections (Rate%) — same as Detention Rate by MoU above, shown here for side-by-side comparison with the Flag table.")}
         </>);
       })()}
 
