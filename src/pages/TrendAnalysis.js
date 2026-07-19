@@ -75,7 +75,7 @@ export function ScopeBadge({ filtered }) {
 
 export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [selectedYear, setSelectedYear] = useState("All");
-  const [mouRates, setMouRates] = useState([]);
+  const [mouRates, setMouRates] = useState({ rows: [], years: [] });
   const [rateLoading, setRateLoading] = useState(true);
 
   const availableYears = useMemo(() => {
@@ -98,18 +98,26 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     let cancelled = false;
     (async () => {
       setRateLoading(true);
+      const allDetained = vessels.filter(v=>v.detained);
       const mouCounts = {};
-      detained.forEach(v => { if (v.mou) mouCounts[v.mou] = (mouCounts[v.mou]||0)+1; });
-      const topMous = Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      allDetained.forEach(v => { if (v.mou) mouCounts[v.mou] = (mouCounts[v.mou]||0)+1; });
+      const topMous = Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([mou])=>mou);
+      const years = [...new Set(allDetained.filter(v=>v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
       const results = [];
-      for (const [mou, detCount] of topMous) {
-        const { count } = await supabase.from("inspection_history").select("*", { count:"exact", head:true }).eq("mou", mou);
-        results.push({ mou, detentions: detCount, totalInspections: count||0, rate: count ? +(detCount/count*100).toFixed(2) : null });
+      for (const mou of topMous) {
+        const byYear = {};
+        for (const yr of years) {
+          const detCount = allDetained.filter(v=>v.mou===mou && String(v.detentionDate).startsWith(yr)).length;
+          const { count } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
+            .eq("mou", mou).gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+          byYear[yr] = { detentions: detCount, totalInspections: count||0, rate: count ? +(detCount/count*100).toFixed(2) : null };
+        }
+        results.push({ mou, byYear });
       }
-      if (!cancelled) { setMouRates(results); setRateLoading(false); }
+      if (!cancelled) { setMouRates({ rows: results, years }); setRateLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [detained]);
+  }, [vessels]);
 
   // ---- Year-over-year comparison (YTD-aligned, always all years, independent of filter) ----
   const yoyData = useMemo(() => {
@@ -322,20 +330,35 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </LineChart>
         </ResponsiveContainer>
       </Card>
-      <Card title="Detention Rate by MoU (detentions ÷ total inspections)" style={{marginBottom:"20px"}}>
+      <Card title={<>Detention Rate by MoU (detentions ÷ total inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-            <thead><tr>{["MoU","Detentions","Total Inspections","Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
-            <tbody>{mouRates.map(r=>(
+            <thead><tr>
+              <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>MoU</th>
+              {mouRates.years.map(yr=>(
+                <React.Fragment key={yr}>
+                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Det.</th>
+                  <th style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr} Rate</th>
+                </React.Fragment>
+              ))}
+            </tr></thead>
+            <tbody>{mouRates.rows.map(r=>(
               <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
-                <td style={{padding:"7px 10px",color:"var(--text)"}}>{r.mou}</td>
-                <td style={{padding:"7px 10px",color:"var(--text2)"}}>{r.detentions}</td>
-                <td style={{padding:"7px 10px",color:"var(--text2)"}}>{r.totalInspections||"—"}</td>
-                <td style={{padding:"7px 10px",color:r.rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{r.mou}</td>
+                {mouRates.years.map(yr=>{
+                  const y = r.byYear[yr]||{};
+                  return (
+                    <React.Fragment key={yr}>
+                      <td style={{padding:"7px 10px",color:"var(--text2)"}}>{y.detentions??0}</td>
+                      <td style={{padding:"7px 10px",color:y.rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{y.rate!=null?y.rate+"%":"—"}</td>
+                    </React.Fragment>
+                  );
+                })}
               </tr>
             ))}</tbody>
           </table>
         )}
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Rate = detentions ÷ total inspection records for that MoU and year, from inspection_history.</div>
       </Card>
 
       {/* Section 2: Geographic Risk */}
