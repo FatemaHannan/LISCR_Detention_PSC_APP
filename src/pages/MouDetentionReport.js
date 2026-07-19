@@ -94,16 +94,17 @@ export default function MouDetentionReport({ vessels = [] }) {
   // ---- Fallback deficiency findings for vessels missing itemized v.deficiencies (mainly 2024/2025 backfilled cases) ----
   // flag_psc_findings covers more history than the app-native deficiencies field, so use it to fill the gap.
   const [findingsMap, setFindingsMap] = useState({});
+  const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
   useEffect(() => {
     let cancelled = false;
-    const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>v.imo))];
+    const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
     if (missingImos.length === 0) return;
     (async () => {
       const { data } = await supabase.from("flag_psc_findings").select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
         .in("imo", missingImos).ilike("flag_psc", "PSC");
       if (cancelled || !data) return;
       const map = {};
-      data.forEach(f => { (map[f.imo] = map[f.imo]||[]).push(f); });
+      data.forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
       setFindingsMap(map);
     })();
     return () => { cancelled = true; };
@@ -214,10 +215,11 @@ export default function MouDetentionReport({ vessels = [] }) {
       const codeCounts = {};
       rows.forEach(v => {
         let defs = v.deficiencies||[];
-        if (defs.length === 0 && v.imo && v.detentionDate) {
-          const detTime = new Date(v.detentionDate).getTime();
-          defs = (findingsMap[v.imo]||[])
-            .filter(f => f.insp_date && Math.abs(new Date(f.insp_date).getTime()-detTime) <= 7*24*60*60*1000)
+        if (defs.length === 0 && v.imo) {
+          // Aggregate "Major Causes" view — use all PSC findings on record for the vessel,
+          // not date-scoped to this specific detention (that precision matters for a single
+          // case brief, not for a fleet-wide category breakdown).
+          defs = (findingsMap[normImo(v.imo)]||[])
             .map(f => ({ desc: f.main_defect_text||f.full_description, code: f.defect_code, detainable: f.detainable, action: f.action }));
         }
         defs.forEach(d => {
@@ -488,25 +490,34 @@ export default function MouDetentionReport({ vessels = [] }) {
                     </Card>
                     <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
                       {(dd.ageBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No age data available for this MoU's vessels.</div>:
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                        <tbody>{dd.ageBreakdown.map(a=>(
-                          <tr key={a.bracket} style={{borderBottom:"1px solid var(--border)"}}>
-                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{a.bracket}</td>
-                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{a.count}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>}
+                      <ResponsiveContainer width="100%" height={Math.max(140, dd.ageBreakdown.length*32)}>
+                        <BarChart data={dd.ageBreakdown} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="bracket" width={70} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]}>
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
                     </Card>
                     <Card title="Vessel Risk" subtitle="Source: DPP Vetting History">
                       {(dd.riskBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vetting risk data available for this MoU's vessels.</div>:
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                        <tbody>{dd.riskBreakdown.map(r=>(
-                          <tr key={r.level} style={{borderBottom:"1px solid var(--border)"}}>
-                            <td style={{padding:"5px 8px",color:r.level==="High"||r.level==="Highest"?"var(--red2)":r.level==="Medium"?"var(--amber2)":r.level==="Low"?"var(--green2)":"var(--text3)"}}>{r.level}</td>
-                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{r.count}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>}
+                      <ResponsiveContainer width="100%" height={Math.max(140, dd.riskBreakdown.length*32)}>
+                        <BarChart data={dd.riskBreakdown} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="level" width={70} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" radius={[0,3,3,0]}>
+                            {dd.riskBreakdown.map((r,i)=>(
+                              <Cell key={i} fill={r.level==="High"||r.level==="Highest"?"#ef4444":r.level==="Medium"?"#f59e0b":r.level==="Low"?"#10b981":"#64748b"} />
+                            ))}
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
                     </Card>
                   </div>
                 </div>
