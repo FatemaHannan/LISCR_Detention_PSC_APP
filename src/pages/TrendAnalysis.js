@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 export const AGE_BRACKET_ORDER = ["0-5 yrs","6-10 yrs","11-15 yrs","16-20 yrs","21-25 yrs","26+ yrs","Unknown"];
+export const RISK_ORDER = ["Low","Medium","High","Highest","Unknown"];
 export function ageBracket(age) {
   if (age==null || isNaN(age)) return "Unknown";
   if (age<=5) return "0-5 yrs";
@@ -77,6 +78,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [selectedYear, setSelectedYear] = useState("All");
   const [mouRates, setMouRates] = useState({ rows: [], years: [] });
   const [rateLoading, setRateLoading] = useState(true);
+  const [ageMap, setAgeMap] = useState({});
+  const [typeMap, setTypeMap] = useState({});
+  const [riskMap, setRiskMap] = useState({});
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -92,6 +96,67 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
+  // ---- Vessel age + type lookup — Consolidated Inspection History (inspection_history) ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(vessels.filter(v=>v.detained && v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date").in("imo", imos)
+        .order("inspection_date", { ascending: false });
+      if (cancelled || !data) return;
+      const aMap = {}, tMap = {};
+      data.forEach(d => {
+        if (d.age!=null && aMap[d.imo]==null) aMap[d.imo] = d.age;
+        if (d.vessel_type && tMap[d.imo]==null) tMap[d.imo] = d.vessel_type;
+      });
+      setAgeMap(aMap);
+      setTypeMap(tMap);
+    })();
+    return () => { cancelled = true; };
+  }, [vessels]);
+
+  // ---- Vessel risk lookup — DPP Vetting History (dpp_vetting_history) ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(vessels.filter(v=>v.detained && v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("dpp_vetting_history").select("imo,risk_level_at_time,created_date").in("imo", imos)
+        .not("risk_level_at_time", "is", null).order("created_date", { ascending: false });
+      if (cancelled || !data) return;
+      const map = {};
+      data.forEach(d => { if (d.risk_level_at_time && map[d.imo]==null) map[d.imo] = d.risk_level_at_time; });
+      setRiskMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [vessels]);
+
+  // ---- Vessel profile breakdowns (Age / Type / Risk) — follows Year selector ----
+  const vesselAgeBreakdown = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => { const b = ageBracket(ageMap[v.imo]); counts[b] = (counts[b]||0)+1; });
+    return AGE_BRACKET_ORDER.filter(b=>counts[b]>0).map(b=>({bracket:b, count:counts[b]}));
+  }, [detained, ageMap]);
+
+  const vesselTypeBreakdown = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => {
+      const t = typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : "Unknown");
+      counts[t] = (counts[t]||0)+1;
+    });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
+  }, [detained, typeMap]);
+
+  const vesselRiskBreakdown = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => { const r = riskMap[v.imo] || "Unknown"; counts[r] = (counts[r]||0)+1; });
+    return Object.keys(counts).sort((a,b)=>{
+      const ia = RISK_ORDER.indexOf(a), ib = RISK_ORDER.indexOf(b);
+      return (ia===-1?99:ia)-(ib===-1?99:ib);
+    }).map(r=>({level:r, count:counts[r]}));
+  }, [detained, riskMap]);
 
   // ---- Detention rate by MoU (detentions / total inspections) ----
   useEffect(() => {
@@ -283,6 +348,56 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         <Stat l="Avg Detentions / Month" v={avgPerMonth} s="follows Year filter above" />
         <Stat l="Avg Deficiencies / Detention" v={avgDefsOverall} s={yoyData.map(y=>y.year+": "+y.avgDefs).join(" · ")} />
         <Stat l="Repeat Vessels" v={topVessels.length} s="detained 2+ times" c={topVessels.length>0?"var(--red2)":"var(--green2)"} />
+      </div>
+
+      {/* Vessel Profile — Age, Type, Risk */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Vessel Profile — Detentions by Age, Type & Risk<ScopeBadge filtered={true} /></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
+          {vesselAgeBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No age data available.</div>:
+          <ResponsiveContainer width="100%" height={Math.max(160, vesselAgeBreakdown.length*32)}>
+            <BarChart data={vesselAgeBreakdown} layout="vertical" margin={{left:10,right:24}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+              <YAxis type="category" dataKey="bracket" width={70} tick={{fontSize:11,fill:"var(--text3)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+              <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]}>
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>}
+        </Card>
+        <Card title="Detentions by Vessel Type" subtitle="Source: Consolidated Inspection History">
+          {vesselTypeBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No vessel type data available.</div>:
+          <ResponsiveContainer width="100%" height={Math.max(160, vesselTypeBreakdown.length*32)}>
+            <BarChart data={vesselTypeBreakdown} layout="vertical" margin={{left:10,right:24}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+              <YAxis type="category" dataKey="type" width={90} tick={{fontSize:11,fill:"var(--text3)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+              <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]}>
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>}
+        </Card>
+        <Card title="Detentions by Vessel Risk" subtitle="Source: DPP Vetting History">
+          {vesselRiskBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No vetting risk data available.</div>:
+          <ResponsiveContainer width="100%" height={Math.max(160, vesselRiskBreakdown.length*32)}>
+            <BarChart data={vesselRiskBreakdown} layout="vertical" margin={{left:10,right:24}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+              <YAxis type="category" dataKey="level" width={70} tick={{fontSize:11,fill:"var(--text3)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+              <Bar dataKey="count" radius={[0,3,3,0]}>
+                {vesselRiskBreakdown.map((r,i)=>(
+                  <Cell key={i} fill={r.level==="High"||r.level==="Highest"?"#ef4444":r.level==="Medium"?"#f59e0b":r.level==="Low"?"#10b981":"#64748b"} />
+                ))}
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>}
+        </Card>
       </div>
 
       {/* Year-over-Year Comparison — always shows every year, independent of the filter above */}
