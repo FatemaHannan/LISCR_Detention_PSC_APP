@@ -85,6 +85,7 @@ export default function MouDetentionReport({ vessels = [] }) {
     detained.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
     return [...years].sort();
   }, [detained]);
+  const currentYearStr = String(new Date().getFullYear());
 
   // ---- MoU performance by year ----
   // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
@@ -318,18 +319,21 @@ export default function MouDetentionReport({ vessels = [] }) {
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
             <th style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>PSC Authority</th>
-            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}</th>)}
+            {availableYears.map(y=><th key={y} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{y}{y!==currentYearStr?" *":""}</th>)}
           </tr></thead>
           <tbody>{mouMetricsByYear.map(m=>(
             <tr key={m.mou} style={{borderBottom:"1px solid var(--border)"}}>
               <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{m.mou}</td>
               {availableYears.map(y=>{
                 const v = m.carRateByYear[y];
-                return <td key={y} style={{padding:"8px 10px",fontFamily:"var(--mono)",color:v==null?"var(--text3)":v>=70?"var(--green2)":v>=50?"var(--amber2)":"var(--red2)"}}>{v==null?"—":v+"%"}</td>;
+                const isBackfilled = y !== currentYearStr;
+                const color = v==null?"var(--text3)":isBackfilled?"var(--text3)":v>=70?"var(--green2)":v>=50?"var(--amber2)":"var(--red2)";
+                return <td key={y} style={{padding:"8px 10px",fontFamily:"var(--mono)",color}}>{v==null?"—":v+"%"}</td>;
               })}
             </tr>
           ))}</tbody>
         </table>
+        <div style={{fontSize:"10px",color:"var(--amber2)",marginTop:"8px"}}>* {availableYears.filter(y=>y!==currentYearStr).join("/")} CAR status was backfilled from inspection history, which doesn't reliably track CAR completion — these figures likely undercount real compliance and shouldn't be read as true 0%. Only {currentYearStr} reflects CAR status tracked through your normal case workflow.</div>
       </Card>
 
       <Card style={{marginBottom:"20px"}} subtitle="% of that MoU's detentions coming from vessels detained more than once that same year (top 8 by volume — full list in table below)">
