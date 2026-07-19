@@ -275,7 +275,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           <thead><tr>{["Year","Total Detentions","vs Prior Year","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
           <tbody>{yoyData.map((y,i)=>{
             const prev = yoyData[i-1];
-            const delta = prev ? Math.round((y.count-prev.count)/prev.count*100) : null;
+            const delta = prev ? +((y.count-prev.count)/prev.count*100).toFixed(1) : null;
             return (
               <tr key={y.year} style={{borderBottom:"1px solid var(--border)"}}>
                 <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{y.year}</td>
