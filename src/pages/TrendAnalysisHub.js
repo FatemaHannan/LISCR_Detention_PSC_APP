@@ -7,6 +7,7 @@ import AISMonitor from "./AISMonitor";
 import VIPProtocol from "./VIPProtocol";
 import FleetCompositionTrends from "./FleetCompositionTrends";
 import HighRiskAreas from "./HighRiskAreas";
+import OperationalResponseTracking from "./OperationalResponseTracking";
 
 const SUB_TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -14,6 +15,7 @@ const SUB_TABS = [
   { id: "perf", label: "Performance Review" },
   { id: "highrisk", label: "4. High-Risk Areas" },
   { id: "fleet", label: "5. Fleet Composition & Case Ownership" },
+  { id: "response", label: "Operational Response Tracking" },
   { id: "patterns", label: "Pattern Detection" },
   { id: "ais", label: "AIS Monitor" },
   { id: "vip", label: "VIP Protocol" },
@@ -49,6 +51,7 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
         {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}
         {subTab === "fleet" && <FleetCompositionTrends vessels={vessels} />}
+        {subTab === "response" && <OperationalResponseTracking vessels={vessels} tasks={tasks} />}
         {subTab === "patterns" && <PatternDetection vessels={vessels} learnedPatterns={window._learnedPatterns||[]} />}
         {subTab === "ais" && <AISMonitor vessels={vessels} />}
         {subTab === "vip" && <VIPProtocol vessels={vessels} />}
