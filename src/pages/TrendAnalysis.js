@@ -158,6 +158,35 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     }).map(r=>({level:r, count:counts[r]}));
   }, [detained, riskMap]);
 
+  // ---- Top 10 Companies and Top 10 RO by detentions, YTD-aligned, broken down by year (always all years) ----
+  const companyByYear = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
+    const byCompany = {};
+    allDetained.forEach(v => {
+      if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const company = v.company && v.company!=="—" ? v.company : "Unknown";
+      if (!byCompany[company]) byCompany[company] = { name: company, years:{}, total:0 };
+      byCompany[company].years[yr] = (byCompany[company].years[yr]||0)+1;
+      byCompany[company].total++;
+    });
+    return Object.values(byCompany).sort((a,b)=>b.total-a.total).slice(0,10);
+  }, [vessels, todayMD]);
+
+  const roByYear = useMemo(() => {
+    const allDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).slice(5,10)<=todayMD);
+    const byRo = {};
+    allDetained.forEach(v => {
+      if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      const ro = v.ro && v.ro!=="—" ? v.ro : "Unknown";
+      if (!byRo[ro]) byRo[ro] = { name: ro, years:{}, total:0 };
+      byRo[ro].years[yr] = (byRo[ro].years[yr]||0)+1;
+      byRo[ro].total++;
+    });
+    return Object.values(byRo).sort((a,b)=>b.total-a.total).slice(0,10);
+  }, [vessels, todayMD]);
+
   // ---- Detention rate by MoU (detentions / total inspections) ----
   useEffect(() => {
     let cancelled = false;
@@ -397,6 +426,37 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
               </Bar>
             </BarChart>
           </ResponsiveContainer>}
+        </Card>
+      </div>
+
+      {/* Top Companies & RO by Detentions */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 10 Companies & RO by Detentions<ScopeBadge filtered={false} /></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <Card title="Top 10 Companies by Detentions">
+          {companyByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No company data available.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
+            <thead><tr>{["Company",...availableYears.slice().reverse(),"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px",width:h==="Company"?"auto":"55px"}}>{h}</th>)}</tr></thead>
+            <tbody>{companyByYear.map(c=>(
+              <tr key={c.name} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.name}>{c.name}</td>
+                {availableYears.slice().reverse().map(y=><td key={y} style={{padding:"7px 10px",color:"var(--text2)"}}>{c.years[y]||0}</td>)}
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{c.total}</td>
+              </tr>
+            ))}</tbody>
+          </table>}
+        </Card>
+        <Card title="Top 10 RO by Detentions">
+          {roByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No RO data available.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
+            <thead><tr>{["RO",...availableYears.slice().reverse(),"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px",width:h==="RO"?"auto":"55px"}}>{h}</th>)}</tr></thead>
+            <tbody>{roByYear.map(r=>(
+              <tr key={r.name} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.name}>{r.name}</td>
+                {availableYears.slice().reverse().map(y=><td key={y} style={{padding:"7px 10px",color:"var(--text2)"}}>{r.years[y]||0}</td>)}
+                <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{r.total}</td>
+              </tr>
+            ))}</tbody>
+          </table>}
         </Card>
       </div>
 

@@ -275,7 +275,31 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const typeBreakdown = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, total:rows.length };
+      // Top companies by year (within this MoU)
+      const companyByYearCounts = {};
+      rows.forEach(v => {
+        if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+        const yr = String(v.detentionDate).slice(0,4);
+        const company = v.company && v.company!=="—" ? v.company : "Unknown";
+        if (!companyByYearCounts[company]) companyByYearCounts[company] = { name: company, years:{}, total:0 };
+        companyByYearCounts[company].years[yr] = (companyByYearCounts[company].years[yr]||0)+1;
+        companyByYearCounts[company].total++;
+      });
+      const companyBreakdown = Object.values(companyByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
+
+      // Top RO by year (within this MoU)
+      const roByYearCounts = {};
+      rows.forEach(v => {
+        if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+        const yr = String(v.detentionDate).slice(0,4);
+        const ro = v.ro && v.ro!=="—" ? v.ro : "Unknown";
+        if (!roByYearCounts[ro]) roByYearCounts[ro] = { name: ro, years:{}, total:0 };
+        roByYearCounts[ro].years[yr] = (roByYearCounts[ro].years[yr]||0)+1;
+        roByYearCounts[ro].total++;
+      });
+      const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
+
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, total:rows.length };
     });
     return result;
   }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap]);
@@ -555,6 +579,34 @@ export default function MouDetentionReport({ vessels = [] }) {
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>}
+                    </Card>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                    <Card title="Top Companies by Detentions">
+                      {(dd.companyBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No company data available.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                        <thead><tr>{["Company",...availableYears,"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",width:h==="Company"?"auto":"45px"}}>{h}</th>)}</tr></thead>
+                        <tbody>{dd.companyBreakdown.map(c=>(
+                          <tr key={c.name} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.name}>{c.name}</td>
+                            {availableYears.map(y=><td key={y} style={{padding:"5px 8px",color:"var(--text2)"}}>{c.years[y]||0}</td>)}
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{c.total}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
+                    </Card>
+                    <Card title="Top RO by Detentions">
+                      {(dd.roBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No RO data available.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                        <thead><tr>{["RO",...availableYears,"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",width:h==="RO"?"auto":"45px"}}>{h}</th>)}</tr></thead>
+                        <tbody>{dd.roBreakdown.map(r=>(
+                          <tr key={r.name} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.name}>{r.name}</td>
+                            {availableYears.map(y=><td key={y} style={{padding:"5px 8px",color:"var(--text2)"}}>{r.years[y]||0}</td>)}
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{r.total}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
                     </Card>
                   </div>
                 </div>
