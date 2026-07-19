@@ -252,7 +252,12 @@ export default function MouDetentionReport({ vessels = [] }) {
         return (ia===-1?99:ia)-(ib===-1?99:ib);
       }).map(r=>({level:r, count:riskCounts[r]}));
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, total:rows.length };
+      // Vessel type breakdown
+      const typeCounts = {};
+      rows.forEach(v => { const t = v.type && v.type!=="—" ? v.type : "Unknown"; typeCounts[t] = (typeCounts[t]||0)+1; });
+      const typeBreakdown = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
+
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, total:rows.length };
     });
     return result;
   }, [detained, mouList, ageMap, riskMap, findingsMap]);
@@ -473,21 +478,21 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                   </div>
+                  <Card title="Risk Vessels (repeated detentions or high deficiencies)" style={{marginBottom:"12px"}}>
+                    {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Vessel</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>IMO</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Count</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Avg Def.</th></tr></thead>
+                      <tbody>{dd.riskVessels.map(v=>(
+                        <tr key={v.imo} style={{borderBottom:"1px solid var(--border)"}}>
+                          <td style={{padding:"5px 8px",color:"var(--text)"}}>{v.name}</td>
+                          <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
+                          <td style={{padding:"5px 8px",color:v.count>1?"var(--red2)":"var(--text2)",fontWeight:v.count>1?600:400}}>{v.count}x</td>
+                          <td style={{padding:"5px 8px",color:"var(--text2)"}}>{v.count?(v.totalDefs/v.count).toFixed(1):"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>}
+                  </Card>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"12px"}}>
-                    <Card title="Risk Vessels (repeated detentions or high deficiencies)">
-                      {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                        <thead><tr><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Vessel</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>IMO</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Count</th><th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Avg Def.</th></tr></thead>
-                        <tbody>{dd.riskVessels.map(v=>(
-                          <tr key={v.imo} style={{borderBottom:"1px solid var(--border)"}}>
-                            <td style={{padding:"5px 8px",color:"var(--text)"}}>{v.name}</td>
-                            <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
-                            <td style={{padding:"5px 8px",color:v.count>1?"var(--red2)":"var(--text2)",fontWeight:v.count>1?600:400}}>{v.count}x</td>
-                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{v.count?(v.totalDefs/v.count).toFixed(1):"—"}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>}
-                    </Card>
                     <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
                       {(dd.ageBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No age data available for this MoU's vessels.</div>:
                       <ResponsiveContainer width="100%" height={Math.max(140, dd.ageBreakdown.length*32)}>
@@ -514,6 +519,20 @@ export default function MouDetentionReport({ vessels = [] }) {
                             {dd.riskBreakdown.map((r,i)=>(
                               <Cell key={i} fill={r.level==="High"||r.level==="Highest"?"#ef4444":r.level==="Medium"?"#f59e0b":r.level==="Low"?"#10b981":"#64748b"} />
                             ))}
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
+                    </Card>
+                    <Card title="Detentions by Vessel Type">
+                      {(dd.typeBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel type data available.</div>:
+                      <ResponsiveContainer width="100%" height={Math.max(140, dd.typeBreakdown.length*32)}>
+                        <BarChart data={dd.typeBreakdown} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="type" width={90} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]}>
                             <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
                           </Bar>
                         </BarChart>
