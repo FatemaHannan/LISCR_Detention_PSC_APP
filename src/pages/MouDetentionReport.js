@@ -58,7 +58,12 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [ageMap, setAgeMap] = useState({});
   const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
-  const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  const [selectedYear, setSelectedYear] = useState("All");
+  const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  const detained = useMemo(() => {
+    if (selectedYear === "All") return allDetainedRaw;
+    return allDetainedRaw.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
+  }, [allDetainedRaw, selectedYear]);
 
   // ---- Vessel age + type lookup — sourced from Consolidated Inspection History (inspection_history), not client_vessel_details ----
   useEffect(() => {
@@ -133,13 +138,13 @@ export default function MouDetentionReport({ vessels = [] }) {
 
   const availableYears = useMemo(() => {
     const years = new Set();
-    detained.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
+    allDetainedRaw.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
     return [...years].sort();
-  }, [detained]);
+  }, [allDetainedRaw]);
   // ---- MoU performance by year ----
   // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
-  const detainedYtd = useMemo(() => detained.filter(v=>v.detentionDate && String(v.detentionDate).slice(5,10) <= todayMD), [detained, todayMD]);
+  const detainedYtd = useMemo(() => allDetainedRaw.filter(v=>v.detentionDate && String(v.detentionDate).slice(5,10) <= todayMD), [allDetainedRaw, todayMD]);
 
   const mouMetricsByYear = useMemo(() => {
     // per mou per year: detentions, defs sum, car complete count, repeat-vessel detentions
@@ -308,10 +313,20 @@ export default function MouDetentionReport({ vessels = [] }) {
 
   return (
     <div className="pg active">
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Detention Trend by MoU</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and how detentions are happening — broken down by PSC authority</div>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
+        <div>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Detention Trend by MoU</div>
+          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and how detentions are happening — broken down by PSC authority</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
+          <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"6px 10px"}}>
+            <option value="All">All Years</option>
+            {availableYears.slice().reverse().map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
       </div>
+      <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"14px"}}>Year filter applies to the MoU list below and each authority's expanded detail (monthly trend, causes, risk vessels, age/type/risk, companies, RO). The by-year comparison tables above always show every year regardless of this filter, since that's their purpose.</div>
 
       {/* MoU Metrics by Year (YTD) */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
