@@ -105,11 +105,20 @@ export default function MouDetentionReport({ vessels = [] }) {
     const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
     if (missingImos.length === 0) return;
     (async () => {
-      const { data } = await supabase.from("flag_psc_findings").select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
-        .in("imo", missingImos).ilike("flag_psc", "PSC");
-      if (cancelled || !data) return;
+      // Batch into chunks — a single .in() with a large IMO list can silently fail (URL too long / request error)
+      const CHUNK = 40;
+      const chunks = [];
+      for (let i=0; i<missingImos.length; i+=CHUNK) chunks.push(missingImos.slice(i, i+CHUNK));
+      const results = await Promise.all(chunks.map(async (chunk) => {
+        const { data, error } = await supabase.from("flag_psc_findings")
+          .select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
+          .in("imo", chunk).ilike("flag_psc", "PSC");
+        if (error) { console.error("flag_psc_findings fetch error:", error.message, "chunk size:", chunk.length); return []; }
+        return data || [];
+      }));
+      if (cancelled) return;
       const map = {};
-      data.forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
+      results.flat().forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
       setFindingsMap(map);
     })();
     return () => { cancelled = true; };
