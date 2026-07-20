@@ -321,8 +321,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     // happened. Only call it "worse" when the rate itself is actually climbing.
     let verdict = "STABLE PERFORMANCE", color = "var(--amber2)", icon = "→";
     if (rateChangePct != null) {
-      if (rateChangePct <= -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
-      else if (rateChangePct >= 10) { verdict = "PERFORMING WORSE"; color = "var(--red2)"; icon = "⚠"; }
+      if (rateChangePct <= -10) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
+      else if (rateChangePct >= 10) { verdict = "DETENTIONS INCREASING"; color = "var(--red2)"; icon = "⚠"; }
       else if (inspChangePct != null && inspChangePct >= 15 && detChangePct != null && detChangePct >= 10) {
         // Rate is flat/stable, but both inspections and detentions rose together — informational, not a verdict on performance
         verdict = "INSPECTIONS INCREASING"; color = "var(--blue)"; icon = "↑";
@@ -331,7 +331,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       }
     } else if (detChangePct != null) {
       // No inspection-rate data available — fall back to raw detention count trend only
-      if (detChangePct <= -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
+      if (detChangePct <= -10) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
       else if (detChangePct >= 10) { verdict = "DETENTIONS INCREASING"; color = "var(--amber2)"; icon = "↑"; }
     }
 
