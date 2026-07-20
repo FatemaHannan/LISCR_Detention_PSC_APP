@@ -81,6 +81,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [riskMap, setRiskMap] = useState({});
   const [monthlyPsc, setMonthlyPsc] = useState({}); // { "2025": {"01":count,...}, "2026": {...} }
   const [monthlyPscLoading, setMonthlyPscLoading] = useState(true);
+  const [fleetCounts, setFleetCounts] = useState({ vetting:{}, casualty:{}, mlc:{} }); // { vetting: {"2024":n,...}, casualty:{...}, mlc:{...} }
+  const [fleetCountsLoading, setFleetCountsLoading] = useState(true);
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -130,6 +132,36 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // ---- Fleet-wide Vetting / Casualty / MLC counts, ALL available years, YTD-aligned ----
+  useEffect(() => {
+    let cancelled = false;
+    const yrs = availableYears.length ? availableYears : [String(new Date().getFullYear())];
+    (async () => {
+      setFleetCountsLoading(true);
+      const jobs = [];
+      yrs.forEach(yr => jobs.push({ yr }));
+      const CONCURRENCY = 3;
+      const vetting = {}, casualty = {}, mlc = {};
+      for (let i=0; i<jobs.length; i+=CONCURRENCY) {
+        const batch = jobs.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async ({yr}) => {
+          const [vRes, cRes, mRes] = await Promise.all([
+            supabase.from("dpp_vetting_history").select("*", { count:"exact", head:true })
+              .gte("created_date", yr+"-01-01").lte("created_date", yr+"-"+todayMD),
+            supabase.from("inspection_history").select("*", { count:"exact", head:true })
+              .ilike("flag_psc", "VSL Casualty").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
+            supabase.from("mlc_complaints").select("*", { count:"exact", head:true })
+              .gte("reported_date", yr+"-01-01").lte("reported_date", yr+"-"+todayMD),
+          ]);
+          return { yr, v: vRes.count||0, c: cRes.count||0, mo: mRes.count||0 };
+        }));
+        batchResults.forEach(({yr,v,c,mo}) => { vetting[yr]=v; casualty[yr]=c; mlc[yr]=mo; });
+      }
+      if (!cancelled) { setFleetCounts({ vetting, casualty, mlc }); setFleetCountsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [availableYears, todayMD]);
 
   // ---- Vessel age + type lookup — Consolidated Inspection History (inspection_history) ----
   useEffect(() => {
@@ -708,6 +740,64 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         </table>
         )}
       </Card>
+
+      {/* Vetting, Casualty & MLC Reports — fleet-wide, YTD-aligned */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Vetting, Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
+      {(()=>{
+        const currentMonthNum = new Date().getMonth()+1;
+        const currentYearStr3 = String(new Date().getFullYear());
+        const reportTable = (title, subtitle, countKey, countLabel) => {
+          let totalDet=0, totalCount=0, totalMonths=0;
+          const yearRows = availableYears.map(y=>{
+            const yd = yoyData.find(x=>x.year===y);
+            const det = yd?yd.count:0;
+            const cnt = fleetCounts[countKey]?.[y]||0;
+            const rate = cnt ? +(det/cnt*100).toFixed(3) : null;
+            const monthsInYear = (y===currentYearStr3 ? currentMonthNum : 12);
+            const avgDet = monthsInYear ? (det/monthsInYear).toFixed(1) : "—";
+            const avgCnt = monthsInYear ? (cnt/monthsInYear).toFixed(1) : "—";
+            totalDet+=det; totalCount+=cnt; totalMonths+=monthsInYear;
+            return { y, det, cnt, rate, avgDet, avgCnt };
+          });
+          const overallRate = totalCount ? +(totalDet/totalCount*100).toFixed(3) : null;
+          const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
+          const avgCntMonth = totalMonths ? (totalCount/totalMonths).toFixed(1) : "—";
+          return (
+            <Card title={title} subtitle={subtitle} style={{marginBottom:"20px"}}>
+              {fleetCountsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading {countLabel.toLowerCase()} totals…</div>:
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
+                <thead><tr>{["Year","Detentions",countLabel,"Rate %","Avg Detentions/Mo.","Avg "+countLabel+"/Mo."].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {yearRows.map(r=>(
+                    <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
+                      <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.det}</td>
+                      <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.cnt.toLocaleString()}</td>
+                      <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
+                      <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgDet}</td>
+                      <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgCnt}</td>
+                    </tr>
+                  ))}
+                  <tr style={{borderTop:"2px solid var(--border)"}}>
+                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>Total</td>
+                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
+                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalCount.toLocaleString()}</td>
+                    <td style={{padding:"8px 10px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>
+                    <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>
+                    <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgCntMonth}</td>
+                  </tr>
+                </tbody>
+              </table>}
+            </Card>
+          );
+        };
+        return (<>
+          {reportTable("Vetting Report", "Detentions ÷ ALL vetting activity, fleet-wide — from DPP Vetting History", "vetting", "Vetting Count")}
+          {reportTable("Casualty Report", "Detentions ÷ Vessel Casualty records, fleet-wide — from Consolidated Inspection History", "casualty", "Casualty Count")}
+          {reportTable("MLC Report", "Detentions ÷ MLC Complaints, fleet-wide — from MLC Complaints", "mlc", "MLC Count")}
+        </>);
+      })()}
+
       <Card title={<>Detention Rate by MoU (detentions ÷ total inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
