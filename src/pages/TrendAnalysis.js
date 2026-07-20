@@ -746,7 +746,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       {(()=>{
         const currentMonthNum = new Date().getMonth()+1;
         const currentYearStr3 = String(new Date().getFullYear());
-        const reportTable = (title, subtitle, countKey, countLabel) => {
+        const reportTable = (title, subtitle, countKey, countLabel, simple) => {
           let totalDet=0, totalCount=0, totalMonths=0;
           const yearRows = availableYears.map(y=>{
             const yd = yoyData.find(x=>x.year===y);
@@ -762,28 +762,29 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           const overallRate = totalCount ? +(totalDet/totalCount*100).toFixed(3) : null;
           const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
           const avgCntMonth = totalMonths ? (totalCount/totalMonths).toFixed(1) : "—";
+          const headers = simple ? ["Year",countLabel,"Avg "+countLabel+"/Mo."] : ["Year","Detentions",countLabel,"Rate %","Avg Detentions/Mo.","Avg "+countLabel+"/Mo."];
           return (
             <Card title={title} subtitle={subtitle} style={{marginBottom:"20px"}}>
               {fleetCountsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading {countLabel.toLowerCase()} totals…</div>:
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
-                <thead><tr>{["Year","Detentions",countLabel,"Rate %","Avg Detentions/Mo.","Avg "+countLabel+"/Mo."].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+                <thead><tr>{headers.map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
                 <tbody>
                   {yearRows.map(r=>(
                     <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
                       <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
-                      <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.det}</td>
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.det}</td>}
                       <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.cnt.toLocaleString()}</td>
-                      <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
-                      <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgDet}</td>
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>}
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgDet}</td>}
                       <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgCnt}</td>
                     </tr>
                   ))}
                   <tr style={{borderTop:"2px solid var(--border)"}}>
                     <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>Total</td>
-                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>}
                     <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalCount.toLocaleString()}</td>
-                    <td style={{padding:"8px 10px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>
-                    <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>}
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>}
                     <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgCntMonth}</td>
                   </tr>
                 </tbody>
@@ -792,9 +793,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           );
         };
         return (<>
-          {reportTable("Vetting Report", "Detentions ÷ ALL vetting activity, fleet-wide — from DPP Vetting History", "vetting", "Vetting Count")}
-          {reportTable("Casualty Report", "Detentions ÷ Vessel Casualty records, fleet-wide — from Consolidated Inspection History", "casualty", "Casualty Count")}
-          {reportTable("MLC Report", "Detentions ÷ MLC Complaints, fleet-wide — from MLC Complaints", "mlc", "MLC Count")}
+          {reportTable("Vetting Report", "Detentions ÷ ALL vetting activity, fleet-wide — from DPP Vetting History", "vetting", "Vetting Count", false)}
+          {reportTable("Casualty Report", "Vessel Casualty records, fleet-wide — from Consolidated Inspection History", "casualty", "Casualty Count", true)}
+          {reportTable("MLC Report", "MLC Complaints, fleet-wide — from MLC Complaints", "mlc", "MLC Count", true)}
         </>);
       })()}
 
