@@ -720,16 +720,18 @@ export default function MouDetentionReport({ vessels = [] }) {
                         const det = dd.detByYear?.[y]||0;
                         const vet = vettingCounts[m.mou]?.[y]||0;
                         const rate = vet ? +(det/vet*100).toFixed(3) : null;
-                        totalDet += det; totalVet += vet;
-                        totalMonths += (y===currentYearStr2 ? currentMonthNum : 12);
-                        return { y, det, vet, rate };
+                        const monthsInYear = (y===currentYearStr2 ? currentMonthNum : 12);
+                        const avgDet = monthsInYear ? (det/monthsInYear).toFixed(1) : "—";
+                        const avgVet = monthsInYear ? (vet/monthsInYear).toFixed(1) : "—";
+                        totalDet += det; totalVet += vet; totalMonths += monthsInYear;
+                        return { y, det, vet, rate, avgDet, avgVet };
                       });
                       const overallRate = totalVet ? +(totalDet/totalVet*100).toFixed(3) : null;
                       const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
                       const avgVetMonth = totalMonths ? (totalVet/totalMonths).toFixed(1) : "—";
-                      return (<>
+                      return (
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
-                          <thead><tr>{["Year","Detentions","Vetting Count","Rate %"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <thead><tr>{["Year","Detentions","Vetting Count","Rate %","Avg Detentions/Mo.","Avg Vetting/Mo."].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                           <tbody>
                             {yearRows.map(r=>(
                               <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
@@ -737,6 +739,8 @@ export default function MouDetentionReport({ vessels = [] }) {
                                 <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.det}</td>
                                 <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.vet.toLocaleString()}</td>
                                 <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
+                                <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgDet}</td>
+                                <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgVet}</td>
                               </tr>
                             ))}
                             <tr style={{borderTop:"2px solid var(--border)"}}>
@@ -744,14 +748,12 @@ export default function MouDetentionReport({ vessels = [] }) {
                               <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
                               <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalVet.toLocaleString()}</td>
                               <td style={{padding:"7px 8px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>
+                              <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>
+                              <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgVetMonth}</td>
                             </tr>
                           </tbody>
                         </table>
-                        <div style={{display:"flex",gap:"16px",marginTop:"10px",flexWrap:"wrap"}}>
-                          <div style={{fontSize:"11px",color:"var(--text3)"}}>Avg Detentions/Month: <b style={{color:"var(--text)"}}>{avgDetMonth}</b></div>
-                          <div style={{fontSize:"11px",color:"var(--text3)"}}>Avg Vetting/Month: <b style={{color:"var(--text)"}}>{avgVetMonth}</b></div>
-                        </div>
-                      </>);
+                      );
                     })()}
                   </Card>
 
