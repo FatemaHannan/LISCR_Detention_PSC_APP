@@ -81,6 +81,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
   const [ageMap, setAgeMap] = useState({});
   const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
+  const [monthlyPsc, setMonthlyPsc] = useState({}); // { "2025": {"01":count,...}, "2026": {...} }
+  const [monthlyPscLoading, setMonthlyPscLoading] = useState(true);
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -96,6 +98,40 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
   // YTD cutoff = today's month-day, applied to every year for fair comparison of a partial current year
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
+
+  // ---- Fleet-wide monthly PSC inspection counts (current year + prior year, for the performance verdict and month-to-month chart) ----
+  useEffect(() => {
+    let cancelled = false;
+    const currentYear = new Date().getFullYear();
+    const priorYear = currentYear - 1;
+    const currentMonth = new Date().getMonth() + 1; // months elapsed so far this year
+    (async () => {
+      setMonthlyPscLoading(true);
+      const jobs = [];
+      [priorYear, currentYear].forEach(yr => {
+        for (let m=1; m<=currentMonth; m++) jobs.push({ yr, m });
+      });
+      const CONCURRENCY = 4;
+      const results = {};
+      for (let i=0; i<jobs.length; i+=CONCURRENCY) {
+        const batch = jobs.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async ({yr, m}) => {
+          const mm = String(m).padStart(2,"0");
+          const nextM = m===12 ? `${yr+1}-01-01` : `${yr}-${String(m+1).padStart(2,"0")}-01`;
+          const { count, error } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
+            .ilike("flag_psc", "PSC").gte("inspection_date", `${yr}-${mm}-01`).lt("inspection_date", nextM);
+          if (error) { console.error("[Dashboard] monthly PSC fetch error:", error.message); return { yr, m: mm, count: 0 }; }
+          return { yr, m: mm, count: count||0 };
+        }));
+        batchResults.forEach(({yr,m,count}) => {
+          results[yr] = results[yr] || {};
+          results[yr][m] = count;
+        });
+      }
+      if (!cancelled) { setMonthlyPsc(results); setMonthlyPscLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // ---- Vessel age + type lookup — Consolidated Inspection History (inspection_history) ----
   useEffect(() => {
@@ -241,6 +277,55 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     }));
   }, [vessels, todayMD]);
 
+  // ---- Month-to-month PSC Inspections vs Detentions, current year ----
+  const monthlyComparison = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const detByMonth = {};
+    vessels.forEach(v => {
+      if (v.detained && v.detentionDate && String(v.detentionDate).startsWith(String(currentYear))) {
+        const mm = String(v.detentionDate).slice(5,7);
+        detByMonth[mm] = (detByMonth[mm]||0)+1;
+      }
+    });
+    const rows = [];
+    for (let m=1; m<=currentMonth; m++) {
+      const mm = String(m).padStart(2,"0");
+      const detCount = detByMonth[mm]||0;
+      const pscCount = monthlyPsc[currentYear]?.[mm];
+      const rate = pscCount ? +(detCount/pscCount*100).toFixed(2) : null;
+      rows.push({ month: monthNames[m-1], detentions: detCount, psc: pscCount, rate });
+    }
+    return rows;
+  }, [vessels, monthlyPsc]);
+
+  // ---- Overall Performance Verdict: current year (YTD) vs prior year (YTD) ----
+  const performanceVerdict = useMemo(() => {
+    const currentYear = String(new Date().getFullYear());
+    const priorYear = String(new Date().getFullYear()-1);
+    const cur = yoyData.find(y=>y.year===currentYear);
+    const prev = yoyData.find(y=>y.year===priorYear);
+    if (!cur || !prev) return null;
+    const detChangePct = prev.count ? +((cur.count-prev.count)/prev.count*100).toFixed(1) : null;
+
+    const curPsc = Object.values(monthlyPsc[currentYear]||{}).reduce((a,b)=>a+b,0);
+    const prevPsc = Object.values(monthlyPsc[priorYear]||{}).reduce((a,b)=>a+b,0);
+    const curRate = curPsc ? +(cur.count/curPsc*100).toFixed(2) : null;
+    const prevRate = prevPsc ? +(prev.count/prevPsc*100).toFixed(2) : null;
+    const rateChangePct = (curRate!=null && prevRate) ? +((curRate-prevRate)/prevRate*100).toFixed(1) : null;
+
+    // Verdict logic: weigh both detention count trend and detention rate trend
+    let verdict = "STABLE", color = "var(--text3)", icon = "→";
+    const scores = [detChangePct, rateChangePct].filter(x=>x!=null);
+    const avgChange = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+    if (avgChange < -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
+    else if (avgChange > 10) { verdict = "PERFORMING WORSE"; color = "var(--red2)"; icon = "⚠"; }
+    else { verdict = "STABLE PERFORMANCE"; color = "var(--amber2)"; icon = "→"; }
+
+    return { verdict, color, icon, detChangePct, rateChangePct, curCount:cur.count, prevCount:prev.count, curRate, prevRate, currentYear, priorYear };
+  }, [yoyData, monthlyPsc]);
+
   // ---- Multi-year monthly overlay (Jan-Dec rows, one column per year) — full year, not YTD-capped, since a chart makes a partial year self-evident ----
   const yearOverlayData = useMemo(() => {
     const allDetained = vessels.filter(v=>v.detained);
@@ -370,6 +455,22 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </select>
         </div>
       </div>
+
+      {/* Performance Verdict — the real picture, bold and upfront */}
+      {performanceVerdict && (
+        <div style={{background:performanceVerdict.color+"14",border:"2px solid "+performanceVerdict.color,borderRadius:"10px",padding:"18px 22px",marginBottom:"16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"14px",flexWrap:"wrap"}}>
+            <div style={{fontSize:"32px",color:performanceVerdict.color}}>{performanceVerdict.icon}</div>
+            <div>
+              <div style={{fontSize:"20px",fontWeight:800,color:performanceVerdict.color,letterSpacing:".02em"}}>{performanceVerdict.verdict}</div>
+              <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"4px"}}>
+                {performanceVerdict.currentYear} vs {performanceVerdict.priorYear} (YTD): <b style={{color:performanceVerdict.detChangePct<=0?"var(--green2)":"var(--red2)"}}>{performanceVerdict.curCount} detentions</b> ({performanceVerdict.detChangePct>0?"+":""}{performanceVerdict.detChangePct}% vs {performanceVerdict.prevCount})
+                {performanceVerdict.curRate!=null && <> · Detention rate <b style={{color:performanceVerdict.rateChangePct<=0?"var(--green2)":"var(--red2)"}}>{performanceVerdict.curRate}%</b> ({performanceVerdict.rateChangePct>0?"+":""}{performanceVerdict.rateChangePct}% vs {performanceVerdict.prevRate}%)</>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI row — right under the header, like Home dashboard */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"}}>
@@ -517,6 +618,22 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             </Line>
           </LineChart>
         </ResponsiveContainer>
+      </Card>
+
+      <Card title={"PSC Inspections vs Detentions — Month to Month ("+new Date().getFullYear()+")"} subtitle="Fleet-wide, current year" style={{marginBottom:"20px"}}>
+        {monthlyPscLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading PSC inspection totals…</div> : (
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Month","Detentions","PSC Inspections","Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{monthlyComparison.map(r=>(
+            <tr key={r.month} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.month}</td>
+              <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.detentions}</td>
+              <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.psc!=null?r.psc.toLocaleString():"—"}</td>
+              <td style={{padding:"8px 10px",color:r.rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+        )}
       </Card>
       <Card title={<>Detention Rate by MoU (detentions ÷ total inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
