@@ -314,16 +314,28 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     const curRate = curPsc ? +(cur.count/curPsc*100).toFixed(2) : null;
     const prevRate = prevPsc ? +(prev.count/prevPsc*100).toFixed(2) : null;
     const rateChangePct = (curRate!=null && prevRate) ? +((curRate-prevRate)/prevRate*100).toFixed(1) : null;
+    const inspChangePct = prevPsc ? +((curPsc-prevPsc)/prevPsc*100).toFixed(1) : null;
 
-    // Verdict logic: weigh both detention count trend and detention rate trend
-    let verdict = "STABLE", color = "var(--text3)", icon = "→";
-    const scores = [detChangePct, rateChangePct].filter(x=>x!=null);
-    const avgChange = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
-    if (avgChange < -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
-    else if (avgChange > 10) { verdict = "PERFORMING WORSE"; color = "var(--red2)"; icon = "⚠"; }
-    else { verdict = "STABLE PERFORMANCE"; color = "var(--amber2)"; icon = "→"; }
+    // Verdict logic: the RATE (detentions per inspection) is the real performance signal —
+    // more raw detentions doesn't mean worse performance if it's just because more inspections
+    // happened. Only call it "worse" when the rate itself is actually climbing.
+    let verdict = "STABLE PERFORMANCE", color = "var(--amber2)", icon = "→";
+    if (rateChangePct != null) {
+      if (rateChangePct <= -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
+      else if (rateChangePct >= 10) { verdict = "PERFORMING WORSE"; color = "var(--red2)"; icon = "⚠"; }
+      else if (inspChangePct != null && inspChangePct >= 15 && detChangePct != null && detChangePct >= 10) {
+        // Rate is flat/stable, but both inspections and detentions rose together — informational, not a verdict on performance
+        verdict = "INSPECTIONS INCREASING"; color = "var(--blue)"; icon = "↑";
+      } else {
+        verdict = "STABLE PERFORMANCE"; color = "var(--amber2)"; icon = "→";
+      }
+    } else if (detChangePct != null) {
+      // No inspection-rate data available — fall back to raw detention count trend only
+      if (detChangePct <= -10) { verdict = "PERFORMING BETTER"; color = "var(--green2)"; icon = "✓"; }
+      else if (detChangePct >= 10) { verdict = "DETENTIONS INCREASING"; color = "var(--amber2)"; icon = "↑"; }
+    }
 
-    return { verdict, color, icon, detChangePct, rateChangePct, curCount:cur.count, prevCount:prev.count, curRate, prevRate, currentYear, priorYear };
+    return { verdict, color, icon, detChangePct, rateChangePct, inspChangePct, curCount:cur.count, prevCount:prev.count, curRate, prevRate, curPsc, prevPsc, currentYear, priorYear };
   }, [yoyData, monthlyPsc]);
 
   // ---- Multi-year monthly overlay (Jan-Dec rows, one column per year) — full year, not YTD-capped, since a chart makes a partial year self-evident ----
@@ -493,7 +505,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
               <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"4px"}}>
                 {performanceVerdict.currentYear} vs {performanceVerdict.priorYear} (YTD): <b style={{color:performanceVerdict.detChangePct<=0?"var(--green2)":"var(--red2)"}}>{performanceVerdict.curCount} detentions</b> ({performanceVerdict.detChangePct>0?"+":""}{performanceVerdict.detChangePct}% vs {performanceVerdict.prevCount})
                 {performanceVerdict.curRate!=null && <> · Detention rate <b style={{color:performanceVerdict.rateChangePct<=0?"var(--green2)":"var(--red2)"}}>{performanceVerdict.curRate}%</b> ({performanceVerdict.rateChangePct>0?"+":""}{performanceVerdict.rateChangePct}% vs {performanceVerdict.prevRate}%)</>}
+                {performanceVerdict.curPsc>0 && <> · PSC inspections: <b style={{color:"var(--text)"}}>{performanceVerdict.curPsc.toLocaleString()}</b> ({performanceVerdict.inspChangePct>0?"+":""}{performanceVerdict.inspChangePct}% vs {performanceVerdict.prevPsc.toLocaleString()})</>}
               </div>
+              {performanceVerdict.verdict==="INSPECTIONS INCREASING" && <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"6px",fontStyle:"italic"}}>Detentions are up mainly because inspection volume is up — the detention rate itself hasn't worsened.</div>}
             </div>
           </div>
         </div>
