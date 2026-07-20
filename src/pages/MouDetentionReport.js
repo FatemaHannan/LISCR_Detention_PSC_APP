@@ -109,12 +109,11 @@ export default function MouDetentionReport({ vessels = [] }) {
   const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
   useEffect(() => {
     let cancelled = false;
-    // Scope to only the top-5 MoU vessels actually shown in the report — fetching for all 500+ detained
-    // vessels fleet-wide was wasteful and fired too many parallel batches, likely hitting rate limits.
-    const mouCounts = {};
-    detained.forEach(v => { if (v.mou) mouCounts[v.mou] = (mouCounts[v.mou]||0)+1; });
-    const top5Mous = new Set(Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([mou])=>mou));
-    const missingImos = [...new Set(detained.filter(v=>v.imo && top5Mous.has(v.mou) && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
+    // Scope to every detained vessel missing itemized deficiencies — the report shows ALL MoUs,
+    // not just the top 5, so restricting to top-5 vessels here was cutting off smaller MoUs
+    // (Abuja, Riyadh, Vina del Mar, etc.) entirely. Batching + limited concurrency below keeps
+    // this safe even for the full list.
+    const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
     if (missingImos.length === 0) return;
     (async () => {
       // Batch into chunks, with limited concurrency (3 in flight at a time) to avoid rate limits
