@@ -433,6 +433,19 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count).slice(0,10);
   }, [detained]);
 
+  // Repeat vessels specifically within the current year — used for the insight bullet, independent of the Year filter above
+  const currentYearRepeatVessels = useMemo(() => {
+    const currentYearStr = String(new Date().getFullYear());
+    const counts = {};
+    vessels.forEach(v => {
+      if (v.detained && v.imo && v.detentionDate && String(v.detentionDate).startsWith(currentYearStr)) {
+        counts[v.imo] = counts[v.imo] || { name:v.name, imo:v.imo, count:0 };
+        counts[v.imo].count++;
+      }
+    });
+    return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count);
+  }, [vessels]);
+
   // ---- Auto-generated: where we're doing well / where we need attention ----
   const insights = useMemo(() => {
     const good = [], attention = [];
@@ -451,14 +464,15 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     if (improvingMous.length>0) good.push(improvingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(improvingMous.length>1?"are":"is")+" trending down year-over-year.");
     if (increasingMous.length>0) attention.push(increasingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(increasingMous.length>1?"are":"is")+" trending up year-over-year — worth extra focus.");
 
-    if (topVessels.length===0) good.push("No repeat-detention vessels on record — no single vessel is driving multiple cases.");
-    else attention.push(topVessels.length+" vessel(s) have been detained more than once. Top: "+topVessels.slice(0,3).map(v=>v.name+" ("+v.count+"x)").join(", ")+".");
+    const curYearStr = String(new Date().getFullYear());
+    if (currentYearRepeatVessels.length===0) good.push("No repeat-detention vessels in "+curYearStr+" so far — no single vessel has been detained more than once this year.");
+    else attention.push(currentYearRepeatVessels.length+" vessel(s) detained more than once in "+curYearStr+" (YTD). Top: "+currentYearRepeatVessels.slice(0,3).map(v=>v.name+" ("+v.count+"x)").join(", ")+".");
 
     if (weekendVsWeekday.weekendPct <= 25) good.push("Weekend detentions are "+weekendVsWeekday.weekendPct+"% of the total — in line with a 5-day inspection week.");
     else if (weekendVsWeekday.weekendPct >= 35) attention.push("Weekend detentions are "+weekendVsWeekday.weekendPct+"% of the total — noticeably above a typical weekday-driven pattern.");
 
     return { good, attention };
-  }, [performanceVerdict, mouTrend, topVessels, weekendVsWeekday]);
+  }, [performanceVerdict, mouTrend, currentYearRepeatVessels, weekendVsWeekday]);
 
   const totalDetentions = detained.length;
   const avgPerMonth = (() => {
