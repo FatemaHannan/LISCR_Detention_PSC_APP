@@ -230,8 +230,9 @@ export default function App() {
             const carOverdue60 = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
             const highDef = detained.filter(v=>(v.defs||0)>=20);
             const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE")));
-            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}-\d{2}/)){const m=String(v.detentionDate).slice(0,7);months[m]=(months[m]||0)+1;}});
-            const monthData=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6);
+            const currentYearStr = String(new Date().getFullYear());
+            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}-\d{2}/)&&String(v.detentionDate).startsWith(currentYearStr)){const m=String(v.detentionDate).slice(0,7);months[m]=(months[m]||0)+1;}});
+            const monthData=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1);
             const maxMonth=monthData.length?Math.max(...monthData.map(m=>m[1])):1;
             const mouCounts={};detained.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
             const topMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,4);
@@ -317,7 +318,7 @@ export default function App() {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
                 {/* Monthly trend */}
                 <div className="card">
-                  <div className="card-t">Monthly Detention Trend</div>
+                  <div className="card-t">Monthly Detention Trend — {currentYearStr} YTD</div>
                   {monthData.map(([m,v])=>{
                     const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1];
                     return (
