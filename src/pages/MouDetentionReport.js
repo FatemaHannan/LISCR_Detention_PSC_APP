@@ -170,17 +170,19 @@ export default function MouDetentionReport({ vessels = [] }) {
       for (let i=0; i<jobs.length; i+=CONCURRENCY) {
         const batch = jobs.slice(i, i+CONCURRENCY);
         const batchResults = await Promise.all(batch.map(async ({mou, yr}) => {
-          const [pscRes, flagRes] = await Promise.all([
+          const [pscRes, flagRes, casRes] = await Promise.all([
             supabase.from("inspection_history").select("*", { count:"exact", head:true })
               .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
             supabase.from("inspection_history").select("*", { count:"exact", head:true })
               .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
+            supabase.from("inspection_history").select("*", { count:"exact", head:true })
+              .eq("mou", mou).ilike("flag_psc", "VSL Casualty").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
           ]);
-          return { mou, yr, psc: pscRes.count||0, flag: flagRes.count||0 };
+          return { mou, yr, psc: pscRes.count||0, flag: flagRes.count||0, casualty: casRes.count||0 };
         }));
-        batchResults.forEach(({mou,yr,psc,flag}) => {
+        batchResults.forEach(({mou,yr,psc,flag,casualty}) => {
           results[mou] = results[mou] || {};
-          results[mou][yr] = { psc, flag };
+          results[mou][yr] = { psc, flag, casualty };
         });
       }
       if (!cancelled) { setInspectionRates(results); setInspLoading(false); }
@@ -216,6 +218,42 @@ export default function MouDetentionReport({ vessels = [] }) {
         });
       }
       if (!cancelled) { setVettingCounts(results); setVettingLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [detained, mouList, todayMD]);
+
+  // ---- MLC Complaints per MoU per year — IMO-based (mlc_complaints has no mou field, so this counts complaints
+  // for vessels that were detained under this MoU; not a true MoU-zone tag like vetting) ----
+  const [mlcCounts, setMlcCounts] = useState({});
+  const [mlcLoading, setMlcLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    const years = [...new Set(detained.filter(v=>v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
+    const mouImos = {};
+    mouList.forEach(({mou}) => { mouImos[mou] = [...new Set(detained.filter(v=>v.mou===mou && v.imo).map(v=>v.imo))]; });
+    if (mouList.length === 0 || years.length === 0) { setMlcLoading(false); return; }
+    (async () => {
+      setMlcLoading(true);
+      const jobs = [];
+      mouList.forEach(({mou}) => years.forEach(yr => jobs.push({ mou, yr })));
+      const CONCURRENCY = 4;
+      const results = {};
+      for (let i=0; i<jobs.length; i+=CONCURRENCY) {
+        const batch = jobs.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async ({mou, yr}) => {
+          const imos = mouImos[mou];
+          if (!imos || imos.length===0) return { mou, yr, count: 0 };
+          const { count, error } = await supabase.from("mlc_complaints").select("*", { count:"exact", head:true })
+            .in("imo", imos).gte("reported_date", yr+"-01-01").lte("reported_date", yr+"-"+todayMD);
+          if (error) { console.error("[MlcCounts] fetch error:", error.message, mou, yr); return { mou, yr, count: 0 }; }
+          return { mou, yr, count: count||0 };
+        }));
+        batchResults.forEach(({mou,yr,count}) => {
+          results[mou] = results[mou] || {};
+          results[mou][yr] = count;
+        });
+      }
+      if (!cancelled) { setMlcCounts(results); setMlcLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [detained, mouList, todayMD]);
@@ -756,6 +794,59 @@ export default function MouDetentionReport({ vessels = [] }) {
                       );
                     })()}
                   </Card>
+
+                  {(()=>{
+                    const currentMonthNum2 = new Date().getMonth()+1;
+                    const currentYearStr4 = String(new Date().getFullYear());
+                    const simpleReportTable = (title, subtitle, loading, getCount, countLabel) => {
+                      let totalDet=0, totalCount=0, totalMonths=0;
+                      const yearRows = availableYears.map(y=>{
+                        const det = dd.detByYear?.[y]||0;
+                        const cnt = getCount(y);
+                        const rate = cnt ? +(det/cnt*100).toFixed(2) : null;
+                        const monthsInYear = (y===currentYearStr4 ? currentMonthNum2 : 12);
+                        const avgDet = monthsInYear ? (det/monthsInYear).toFixed(1) : "—";
+                        const avgCnt = monthsInYear ? (cnt/monthsInYear).toFixed(1) : "—";
+                        totalDet+=det; totalCount+=cnt; totalMonths+=monthsInYear;
+                        return { y, det, cnt, rate, avgDet, avgCnt };
+                      });
+                      const overallRate = totalCount ? +(totalDet/totalCount*100).toFixed(2) : null;
+                      const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
+                      const avgCntMonth = totalMonths ? (totalCount/totalMonths).toFixed(1) : "—";
+                      return (
+                        <Card title={title} subtitle={subtitle} style={{marginBottom:"12px"}}>
+                          {loading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading {countLabel.toLowerCase()} totals…</div>:
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                            <thead><tr>{["Year","Detentions",countLabel,"Rate %","Avg Det./Mo.","Avg "+countLabel+"/Mo."].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                            <tbody>
+                              {yearRows.map(r=>(
+                                <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
+                                  <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
+                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.det}</td>
+                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.cnt.toLocaleString()}</td>
+                                  <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
+                                  <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgDet}</td>
+                                  <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgCnt}</td>
+                                </tr>
+                              ))}
+                              <tr style={{borderTop:"2px solid var(--border)"}}>
+                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>Total</td>
+                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
+                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalCount.toLocaleString()}</td>
+                                <td style={{padding:"7px 8px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>
+                                <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>
+                                <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgCntMonth}</td>
+                              </tr>
+                            </tbody>
+                          </table>}
+                        </Card>
+                      );
+                    };
+                    return (<>
+                      {simpleReportTable("Casualty Report", "Detentions ÷ Vessel Casualty records for this MoU — from Consolidated Inspection History, YTD-aligned", inspLoading, (y)=>inspectionRates[m.mou]?.[y]?.casualty||0, "Casualty Count")}
+                      {simpleReportTable("MLC Complaints", "Detentions ÷ MLC Complaints for vessels detained under this MoU — from MLC Complaints, YTD-aligned", mlcLoading, (y)=>mlcCounts[m.mou]?.[y]||0, "MLC Count")}
+                    </>);
+                  })()}
 
                   {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
                   <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC and Flag Inspections (Rate%), by year — YTD-aligned" style={{marginBottom:"12px"}}>
