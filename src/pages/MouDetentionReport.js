@@ -87,18 +87,24 @@ export default function MouDetentionReport({ vessels = [] }) {
     return () => { cancelled = true; };
   }, [detained]);
 
-  // ---- Vessel risk lookup — sourced from DPP Vetting History (dpp_vetting_history), most recent risk_level_at_time per vessel ----
+  // ---- Vessel risk + vetting record counts — sourced from DPP Vetting History (dpp_vetting_history) ----
+  const [vettingRecords, setVettingRecords] = useState({}); // { imo: [{created_date}, ...] } — all records, for counting
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
     if (imos.length === 0) return;
     (async () => {
       const { data } = await supabase.from("dpp_vetting_history").select("imo,risk_level_at_time,created_date").in("imo", imos)
-        .not("risk_level_at_time", "is", null).order("created_date", { ascending: false });
+        .order("created_date", { ascending: false });
       if (cancelled || !data) return;
-      const map = {};
-      data.forEach(d => { if (d.risk_level_at_time && map[d.imo]==null) map[d.imo] = d.risk_level_at_time; });
-      setRiskMap(map);
+      const riskMapResult = {};
+      const vettingMapResult = {};
+      data.forEach(d => {
+        if (d.risk_level_at_time && riskMapResult[d.imo]==null) riskMapResult[d.imo] = d.risk_level_at_time; // most recent non-null risk
+        (vettingMapResult[d.imo] = vettingMapResult[d.imo]||[]).push({ created_date: d.created_date });
+      });
+      setRiskMap(riskMapResult);
+      setVettingRecords(vettingMapResult);
     })();
     return () => { cancelled = true; };
   }, [detained]);
@@ -324,6 +330,19 @@ export default function MouDetentionReport({ vessels = [] }) {
         return (ia===-1?99:ia)-(ib===-1?99:ib);
       }).map(r=>({level:r, count:riskCounts[r]}));
 
+      // Vetting record count by year (all vetting activity for this MoU's vessels, from DPP Vetting History)
+      const vettingByYear = {};
+      let vettingTotal = 0;
+      rows.forEach(v => {
+        (vettingRecords[v.imo]||[]).forEach(rec => {
+          if (!rec.created_date) return;
+          const yr = String(rec.created_date).slice(0,4);
+          if (!yr.match(/^\d{4}$/)) return;
+          vettingByYear[yr] = (vettingByYear[yr]||0)+1;
+          vettingTotal++;
+        });
+      });
+
       // Vessel type breakdown — prefer Consolidated Inspection History's vessel_type, fall back to the bulk vessels.type field
       const typeCounts = {};
       rows.forEach(v => {
@@ -357,10 +376,10 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, vettingByYear, vettingTotal, total:rows.length };
     });
     return result;
-  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
+  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD, vettingRecords]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -678,6 +697,18 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                   </div>
+
+                  <Card title="Vetting Activity" subtitle="Vetting records per year for this MoU's vessels, from DPP Vetting History" style={{marginBottom:"12px"}}>
+                    {(!dd.vettingByYear || Object.keys(dd.vettingByYear).length===0)?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vetting records on file for this MoU's vessels.</div>:
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                      <thead><tr>{[...availableYears,"Total","Avg / Year"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody><tr>
+                        {availableYears.map(y=><td key={y} style={{padding:"7px 8px",color:"var(--text2)",fontWeight:600}}>{dd.vettingByYear[y]||0}</td>)}
+                        <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{dd.vettingTotal||0}</td>
+                        <td style={{padding:"7px 8px",color:"var(--blue)",fontWeight:700}}>{availableYears.length?(dd.vettingTotal/availableYears.length).toFixed(1):"—"}</td>
+                      </tr></tbody>
+                    </table>}
+                  </Card>
 
                   {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
                   <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC and Flag Inspections (Rate%), by year — YTD-aligned" style={{marginBottom:"12px"}}>
