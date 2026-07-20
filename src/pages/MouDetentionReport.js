@@ -146,6 +146,41 @@ export default function MouDetentionReport({ vessels = [] }) {
     return Object.values(counts).sort((a,b)=>b.count-a.count);
   }, [detained]);
 
+  // ---- PSC & Flag inspection counts per MoU per year (for "Inspections vs Detentions", "PSC Inspection Trend", "Flag Inspection Trend") ----
+  const [inspectionRates, setInspectionRates] = useState({});
+  const [inspLoading, setInspLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    const mous = mouList.map(m=>m.mou);
+    const years = [...new Set(detained.filter(v=>v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
+    if (mous.length === 0 || years.length === 0) { setInspLoading(false); return; }
+    (async () => {
+      setInspLoading(true);
+      const jobs = [];
+      mous.forEach(mou => years.forEach(yr => jobs.push({ mou, yr })));
+      const CONCURRENCY = 4;
+      const results = {};
+      for (let i=0; i<jobs.length; i+=CONCURRENCY) {
+        const batch = jobs.slice(i, i+CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async ({mou, yr}) => {
+          const [pscRes, flagRes] = await Promise.all([
+            supabase.from("inspection_history").select("*", { count:"exact", head:true })
+              .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01"),
+            supabase.from("inspection_history").select("*", { count:"exact", head:true })
+              .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01"),
+          ]);
+          return { mou, yr, psc: pscRes.count||0, flag: flagRes.count||0 };
+        }));
+        batchResults.forEach(({mou,yr,psc,flag}) => {
+          results[mou] = results[mou] || {};
+          results[mou][yr] = { psc, flag };
+        });
+      }
+      if (!cancelled) { setInspectionRates(results); setInspLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [detained, mouList]);
+
   const availableYears = useMemo(() => {
     const years = new Set();
     allDetainedRaw.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
@@ -209,6 +244,10 @@ export default function MouDetentionReport({ vessels = [] }) {
     const result = {};
     mouList.forEach(({mou}) => {
       const rows = detained.filter(v=>v.mou===mou);
+
+      // Detentions by year (for Inspections vs Detentions section)
+      const detByYear = {};
+      rows.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) { const yr=String(v.detentionDate).slice(0,4); detByYear[yr]=(detByYear[yr]||0)+1; } });
 
       // Monthly trend (last 12 months)
       const months = {};
@@ -314,7 +353,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, total:rows.length };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length };
     });
     return result;
   }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap]);
@@ -632,6 +671,57 @@ export default function MouDetentionReport({ vessels = [] }) {
                           </tr>
                         ))}</tbody>
                       </table>}
+                    </Card>
+                  </div>
+
+                  {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
+                  <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC Inspections (Rate%), by year" style={{marginBottom:"12px"}}>
+                    {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading inspection totals…</div>:
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                      <thead><tr>{["Year","Detentions","PSC Inspections","Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{availableYears.map(y=>{
+                        const detCount = dd.detByYear?.[y]||0;
+                        const pscCount = inspectionRates[m.mou]?.[y]?.psc;
+                        const rate = pscCount ? +(detCount/pscCount*100).toFixed(2) : null;
+                        return (
+                          <tr key={y} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{y}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{detCount}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{pscCount!=null?pscCount.toLocaleString():"—"}</td>
+                            <td style={{padding:"5px 8px",color:rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{rate!=null?rate+"%":"—"}</td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>}
+                  </Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                    <Card title="PSC Inspection Trend" subtitle="PSC inspection volume by year">
+                      {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:
+                      <ResponsiveContainer width="100%" height={Math.max(120, availableYears.length*32)}>
+                        <BarChart data={availableYears.map(y=>({year:y, count:inspectionRates[m.mou]?.[y]?.psc||0}))} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="year" width={40} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" fill="#f59e0b" radius={[0,3,3,0]}>
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
+                    </Card>
+                    <Card title="Flag Inspection Trend" subtitle="Flag inspection volume by year">
+                      {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:
+                      <ResponsiveContainer width="100%" height={Math.max(120, availableYears.length*32)}>
+                        <BarChart data={availableYears.map(y=>({year:y, count:inspectionRates[m.mou]?.[y]?.flag||0}))} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="year" width={40} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]}>
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
                     </Card>
                   </div>
                 </div>
