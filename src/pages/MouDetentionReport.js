@@ -798,54 +798,47 @@ export default function MouDetentionReport({ vessels = [] }) {
                   {(()=>{
                     const currentMonthNum2 = new Date().getMonth()+1;
                     const currentYearStr4 = String(new Date().getFullYear());
-                    const simpleReportTable = (title, subtitle, loading, getCount, countLabel) => {
-                      let totalDet=0, totalCount=0, totalMonths=0;
-                      const yearRows = availableYears.map(y=>{
-                        const det = dd.detByYear?.[y]||0;
-                        const cnt = getCount(y);
-                        const rate = cnt ? +(det/cnt*100).toFixed(2) : null;
-                        const monthsInYear = (y===currentYearStr4 ? currentMonthNum2 : 12);
-                        const avgDet = monthsInYear ? (det/monthsInYear).toFixed(1) : "—";
-                        const avgCnt = monthsInYear ? (cnt/monthsInYear).toFixed(1) : "—";
-                        totalDet+=det; totalCount+=cnt; totalMonths+=monthsInYear;
-                        return { y, det, cnt, rate, avgDet, avgCnt };
-                      });
-                      const overallRate = totalCount ? +(totalDet/totalCount*100).toFixed(2) : null;
-                      const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
-                      const avgCntMonth = totalMonths ? (totalCount/totalMonths).toFixed(1) : "—";
-                      return (
-                        <Card title={title} subtitle={subtitle} style={{marginBottom:"12px"}}>
-                          {loading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading {countLabel.toLowerCase()} totals…</div>:
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
-                            <thead><tr>{["Year","Detentions",countLabel,"Rate %","Avg Det./Mo.","Avg "+countLabel+"/Mo."].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-                            <tbody>
-                              {yearRows.map(r=>(
-                                <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
-                                  <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.det}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.cnt.toLocaleString()}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgDet}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{r.avgCnt}</td>
-                                </tr>
-                              ))}
-                              <tr style={{borderTop:"2px solid var(--border)"}}>
-                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>Total</td>
-                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
-                                <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalCount.toLocaleString()}</td>
-                                <td style={{padding:"7px 8px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>
-                                <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>
-                                <td style={{padding:"7px 8px",color:"var(--amber2)",fontWeight:700}}>{avgCntMonth}</td>
+                    let totalDet=0, totalCas=0, totalMlc=0, totalMonths=0;
+                    const yearRows = availableYears.map(y=>{
+                      const det = dd.detByYear?.[y]||0;
+                      const cas = inspectionRates[m.mou]?.[y]?.casualty||0;
+                      const mlc = mlcCounts[m.mou]?.[y]||0;
+                      totalDet+=det; totalCas+=cas; totalMlc+=mlc;
+                      totalMonths += (y===currentYearStr4 ? currentMonthNum2 : 12);
+                      return { y, det, cas, mlc };
+                    });
+                    const avgCasMonth = totalMonths ? (totalCas/totalMonths).toFixed(1) : "—";
+                    const avgMlcMonth = totalMonths ? (totalMlc/totalMonths).toFixed(1) : "—";
+                    const loading = inspLoading || mlcLoading;
+                    return (
+                      <Card title="Casualty & MLC" subtitle="Casualty reports and MLC complaints for this MoU, vs detentions — from Consolidated Inspection History and MLC Complaints" style={{marginBottom:"12px"}}>
+                        {loading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:<>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                          <thead><tr>{["Year","Detentions","Casualty Reports","MLC Complaints"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {yearRows.map(r=>(
+                              <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
+                                <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
+                                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.det}</td>
+                                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.cas}</td>
+                                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.mlc}</td>
                               </tr>
-                            </tbody>
-                          </table>}
-                        </Card>
-                      );
-                    };
-                    return (<>
-                      {simpleReportTable("Casualty Report", "Detentions ÷ Vessel Casualty records for this MoU — from Consolidated Inspection History, YTD-aligned", inspLoading, (y)=>inspectionRates[m.mou]?.[y]?.casualty||0, "Casualty Count")}
-                      {simpleReportTable("MLC Complaints", "Detentions ÷ MLC Complaints for vessels detained under this MoU — from MLC Complaints, YTD-aligned", mlcLoading, (y)=>mlcCounts[m.mou]?.[y]||0, "MLC Count")}
-                    </>);
+                            ))}
+                            <tr style={{borderTop:"2px solid var(--border)"}}>
+                              <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>Total</td>
+                              <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
+                              <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalCas}</td>
+                              <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalMlc}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div style={{display:"flex",gap:"16px",marginTop:"10px",flexWrap:"wrap"}}>
+                          <div style={{fontSize:"11px",color:"var(--text3)"}}>Avg Casualty/Month: <b style={{color:"var(--amber2)"}}>{avgCasMonth}</b></div>
+                          <div style={{fontSize:"11px",color:"var(--text3)"}}>Avg MLC/Month: <b style={{color:"var(--amber2)"}}>{avgMlcMonth}</b></div>
+                        </div>
+                        </>}
+                      </Card>
+                    );
                   })()}
 
                   {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
