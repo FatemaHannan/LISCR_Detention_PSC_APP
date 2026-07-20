@@ -29,7 +29,6 @@ const NAV = [
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
-    { id:"fleet", label:"Fleet dashboard", icon:"ti-chart-bar", badge:null },
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
   ]},
   { section:"INTELLIGENCE", items:[
@@ -49,7 +48,7 @@ const NAV = [
 
 const TITLES = {
   home:"My dashboard", evp:"EVP briefing", questions:"EVP questions", gaps:"Critical gaps",
-  tasks:"My tasks", case:"Case view", pdaip:"PDAIP & Tasks", fleet:"Fleet dashboard",
+  tasks:"My tasks", case:"Case view", pdaip:"PDAIP & Tasks",
   upload:"Upload & analyze", patterns:"Pattern detection",
   ais:"AIS / LRIT Monitor", inspector:"Inspector network", vip:"VIP protocol",
   meeting:"Meeting minutes", initiatives:"Initiative tracker", chat:"AI assistant",
@@ -247,7 +246,6 @@ export default function App() {
               {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detained.length+" detained vessels",color:"var(--blue)",badge:detained.length},
               {id:"evp",icon:"ti-presentation",label:"EVP Briefing",desc:"Live executive summary",color:"var(--amber2)",badge:null},
               {id:"gaps",icon:"ti-alert-triangle",label:"Critical Gaps",desc:carOverdue60.length+" urgent items",color:"var(--red2)",badge:carOverdue60.length},
-              {id:"fleet",icon:"ti-ship",label:"Fleet Dashboard",desc:"Charts & MoU breakdown",color:"var(--blue)",badge:null},
               {id:"trends",icon:"ti-chart-line",label:"Trend Analysis",desc:"Where, when & why detentions happen — plus patterns, AIS, VIP",color:"var(--blue)",badge:null},
               {id:"initiatives",icon:"ti-checklist",label:"PDAIP & Tasks",desc:openTasks+" open tasks",color:"var(--green2)",badge:openTasks||null},
             ];
@@ -794,153 +792,6 @@ export default function App() {
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
-
-          {page === "fleet" && (()=>{
-            // Real-time fleet stats from Supabase
-            const detained = fleetVessels.filter(v=>v.detained);
-            const openTasks = fleetTasks.filter(t=>t.status!=="Executed");
-            const carNotReceived = fleetVessels.filter(v=>v.carStatus==="Not Received");
-
-            // Monthly trend from detention dates
-            const monthCounts = {};
-            fleetVessels.forEach(v=>{
-              if(v.detentionDate){
-                const m = v.detentionDate.slice(0,7);
-                monthCounts[m] = (monthCounts[m]||0)+1;
-              }
-            });
-            const months = Object.entries(monthCounts).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6);
-            const maxMonth = months.length?Math.max(...months.map(m=>m[1])):1;
-
-            // MoU breakdown
-            const mouCounts = {};
-            fleetVessels.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
-            const topMous = Object.entries(mouCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
-            const maxMou = topMous.length?topMous[0][1]:1;
-
-            // CAR status breakdown
-            const carCounts = {};
-            fleetVessels.forEach(v=>{const k=v.carStatus||"Unknown";carCounts[k]=(carCounts[k]||0)+1;});
-            const carBreakdown = Object.entries(carCounts).sort((a,b)=>b[1]-a[1]);
-
-            // Top companies by detentions
-            const compDetentions = {};
-            fleetVessels.filter(v=>v.detained&&v.company&&v.company!=="—"&&v.company!=="Unknown").forEach(v=>{
-              compDetentions[v.company]=(compDetentions[v.company]||0)+1;
-            });
-            const topCompanies = Object.entries(compDetentions).sort((a,b)=>b[1]-a[1]).slice(0,5);
-            const maxComp = topCompanies.length?topCompanies[0][1]:1;
-
-            // Top ROs by detentions
-            const roDetentions = {};
-            fleetVessels.filter(v=>v.detained&&v.ro&&v.ro!=="—"&&v.ro!=="Unknown"&&v.ro!=="").forEach(v=>{
-              const ro = String(v.ro).trim();
-              roDetentions[ro]=(roDetentions[ro]||0)+1;
-            });
-            const topROs = Object.entries(roDetentions).sort((a,b)=>b[1]-a[1]).slice(0,5);
-            const maxRO = topROs.length?topROs[0][1]:1;
-
-            return (
-            <div className="pg active">
-              {/* Stats row */}
-              <div className="mg4" style={{gridTemplateColumns:"repeat(6,1fr)"}}>
-                <div className="met"><div className="m-l">Total Cases</div><div className="m-v">{fleetVessels.length}</div><div className="m-s">in Supabase</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>Detained</div><div className="m-v" style={{color:"var(--red2)"}}>{detained.length}</div><div className="m-s">{Math.round(detained.length/Math.max(fleetVessels.length,1)*100)}% of fleet</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--amber2)"}}>Open Tasks</div><div className="m-v" style={{color:"var(--amber2)"}}>{openTasks.length}</div><div className="m-s">PDAIP tasks open</div></div>
-                <div className="met"><div className="m-l" style={{color:"var(--red2)"}}>CAR Missing</div><div className="m-v" style={{color:"var(--red2)"}}>{carNotReceived.length}</div><div className="m-s">not received</div></div>
-                <div className="met"><div className="m-l">Avg Defs</div><div className="m-v">{fleetVessels.length?(fleetVessels.reduce((s,v)=>s+(v.defs||0),0)/fleetVessels.length).toFixed(1):0}</div><div className="m-s">per detention</div></div>
-                <div className="met"><div className="m-l">Tokyo MOU</div><div className="m-v">{fleetVessels.filter(v=>v.mou==="Tokyo MOU").length}</div><div className="m-s">{Math.round(fleetVessels.filter(v=>v.mou==="Tokyo MOU").length/Math.max(fleetVessels.length,1)*100)}% of total</div></div>
-              </div>
-
-              <div className="two">
-                {/* Monthly trend - LIVE */}
-                <div className="card">
-                  <div className="card-t">Monthly trend <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
-                  {months.length>0?months.map(([m,v])=>(
-                    <div key={m} className="bar-r">
-                      <div className="bar-l">{m.slice(5)}/{m.slice(2,4)}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxMonth)*100}%`,background:"var(--blue)"}}></div></div>
-                      <div className="bar-v">{v}</div>
-                    </div>
-                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No detention date data yet.</div>}
-                </div>
-
-                {/* MoU breakdown - LIVE */}
-                <div className="card">
-                  <div className="card-t">Cases by MoU <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
-                  {topMous.map(([m,v])=>(
-                    <div key={m} className="bar-r">
-                      <div className="bar-l">{m}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxMou)*100}%`,background:"var(--blue)"}}></div></div>
-                      <div className="bar-v">{v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="two" style={{marginTop:"12px"}}>
-                {/* Top detention causes from deficiencies - LIVE */}
-                <div className="card">
-                  <div className="card-t">Top Detention Causes <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>from deficiency data</span></div>
-                  {(()=>{
-                    const causeCounts = {};
-                    fleetVessels.forEach(v=>{
-                      (v.deficiencies||[]).forEach(d=>{
-                        if (!d.desc) return;
-                        const desc = String(d.desc).toLowerCase();
-                        const cat =
-                          desc.includes("ism")||desc.includes("safety management")?"ISM Code failure":
-                          desc.includes("fire")||desc.includes("fire safety")?"Fire safety systems":
-                          desc.includes("lsa")||desc.includes("life saving")||desc.includes("lifeboat")?"LSA / emergency":
-                          desc.includes("corros")||desc.includes("mainte")||desc.includes("hull")?"Corrosion / maintenance":
-                          desc.includes("mlc")||desc.includes("manning")||desc.includes("crew")?"MLC / Manning":
-                          desc.includes("pollut")||desc.includes("marpol")||desc.includes("oil")?"Pollution prevention":
-                          desc.includes("navig")||desc.includes("chart")||desc.includes("gps")?"Navigation / charts":
-                          desc.includes("certif")||desc.includes("document")?"Certification":
-                          "Other";
-                        causeCounts[cat] = (causeCounts[cat]||0)+1;
-                      });
-                    });
-                    const causes = Object.entries(causeCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
-                    const maxC = causes.length?causes[0][1]:1;
-                    return causes.length>0?causes.map(([c,v])=>(
-                      <div key={c} className="bar-r">
-                        <div className="bar-l">{c}</div>
-                        <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxC)*100}%`,background:"var(--blue)"}}></div></div>
-                        <div className="bar-v">{v}</div>
-                      </div>
-                    )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>Upload PSC reports to see detention causes.</div>;
-                  })()}
-                </div>
-
-                {/* Top companies - LIVE */}
-                <div className="card">
-                  <div className="card-t">Top Companies by Detentions <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
-                  {topCompanies.length>0?topCompanies.map(([c,v])=>(
-                    <div key={c} className="bar-r">
-                      <div className="bar-l" style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxComp)*100}%`,background:v>=3?"var(--red)":"var(--amber)"}}></div></div>
-                      <div className="bar-v">{v}</div>
-                    </div>
-                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No company data yet. Upload Client Vessel Details.</div>}
-                </div>
-
-                {/* Top ROs by Detentions */}
-                <div className="card">
-                  <div className="card-t">Top ROs by Detentions <span style={{fontSize:"9px",color:"var(--text3)",fontWeight:400}}>live from Supabase</span></div>
-                  {topROs.length>0?topROs.map(([ro,v])=>(
-                    <div key={ro} className="bar-r">
-                      <div className="bar-l" style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ro}</div>
-                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxRO)*100}%`,background:v>=5?"var(--red)":v>=3?"var(--amber)":"var(--blue)"}}></div></div>
-                      <div className="bar-v">{v}</div>
-                    </div>
-                  )):<div style={{color:"var(--text3)",fontSize:"11px",padding:"12px 0"}}>No RO data yet. Upload Vessel Inspection Performance.</div>}
-                </div>
-              </div>
-            </div>
-            );
-          })()}
-
           {page === "tracker" && (
             <div className="pg active">
               <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
