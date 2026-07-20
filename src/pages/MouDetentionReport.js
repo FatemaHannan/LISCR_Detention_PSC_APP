@@ -60,6 +60,8 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [riskMap, setRiskMap] = useState({});
   const [selectedYear, setSelectedYear] = useState("All");
   const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
+  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
   const detained = useMemo(() => {
     if (selectedYear === "All") return allDetainedRaw;
     return allDetainedRaw.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
@@ -165,9 +167,9 @@ export default function MouDetentionReport({ vessels = [] }) {
         const batchResults = await Promise.all(batch.map(async ({mou, yr}) => {
           const [pscRes, flagRes] = await Promise.all([
             supabase.from("inspection_history").select("*", { count:"exact", head:true })
-              .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01"),
+              .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
             supabase.from("inspection_history").select("*", { count:"exact", head:true })
-              .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01"),
+              .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lte("inspection_date", yr+"-"+todayMD),
           ]);
           return { mou, yr, psc: pscRes.count||0, flag: flagRes.count||0 };
         }));
@@ -179,16 +181,13 @@ export default function MouDetentionReport({ vessels = [] }) {
       if (!cancelled) { setInspectionRates(results); setInspLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [detained, mouList]);
+  }, [detained, mouList, todayMD]);
 
   const availableYears = useMemo(() => {
     const years = new Set();
     allDetainedRaw.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) years.add(String(v.detentionDate).slice(0,4)); });
     return [...years].sort();
   }, [allDetainedRaw]);
-  // ---- MoU performance by year ----
-  // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
-  const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
   const detainedYtd = useMemo(() => allDetainedRaw.filter(v=>v.detentionDate && String(v.detentionDate).slice(5,10) <= todayMD), [allDetainedRaw, todayMD]);
 
   const mouMetricsByYear = useMemo(() => {
@@ -245,9 +244,9 @@ export default function MouDetentionReport({ vessels = [] }) {
     mouList.forEach(({mou}) => {
       const rows = detained.filter(v=>v.mou===mou);
 
-      // Detentions by year (for Inspections vs Detentions section)
+      // Detentions by year (for Inspections vs Detentions section) — YTD-aligned to match the inspection counts
       const detByYear = {};
-      rows.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/)) { const yr=String(v.detentionDate).slice(0,4); detByYear[yr]=(detByYear[yr]||0)+1; } });
+      rows.forEach(v => { if (v.detentionDate && String(v.detentionDate).match(/^\d{4}/) && String(v.detentionDate).slice(5,10)<=todayMD) { const yr=String(v.detentionDate).slice(0,4); detByYear[yr]=(detByYear[yr]||0)+1; } });
 
       // Monthly trend (last 12 months)
       const months = {};
@@ -356,7 +355,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length };
     });
     return result;
-  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap]);
+  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -675,7 +674,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                   </div>
 
                   {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
-                  <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC Inspections (Rate%), by year" style={{marginBottom:"12px"}}>
+                  <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC Inspections (Rate%), by year — YTD-aligned" style={{marginBottom:"12px"}}>
                     {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading inspection totals…</div>:
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
                       <thead><tr>{["Year","Detentions","PSC Inspections","Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
@@ -695,7 +694,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                     </table>}
                   </Card>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
-                    <Card title="PSC Inspection Trend" subtitle="PSC inspection volume by year">
+                    <Card title="PSC Inspection Trend" subtitle="PSC inspection volume by year — YTD-aligned">
                       {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:
                       <ResponsiveContainer width="100%" height={Math.max(120, availableYears.length*32)}>
                         <BarChart data={availableYears.map(y=>({year:y, count:inspectionRates[m.mou]?.[y]?.psc||0}))} layout="vertical" margin={{left:10,right:20}}>
@@ -709,7 +708,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                         </BarChart>
                       </ResponsiveContainer>}
                     </Card>
-                    <Card title="Flag Inspection Trend" subtitle="Flag inspection volume by year">
+                    <Card title="Flag Inspection Trend" subtitle="Flag inspection volume by year — YTD-aligned">
                       {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:
                       <ResponsiveContainer width="100%" height={Math.max(120, availableYears.length*32)}>
                         <BarChart data={availableYears.map(y=>({year:y, count:inspectionRates[m.mou]?.[y]?.flag||0}))} layout="vertical" margin={{left:10,right:20}}>
