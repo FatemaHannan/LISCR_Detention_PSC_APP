@@ -680,20 +680,24 @@ export default function MouDetentionReport({ vessels = [] }) {
                   </div>
 
                   {/* Inspections vs Detentions, PSC Inspection Trend, Flag Inspection Trend — for this MoU */}
-                  <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC Inspections (Rate%), by year — YTD-aligned" style={{marginBottom:"12px"}}>
+                  <Card title="Inspections vs Detentions" subtitle="Detentions ÷ PSC and Flag Inspections (Rate%), by year — YTD-aligned" style={{marginBottom:"12px"}}>
                     {inspLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading inspection totals…</div>:
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
-                      <thead><tr>{["Year","Detentions","PSC Inspections","Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["Year","Detentions","PSC Inspections","PSC Rate","Flag Inspections","Flag Rate"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{availableYears.map(y=>{
                         const detCount = dd.detByYear?.[y]||0;
                         const pscCount = inspectionRates[m.mou]?.[y]?.psc;
-                        const rate = pscCount ? +(detCount/pscCount*100).toFixed(2) : null;
+                        const flagCount = inspectionRates[m.mou]?.[y]?.flag;
+                        const pscRate = pscCount ? +(detCount/pscCount*100).toFixed(2) : null;
+                        const flagRate = flagCount ? +(detCount/flagCount*100).toFixed(2) : null;
                         return (
                           <tr key={y} style={{borderBottom:"1px solid var(--border)"}}>
                             <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{y}</td>
                             <td style={{padding:"5px 8px",color:"var(--text2)"}}>{detCount}</td>
                             <td style={{padding:"5px 8px",color:"var(--text2)"}}>{pscCount!=null?pscCount.toLocaleString():"—"}</td>
-                            <td style={{padding:"5px 8px",color:rate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{rate!=null?rate+"%":"—"}</td>
+                            <td style={{padding:"5px 8px",color:pscRate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{pscRate!=null?pscRate+"%":"—"}</td>
+                            <td style={{padding:"5px 8px",color:"var(--text2)"}}>{flagCount!=null?flagCount.toLocaleString():"—"}</td>
+                            <td style={{padding:"5px 8px",color:flagRate>3?"var(--red2)":"var(--text)",fontWeight:600}}>{flagRate!=null?flagRate+"%":"—"}</td>
                           </tr>
                         );
                       })}</tbody>
