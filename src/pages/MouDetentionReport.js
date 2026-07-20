@@ -106,36 +106,42 @@ export default function MouDetentionReport({ vessels = [] }) {
   // ---- Fallback deficiency findings for vessels missing itemized v.deficiencies (mainly 2024/2025 backfilled cases) ----
   // flag_psc_findings covers more history than the app-native deficiencies field, so use it to fill the gap.
   const [findingsMap, setFindingsMap] = useState({});
+  const [findingsLoading, setFindingsLoading] = useState(true);
   const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
   useEffect(() => {
     let cancelled = false;
-    // Scope to every detained vessel missing itemized deficiencies — the report shows ALL MoUs,
-    // not just the top 5, so restricting to top-5 vessels here was cutting off smaller MoUs
-    // (Abuja, Riyadh, Vina del Mar, etc.) entirely. Batching + limited concurrency below keeps
-    // this safe even for the full list.
     const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
-    if (missingImos.length === 0) return;
+    console.log("[MajorCauses] vessels missing itemized deficiencies:", missingImos.length);
+    if (missingImos.length === 0) { setFindingsLoading(false); return; }
     (async () => {
+      setFindingsLoading(true);
       // Batch into chunks, with limited concurrency (3 in flight at a time) to avoid rate limits
       const CHUNK = 30, CONCURRENCY = 3;
       const chunks = [];
       for (let i=0; i<missingImos.length; i+=CHUNK) chunks.push(missingImos.slice(i, i+CHUNK));
       const allResults = [];
+      const errors = [];
       for (let i=0; i<chunks.length; i+=CONCURRENCY) {
         const batch = chunks.slice(i, i+CONCURRENCY);
         const batchResults = await Promise.all(batch.map(async (chunk) => {
+          // Only select columns confirmed to exist in flag_psc_findings (per its import definition):
+          // imo, vessel, flag_psc, insp_date, defect_code, main_defect_text, full_description
           const { data, error } = await supabase.from("flag_psc_findings")
-            .select("imo,insp_date,defect_code,main_defect_text,full_description,detainable,action,flag_psc")
+            .select("imo,defect_code,main_defect_text,full_description,flag_psc")
             .in("imo", chunk).ilike("flag_psc", "PSC");
-          if (error) { console.error("flag_psc_findings fetch error:", error.message, "chunk size:", chunk.length); return []; }
-          return data || [];
+          if (error) { console.error("[MajorCauses] flag_psc_findings fetch error:", error.message, "chunk:", chunk); return { data: [], err: true }; }
+          return { data: data || [], err: false };
         }));
-        allResults.push(...batchResults);
+        batchResults.forEach(r => { allResults.push(r.data); if (r.err) errors.push(1); });
       }
       if (cancelled) return;
+      const errorCount = errors.length;
+      const flat = allResults.flat();
       const map = {};
-      allResults.flat().forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
+      flat.forEach(f => { const key = normImo(f.imo); (map[key] = map[key]||[]).push(f); });
+      console.log("[MajorCauses] fetch complete. Total findings returned:", flat.length, "| Chunks with errors:", errorCount, "| Unique IMOs matched:", Object.keys(map).length, "of", missingImos.length, "requested");
       setFindingsMap(map);
+      setFindingsLoading(false);
     })();
     return () => { cancelled = true; };
   }, [detained]);
@@ -571,7 +577,8 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                     <Card title="Major Causes">
-                      {(dd.causes||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No deficiency category data.</div>:
+                      {findingsLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading findings…</div>:
+                      (dd.causes||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No deficiency category data.</div>:
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
                         <tbody>{dd.causes.map(c=>(
                           <tr key={c.cause} style={{borderBottom:"1px solid var(--border)"}}>
