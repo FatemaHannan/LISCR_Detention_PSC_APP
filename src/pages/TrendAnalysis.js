@@ -421,6 +421,33 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count).slice(0,10);
   }, [detained]);
 
+  // ---- Auto-generated: where we're doing well / where we need attention ----
+  const insights = useMemo(() => {
+    const good = [], attention = [];
+
+    if (performanceVerdict) {
+      if (performanceVerdict.detChangePct <= -10) good.push("Overall detentions are down "+Math.abs(performanceVerdict.detChangePct)+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
+      else if (performanceVerdict.detChangePct >= 10) attention.push("Overall detentions are up "+performanceVerdict.detChangePct+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
+      if (performanceVerdict.rateChangePct!=null) {
+        if (performanceVerdict.rateChangePct <= -10) good.push("Detention rate improved to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — fewer detentions per inspection.");
+        else if (performanceVerdict.rateChangePct >= 10) attention.push("Detention rate worsened to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — more detentions per inspection.");
+      }
+    }
+
+    const improvingMous = mouTrend.filter(m=>m.trend.includes("Improving"));
+    const increasingMous = mouTrend.filter(m=>m.trend.includes("Increasing"));
+    if (improvingMous.length>0) good.push(improvingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(improvingMous.length>1?"are":"is")+" trending down year-over-year.");
+    if (increasingMous.length>0) attention.push(increasingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(increasingMous.length>1?"are":"is")+" trending up year-over-year — worth extra focus.");
+
+    if (topVessels.length===0) good.push("No repeat-detention vessels on record — no single vessel is driving multiple cases.");
+    else attention.push(topVessels.length+" vessel(s) have been detained more than once. Top: "+topVessels.slice(0,3).map(v=>v.name+" ("+v.count+"x)").join(", ")+".");
+
+    if (weekendVsWeekday.weekendPct <= 25) good.push("Weekend detentions are "+weekendVsWeekday.weekendPct+"% of the total — in line with a 5-day inspection week.");
+    else if (weekendVsWeekday.weekendPct >= 35) attention.push("Weekend detentions are "+weekendVsWeekday.weekendPct+"% of the total — noticeably above a typical weekday-driven pattern.");
+
+    return { good, attention };
+  }, [performanceVerdict, mouTrend, topVessels, weekendVsWeekday]);
+
   const totalDetentions = detained.length;
   const avgPerMonth = (() => {
     const monthsSet = {};
@@ -468,6 +495,26 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
                 {performanceVerdict.curRate!=null && <> · Detention rate <b style={{color:performanceVerdict.rateChangePct<=0?"var(--green2)":"var(--red2)"}}>{performanceVerdict.curRate}%</b> ({performanceVerdict.rateChangePct>0?"+":""}{performanceVerdict.rateChangePct}% vs {performanceVerdict.prevRate}%)</>}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Where we're doing well / where we need attention — auto-generated from the data above */}
+      {(insights.good.length>0 || insights.attention.length>0) && (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+          <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
+            {insights.good.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>Nothing stands out as a clear positive right now.</div>:
+            <ul style={{margin:0,paddingLeft:"18px"}}>
+              {insights.good.map((g,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{g}</li>)}
+            </ul>}
+          </div>
+          <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"14px"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>⚠ Where We Need Attention</div>
+            {insights.attention.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No significant red flags right now.</div>:
+            <ul style={{margin:0,paddingLeft:"18px"}}>
+              {insights.attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{a}</li>)}
+            </ul>}
           </div>
         </div>
       )}
