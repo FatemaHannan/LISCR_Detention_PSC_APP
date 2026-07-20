@@ -798,35 +798,32 @@ export default function MouDetentionReport({ vessels = [] }) {
                   {(()=>{
                     const currentMonthNum2 = new Date().getMonth()+1;
                     const currentYearStr4 = String(new Date().getFullYear());
-                    let totalDet=0, totalCas=0, totalMlc=0, totalMonths=0;
+                    let totalCas=0, totalMlc=0, totalMonths=0;
                     const yearRows = availableYears.map(y=>{
-                      const det = dd.detByYear?.[y]||0;
                       const cas = inspectionRates[m.mou]?.[y]?.casualty||0;
                       const mlc = mlcCounts[m.mou]?.[y]||0;
-                      totalDet+=det; totalCas+=cas; totalMlc+=mlc;
+                      totalCas+=cas; totalMlc+=mlc;
                       totalMonths += (y===currentYearStr4 ? currentMonthNum2 : 12);
-                      return { y, det, cas, mlc };
+                      return { y, cas, mlc };
                     });
                     const avgCasMonth = totalMonths ? (totalCas/totalMonths).toFixed(1) : "—";
                     const avgMlcMonth = totalMonths ? (totalMlc/totalMonths).toFixed(1) : "—";
                     const loading = inspLoading || mlcLoading;
                     return (
-                      <Card title="Casualty & MLC" subtitle="Casualty reports and MLC complaints for this MoU, vs detentions — from Consolidated Inspection History and MLC Complaints" style={{marginBottom:"12px"}}>
+                      <Card title="Casualty & MLC" subtitle="Casualty reports and MLC complaints for this MoU — from Consolidated Inspection History and MLC Complaints" style={{marginBottom:"12px"}}>
                         {loading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading…</div>:<>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
-                          <thead><tr>{["Year","Detentions","Casualty Reports","MLC Complaints"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <thead><tr>{["Year","Casualty Reports","MLC Complaints"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                           <tbody>
                             {yearRows.map(r=>(
                               <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
                                 <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
-                                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.det}</td>
                                 <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.cas}</td>
                                 <td style={{padding:"6px 8px",color:"var(--text2)"}}>{r.mlc}</td>
                               </tr>
                             ))}
                             <tr style={{borderTop:"2px solid var(--border)"}}>
                               <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>Total</td>
-                              <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>
                               <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalCas}</td>
                               <td style={{padding:"7px 8px",color:"var(--text)",fontWeight:700}}>{totalMlc}</td>
                             </tr>
