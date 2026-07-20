@@ -3,16 +3,13 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { supabase } from "../lib/supabase";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-export const AGE_BRACKET_ORDER = ["0-5 yrs","6-10 yrs","11-15 yrs","16-20 yrs","21-25 yrs","26+ yrs","Unknown"];
+export const AGE_BRACKET_ORDER = ["0-13 yrs","14-26 yrs","27+ yrs","Unknown"];
 export const RISK_ORDER = ["Low","Medium","High","Highest","Unknown"];
 export function ageBracket(age) {
   if (age==null || isNaN(age)) return "Unknown";
-  if (age<=5) return "0-5 yrs";
-  if (age<=10) return "6-10 yrs";
-  if (age<=15) return "11-15 yrs";
-  if (age<=20) return "16-20 yrs";
-  if (age<=25) return "21-25 yrs";
-  return "26+ yrs";
+  if (age<=13) return "0-13 yrs";
+  if (age<=26) return "14-26 yrs";
+  return "27+ yrs";
 }
 
 function extractCountry(port) {
