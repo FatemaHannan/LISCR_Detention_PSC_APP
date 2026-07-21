@@ -181,6 +181,40 @@ export default function PerformanceReview({ vessels = [] }) {
     }).sort((a,b)=>(b.d1+b.d2)-(a.d1+a.d2));
   }, [period1, period2]);
 
+  // ---- RO (Recognized Organization) performance, same pattern as MoU ----
+  const roPerformance = useMemo(() => {
+    const byRo = {};
+    period1.forEach(v => { const ro=v.ro&&v.ro!=="—"?v.ro:"Unknown"; byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d1++; byRo[ro].f1+=v.defs||0; });
+    period2.forEach(v => { const ro=v.ro&&v.ro!=="—"?v.ro:"Unknown"; byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d2++; byRo[ro].f2+=v.defs||0; });
+    return Object.values(byRo).map(r => {
+      const a1 = r.d1?+(r.f1/r.d1).toFixed(1):0, a2 = r.d2?+(r.f2/r.d2).toFixed(1):0;
+      const detPct = pctChange(r.d1,r.d2), defPct = pctChange(r.f1,r.f2);
+      const v = verdictFor(detPct, defPct);
+      return { ...r, a1, a2, detPct, defPct, verdict:v.text, verdictColor:v.color };
+    }).sort((a,b)=>(b.d1+b.d2)-(a.d1+a.d2)).slice(0,10);
+  }, [period1, period2]);
+
+  // ---- Major deficiency type comparison, P1 vs P2 ----
+  const deficiencyTypeComparison = useMemo(() => {
+    const catDef = (desc) => {
+      const d = String(desc||"").toLowerCase();
+      if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
+      if (d.includes("fire")) return "Fire Safety";
+      if (d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue")) return "LSA / Life Saving";
+      if (d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")) return "MARPOL / Pollution";
+      if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC / Manning";
+      if (d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
+      if (d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull / Maintenance";
+      if (d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
+      if (d.includes("radio")||d.includes("gmdss")) return "Radio / GMDSS";
+      return "Other";
+    };
+    const byCat = {};
+    period1.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c1++; }));
+    period2.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c2++; }));
+    return Object.values(byCat).map(c => ({ ...c, pct: pctChange(c.c1,c.c2) })).sort((a,b)=>(b.c1+b.c2)-(a.c1+a.c2));
+  }, [period1, period2]);
+
   // ---- Highest single-inspection deficiency counts ----
   const worstInspections = useMemo(() => {
     const combined = [
@@ -523,6 +557,40 @@ export default function PerformanceReview({ vessels = [] }) {
         </table>
       </Card>
 
+      {/* 3b. RO (Recognized Organization) Performance */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3b. RO Performance</div>
+      <Card style={{marginBottom:"20px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr><Th>RO</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>% Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th><Th>Avg Def. P1</Th><Th>Avg Def. P2</Th><Th>Verdict</Th></tr></thead>
+          <tbody>{roPerformance.map(r=>(
+            <tr key={r.ro} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:600}}>{r.ro}</Td>
+              <Td>{r.d1}</Td><Td>{r.d2}</Td>
+              <Td style={{color:r.detPct<0?"var(--green2)":r.detPct>0?"var(--red2)":"var(--text3)"}}>{r.detPct>0?"+":""}{r.detPct}%</Td>
+              <Td>{r.f1}</Td><Td>{r.f2}</Td><Td>{r.a1}</Td><Td>{r.a2}</Td>
+              <Td style={{color:r.verdictColor,fontWeight:600}}>{r.verdict}</Td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+
+      {/* 3c. Major Deficiency Type Comparison */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3c. Major Deficiency Type Comparison</div>
+      <Card style={{marginBottom:"20px"}}>
+        {deficiencyTypeComparison.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No itemized deficiency data available for either period.</div>:
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr><Th>Deficiency Type</Th><Th>Period 1</Th><Th>Period 2</Th><Th>% Change</Th></tr></thead>
+          <tbody>{deficiencyTypeComparison.map(c=>(
+            <tr key={c.cat} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:600}}>{c.cat}</Td>
+              <Td>{c.c1}</Td><Td>{c.c2}</Td>
+              <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)",fontWeight:600}}>{c.pct>0?"+":""}{c.pct}%</Td>
+            </tr>
+          ))}</tbody>
+        </table>}
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Categorized from each detention's itemized deficiency descriptions. "Other" catches anything not matching a known category.</div>
+      </Card>
+
       {/* 4. Highest deficiency single inspections */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Highest Number of Deficiencies (Single Inspection)</div>
       <Card style={{marginBottom:"20px"}}>
@@ -620,15 +688,51 @@ export default function PerformanceReview({ vessels = [] }) {
 
       {/* 8. Recommended Areas of Focus */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Recommended Areas of Focus</div>
-      <Card style={{marginBottom:"20px"}}>
-        <ul style={{margin:0,paddingLeft:"18px",fontSize:"13px",color:"var(--text2)",lineHeight:1.9}}>
-          <li>Keep <b>{dominantMou}</b> as the primary operational focus — it remains the largest detention source.</li>
-          {worseningMous.length>0 && <li>Special attention to <b style={{color:"var(--red2)"}}>{worseningMous.map(m=>m.mou).join(", ")}</b> — {worseningMous.length>1?"these show":"this shows"} a worsening trend period over period.</li>}
-          {repeatVessels.length>0 && <li>Review the <b>{repeatVessels.length}</b> vessel(s) that had more than one detention across the two periods.</li>}
-          {worstInspections.length>0 && <li>For high-deficiency vessels (e.g. <b>{worstInspections[0].name}</b> at {worstInspections[0].defs} deficiencies), require a detailed root-cause review before subsequent port calls.</li>}
-          {risingPorts.length>0 && <li>Take extra caution at ports showing a rising trend: <b style={{color:"var(--amber2)"}}>{risingPorts.map(p=>p.port).join(", ")}</b>.</li>}
-        </ul>
-      </Card>
+      {(()=>{
+        const worseningRos = roPerformance.filter(r=>r.verdict.includes("Worsened")||r.verdict.includes("higher deficiency"));
+        const improvingMous = mouPerformance.filter(m=>m.verdict.includes("Improved")||m.verdict.includes("lower deficiency"));
+        const risingCats = deficiencyTypeComparison.filter(c=>c.pct>=15 && (c.c1+c.c2)>=3);
+        const fallingCats = deficiencyTypeComparison.filter(c=>c.pct<=-15 && (c.c1+c.c2)>=3);
+        const good = [], attention = [];
+
+        if (kpi.detPct<=-10) good.push("Total detentions are down "+Math.abs(kpi.detPct)+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
+        else if (kpi.detPct>=10) attention.push("Total detentions are up "+kpi.detPct+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
+        if (kpi.defPct<=-10) good.push("Total deficiencies fell "+Math.abs(kpi.defPct)+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
+        else if (kpi.defPct>=10) attention.push("Total deficiencies rose "+kpi.defPct+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
+
+        if (improvingMous.length>0) good.push(improvingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(improvingMous.length>1?"are":"is")+" trending better period over period.");
+        if (worseningMous.length>0) attention.push("Keep close watch on "+worseningMous.map(m=>m.mou).join(", ")+" — "+(worseningMous.length>1?"these show":"this shows")+" a worsening trend.");
+        if (worseningRos.length>0) attention.push("RO performance worth a conversation: "+worseningRos.slice(0,3).map(r=>r.ro).join(", ")+" "+(worseningRos.length>1?"are":"is")+" trending worse period over period.");
+
+        if (fallingCats.length>0) good.push(fallingCats.slice(0,2).map(c=>c.cat).join(", ")+" deficiencies are down "+Math.abs(fallingCats[0].pct)+"%+ — whatever's being done there is working.");
+        if (risingCats.length>0) attention.push(risingCats.slice(0,2).map(c=>c.cat+" (+"+c.pct+"%)").join(", ")+" — this is where inspection/training focus should go next.");
+
+        if (repeatVessels.length===0) good.push("No vessel was detained more than once across the two periods.");
+        else attention.push(repeatVessels.length+" vessel(s) detained more than once across the two periods — review for a pattern before the next port call.");
+
+        if (worstInspections.length>0) attention.push("Highest single-inspection deficiency count: "+worstInspections[0].name+" at "+worstInspections[0].defs+" deficiencies — warrants a detailed root-cause review.");
+        if (risingPorts.length>0) attention.push("Ports showing a rising trend: "+risingPorts.map(p=>p.port).join(", ")+".");
+
+        good.push("Keep "+dominantMou+" as the primary operational focus — it remains the largest detention source, so improvement there moves the whole number.");
+
+        return (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+            <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
+              <ul style={{margin:0,paddingLeft:"18px"}}>
+                {good.map((g,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{g}</li>)}
+              </ul>
+            </div>
+            <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"14px"}}>
+              <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>⚠ Where We Need Attention</div>
+              {attention.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No significant red flags this period.</div>:
+              <ul style={{margin:0,paddingLeft:"18px"}}>
+                {attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{a}</li>)}
+              </ul>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 9. Conclusion */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Conclusion</div>
