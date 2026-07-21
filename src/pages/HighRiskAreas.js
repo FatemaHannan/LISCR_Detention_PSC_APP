@@ -48,7 +48,7 @@ export default function HighRiskAreas({ vessels = [] }) {
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
         <div>
-          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>4. High-Risk Areas</div>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>High-Risk Areas</div>
           <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Repeat-detention vessels and recurring deficiency codes — live from Supabase</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
