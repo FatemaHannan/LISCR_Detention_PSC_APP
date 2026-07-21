@@ -123,6 +123,58 @@ export default function PerformanceReview({ vessels = [] }) {
   const period1 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p1Start,p1End)), [detained,p1Start,p1End]);
   const period2 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p2Start,p2End)), [detained,p2Start,p2End]);
 
+  // ---- Top 10 Companies by Year — Detentions, Casualty, MLC (two most recent years, side by side) ----
+  const recentYears = useMemo(() => {
+    const years = new Set();
+    detained.forEach(v => { if (v.detentionDate) years.add(String(v.detentionDate).slice(0,4)); });
+    return [...years].sort((a,b)=>b.localeCompare(a)).slice(0,2).reverse(); // e.g. ["2025","2026"]
+  }, [detained]);
+
+  const detentionsByYearCompany = useMemo(() => {
+    const result = {};
+    recentYears.forEach(yr => {
+      const counts = {};
+      detained.forEach(v => {
+        if (!v.detentionDate || String(v.detentionDate).slice(0,4)!==yr) return;
+        const c = v.company && v.company!=="—" ? v.company : "Unknown";
+        counts[c] = counts[c] || { company:c, count:0, defs:0 };
+        counts[c].count++; counts[c].defs += v.defs||0;
+      });
+      result[yr] = Object.values(counts).sort((a,b)=>b.count-a.count).slice(0,10);
+    });
+    return result;
+  }, [detained, recentYears]);
+
+  const casualtyByYearCompany = useMemo(() => {
+    const result = {};
+    recentYears.forEach(yr => {
+      const counts = {};
+      casualtyRaw.forEach(r => {
+        if (!r.inspection_date || String(r.inspection_date).slice(0,4)!==yr) return;
+        const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+        counts[c] = counts[c] || { company:c, count:0 };
+        counts[c].count++;
+      });
+      result[yr] = Object.values(counts).sort((a,b)=>b.count-a.count).slice(0,10);
+    });
+    return result;
+  }, [casualtyRaw, recentYears]);
+
+  const mlcByYearCompany = useMemo(() => {
+    const result = {};
+    recentYears.forEach(yr => {
+      const counts = {};
+      mlcRaw.forEach(r => {
+        if (!r.reported_date || String(r.reported_date).slice(0,4)!==yr) return;
+        const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+        counts[c] = counts[c] || { company:c, count:0 };
+        counts[c].count++;
+      });
+      result[yr] = Object.values(counts).sort((a,b)=>b.count-a.count).slice(0,10);
+    });
+    return result;
+  }, [mlcRaw, recentYears]);
+
   const kpi = useMemo(() => {
     const d1=period1.length, d2=period2.length;
     const f1=sum(period1,"defs"), f2=sum(period2,"defs");
@@ -573,6 +625,63 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
       <div style={{fontSize:"11px",color:"var(--amber2)",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"20px"}}>
         <b>Note:</b> This shows how many CARs are currently marked "Complete" per company, not how quickly they were closed. There's no CAR closure/received date tracked in the system — only the current status — so true closure speed (e.g. average days to close) can't be measured yet. If that's needed, a "CAR Received Date" field would need to start being captured going forward.
+      </div>
+
+      {/* Top 10 Companies by Year */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 10 Companies by Year — Detentions</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        {recentYears.map(yr => (
+          <Card key={yr} title={yr}>
+            {(detentionsByYearCompany[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No detentions on file for {yr}.</div>:
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+              <thead><tr><Th>Company</Th><Th>Detentions</Th><Th>Deficiencies</Th></tr></thead>
+              <tbody>{detentionsByYearCompany[yr].map(c=>(
+                <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                  <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
+                  <Td>{c.count}</Td>
+                  <Td>{c.defs}</Td>
+                </tr>
+              ))}</tbody>
+            </table>}
+          </Card>
+        ))}
+      </div>
+
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 10 Companies by Year — Casualty Reports</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"8px"}}>
+        {recentYears.map(yr => (
+          <Card key={yr} title={yr}>
+            {(casualtyByYearCompany[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file for {yr}.</div>:
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+              <thead><tr><Th>Company</Th><Th>Casualty Reports</Th></tr></thead>
+              <tbody>{casualtyByYearCompany[yr].map(c=>(
+                <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                  <Td style={{color:c.company==="Unknown"?"var(--text3)":"var(--text)",fontWeight:c.company==="Unknown"?400:600}}>{c.company}</Td>
+                  <Td>{c.count}</Td>
+                </tr>
+              ))}</tbody>
+            </table>}
+          </Card>
+        ))}
+      </div>
+      <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"20px"}}>Casualty company data is incomplete at the source: only ~12% of casualty records have a company on file — "Unknown" reflects that gap, not a lookup failure.</div>
+
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 10 Companies by Year — MLC Complaints</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        {recentYears.map(yr => (
+          <Card key={yr} title={yr}>
+            {(mlcByYearCompany[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No MLC complaints on file for {yr}.</div>:
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+              <thead><tr><Th>Company</Th><Th>MLC Complaints</Th></tr></thead>
+              <tbody>{mlcByYearCompany[yr].map(c=>(
+                <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                  <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
+                  <Td>{c.count}</Td>
+                </tr>
+              ))}</tbody>
+            </table>}
+          </Card>
+        ))}
       </div>
 
       {/* 1. Detention Rate Trend by Month */}
