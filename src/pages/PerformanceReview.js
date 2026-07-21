@@ -277,37 +277,6 @@ export default function PerformanceReview({ vessels = [] }) {
     }).sort((a,b)=>(b.d1+b.d2)-(a.d1+a.d2)).slice(0,10);
   }, [period1, period2]);
 
-  // ---- CAR Closure by Company: count of CAR status = Complete per company, P1 vs P2 ----
-  // Note: this counts how many CARs are marked Complete by the current status snapshot, not how fast
-  // they closed — there's no CAR closure/received date tracked, so closure SPEED can't be measured yet.
-  const carClosureByCompany = useMemo(() => {
-    const byCompany = {};
-    period1.forEach(v => {
-      const c = v.company && v.company!=="—" ? v.company : "Unknown";
-      byCompany[c] = byCompany[c] || { company:c, p1Total:0, p1Complete:0, p2Total:0, p2Complete:0 };
-      byCompany[c].p1Total++;
-      if (v.carStatus==="Complete") byCompany[c].p1Complete++;
-    });
-    period2.forEach(v => {
-      const c = v.company && v.company!=="—" ? v.company : "Unknown";
-      byCompany[c] = byCompany[c] || { company:c, p1Total:0, p1Complete:0, p2Total:0, p2Complete:0 };
-      byCompany[c].p2Total++;
-      if (v.carStatus==="Complete") byCompany[c].p2Complete++;
-    });
-    return Object.values(byCompany).map(c => {
-      const p1Rate = c.p1Total ? Math.round(c.p1Complete/c.p1Total*100) : null;
-      const p2Rate = c.p2Total ? Math.round(c.p2Complete/c.p2Total*100) : null;
-      const pct = (p1Rate!=null && p2Rate!=null) ? pctChange(p1Rate, p2Rate) : null;
-      let verdict="—", vColor="var(--text3)";
-      if (pct!=null) {
-        if (pct>=10) { verdict="Improved"; vColor="var(--green2)"; }
-        else if (pct<=-10) { verdict="Worsened"; vColor="var(--red2)"; }
-        else { verdict="Stable"; vColor="var(--amber2)"; }
-      }
-      return { ...c, p1Rate, p2Rate, pct, verdict, vColor };
-    }).filter(c=>c.p1Total>0||c.p2Total>0).sort((a,b)=>(b.p1Total+b.p2Total)-(a.p1Total+a.p2Total)).slice(0,10);
-  }, [period1, period2]);
-
   // ---- Major deficiency type comparison, P1 vs P2 ----
   const deficiencyTypeComparison = useMemo(() => {
     const catDef = (desc) => {
@@ -634,16 +603,17 @@ export default function PerformanceReview({ vessels = [] }) {
       {/* Clean current-year month-by-month */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. {currentYearMonthly.year} — Month by Month</div>
       <Card style={{marginBottom:"20px"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr>{["Month","Detentions","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
-          <tbody>{currentYearMonthly.rows.map(r=>(
-            <tr key={r.month} style={{borderBottom:"1px solid var(--border)"}}>
-              <Td style={{color:"var(--text)",fontWeight:600}}>{r.month}</Td>
-              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{r.count}</Td>
-              <Td style={{color:"var(--text2)"}}>{r.avgDefs}</Td>
-            </tr>
-          ))}</tbody>
-        </table>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={currentYearMonthly.rows} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Bar dataKey="count" name="Detentions" fill="#3b82f6" radius={[3,3,0,0]}>
+              <LabelList dataKey="count" position="top" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </Card>
 
       {/* Quarter by Quarter (Q1-Q4) */}
@@ -702,28 +672,8 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* CAR Closure by Company */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. CAR Closure by Company (P1 vs P2)</div>
-      <Card style={{marginBottom:"8px"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr><Th>Company</Th><Th>P1 Detentions</Th><Th>P1 CAR Complete</Th><Th>P1 Rate</Th><Th>P2 Detentions</Th><Th>P2 CAR Complete</Th><Th>P2 Rate</Th><Th>Verdict</Th></tr></thead>
-          <tbody>{carClosureByCompany.map(c=>(
-            <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-              <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-              <Td>{c.p1Total}</Td><Td>{c.p1Complete}</Td>
-              <Td style={{color:c.p1Rate==null?"var(--text3)":c.p1Rate>=70?"var(--green2)":c.p1Rate>=50?"var(--amber2)":"var(--red2)"}}>{c.p1Rate!=null?c.p1Rate+"%":"—"}</Td>
-              <Td>{c.p2Total}</Td><Td>{c.p2Complete}</Td>
-              <Td style={{color:c.p2Rate==null?"var(--text3)":c.p2Rate>=70?"var(--green2)":c.p2Rate>=50?"var(--amber2)":"var(--red2)"}}>{c.p2Rate!=null?c.p2Rate+"%":"—"}</Td>
-              <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </Card>
-      <div style={{fontSize:"11px",color:"var(--amber2)",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"20px"}}>
-        <b>Note:</b> This shows how many CARs are currently marked "Complete" per company, not how quickly they were closed. There's no CAR closure/received date tracked in the system — only the current status — so true closure speed (e.g. average days to close) can't be measured yet. If that's needed, a "CAR Received Date" field would need to start being captured going forward.
-      </div>
-
       {/* Top 10 Companies by Year */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Top 10 Companies by Year — Detentions</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Top 10 Companies by Year — Detentions</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
@@ -742,7 +692,7 @@ export default function PerformanceReview({ vessels = [] }) {
         ))}
       </div>
 
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Top 10 Companies by Year — Casualty Reports</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Top 10 Companies by Year — Casualty Reports</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"8px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
@@ -761,7 +711,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
       <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"20px"}}>Casualty company data is incomplete at the source: only ~12% of casualty records have a company on file — "Unknown" reflects that gap, not a lookup failure.</div>
 
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Top 10 Companies by Year — MLC Complaints</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Top 10 Companies by Year — MLC Complaints</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
@@ -780,7 +730,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 1. Detention Rate Trend by Month */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Detention Rate Trend by Month</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Detention Rate Trend by Month</div>
       <Card style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{top:20}}>
@@ -813,7 +763,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 2. Repeat Detentions */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. Repeat Detentions</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Repeat Detentions</div>
       <Card subtitle="Vessels detained more than once across the two periods combined" style={{marginBottom:"20px"}}>
         {repeatVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No repeat detentions found across the selected periods.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -833,7 +783,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3. MOU-Level Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. MOU-Level Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. MOU-Level Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, mouPerformance.length*34)}>
           <BarChart data={mouPerformance.map(m=>({name:m.mou, [p1Label(p1Start,p1End)]:m.d1, [p2Label(p2Start,p2End)]:m.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -867,7 +817,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3b. RO (Recognized Organization) Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. RO Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. RO Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, roPerformance.length*34)}>
           <BarChart data={roPerformance.map(r=>({name:r.ro, [p1Label(p1Start,p1End)]:r.d1, [p2Label(p2Start,p2End)]:r.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -901,7 +851,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3c. Major Deficiency Type Comparison */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Major Deficiency Type Comparison</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. Major Deficiency Type Comparison</div>
       {deficiencyTypeComparison.length>0 &&
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, deficiencyTypeComparison.length*34)}>
@@ -936,7 +886,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 4. Highest deficiency single inspections */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Highest Number of Deficiencies (Single Inspection)</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Highest Number of Deficiencies (Single Inspection)</div>
       <Card style={{marginBottom:"20px"}}>
         {worstInspections.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No deficiency data found.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -956,7 +906,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 5. Registry Performance Assessment */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>15. Registry Performance Assessment</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Registry Performance Assessment</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Measure</Th><Th>Period 1</Th><Th>Period 2</Th><Th>Change</Th><Th>Verdict</Th></tr></thead>
@@ -996,7 +946,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 6. Inspection Country */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>16. Inspection Country</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>15. Inspection Country</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Country</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th></tr></thead>
@@ -1012,7 +962,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 7. Ports */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>17. Ports</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>16. Ports</div>
       <Card subtitle="Ranked by Period 1, compared against Period 2" style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Port (Period 1 rank)</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Difference</Th></tr></thead>
@@ -1031,7 +981,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 8. Recommended Areas of Focus */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>18. Recommended Areas of Focus</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>17. Recommended Areas of Focus</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
           <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
@@ -1049,7 +999,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 9. Conclusion */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>19. Conclusion</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>18. Conclusion</div>
       <Card style={{marginBottom:"20px"}}>
         <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.75}}>
           Period 2 was {kpi.detPct<0?"better than":kpi.detPct>0?"worse than":"in line with"} Period 1 on the headline indicators: detentions {kpi.detChange<=0?"fell":"rose"} by {Math.abs(kpi.detChange)} ({kpi.detPct>0?"+":""}{kpi.detPct}%) and total deficiencies {kpi.defChange<=0?"fell":"rose"} by {Math.abs(kpi.defChange)} ({kpi.defPct>0?"+":""}{kpi.defPct}%). {kpi.detPct<0&&kpi.defPct<0?"This is a meaningful improvement, but it should not be treated as fully resolved — ":""}
