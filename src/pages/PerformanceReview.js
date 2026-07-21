@@ -85,10 +85,10 @@ export default function PerformanceReview({ vessels = [] }) {
     const inRangeLocal = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
     const byCompany = {};
     casualtyRaw.forEach(r => {
-      const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+      const c = r.managing_company && r.managing_company.trim() ? r.managing_company.trim() : "Unknown";
       byCompany[c] = byCompany[c] || { company:c, p1:0, p2:0 };
-      if (inRangeLocal(r.inspection_date, p1Start, p1End)) byCompany[c].p1++;
-      if (inRangeLocal(r.inspection_date, p2Start, p2End)) byCompany[c].p2++;
+      if (inRangeLocal(r.incident_date, p1Start, p1End)) byCompany[c].p1++;
+      if (inRangeLocal(r.incident_date, p2Start, p2End)) byCompany[c].p2++;
     });
     return Object.values(byCompany).filter(c=>c.p1>0||c.p2>0).map(c => {
       const pct = pctChange(c.p1, c.p2);
@@ -150,8 +150,8 @@ export default function PerformanceReview({ vessels = [] }) {
     recentYears.forEach(yr => {
       const counts = {};
       casualtyRaw.forEach(r => {
-        if (!r.inspection_date || String(r.inspection_date).slice(0,4)!==yr) return;
-        const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+        if (!r.incident_date || String(r.incident_date).slice(0,4)!==yr) return;
+        const c = r.managing_company && r.managing_company.trim() ? r.managing_company.trim() : "Unknown";
         counts[c] = counts[c] || { company:c, count:0 };
         counts[c].count++;
       });
