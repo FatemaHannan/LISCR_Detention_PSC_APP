@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, BarChart, Bar, Legend } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -741,6 +741,23 @@ export default function PerformanceReview({ vessels = [] }) {
       {/* 3. MOU-Level Performance */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. MOU-Level Performance</div>
       <Card style={{marginBottom:"20px"}}>
+        <ResponsiveContainer width="100%" height={Math.max(200, mouPerformance.length*34)}>
+          <BarChart data={mouPerformance.map(m=>({name:m.mou, [p1Label(p1Start,p1End)]:m.d1, [p2Label(p2Start,p2End)]:m.d2}))} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <YAxis type="category" dataKey="name" width={100} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            <Bar dataKey={p1Label(p1Start,p1End)} fill="#94a3b8" radius={[0,3,3,0]}>
+              <LabelList dataKey={p1Label(p1Start,p1End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+            <Bar dataKey={p2Label(p2Start,p2End)} fill="#3b82f6" radius={[0,3,3,0]}>
+              <LabelList dataKey={p2Label(p2Start,p2End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>MoU</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>% Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th><Th>Avg Def. P1</Th><Th>Avg Def. P2</Th><Th>Verdict</Th></tr></thead>
           <tbody>{mouPerformance.map(m=>(
@@ -758,6 +775,23 @@ export default function PerformanceReview({ vessels = [] }) {
       {/* 3b. RO (Recognized Organization) Performance */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3b. RO Performance</div>
       <Card style={{marginBottom:"20px"}}>
+        <ResponsiveContainer width="100%" height={Math.max(200, roPerformance.length*34)}>
+          <BarChart data={roPerformance.map(r=>({name:r.ro, [p1Label(p1Start,p1End)]:r.d1, [p2Label(p2Start,p2End)]:r.d2}))} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <YAxis type="category" dataKey="name" width={130} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            <Bar dataKey={p1Label(p1Start,p1End)} fill="#94a3b8" radius={[0,3,3,0]}>
+              <LabelList dataKey={p1Label(p1Start,p1End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+            <Bar dataKey={p2Label(p2Start,p2End)} fill="#3b82f6" radius={[0,3,3,0]}>
+              <LabelList dataKey={p2Label(p2Start,p2End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>RO</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>% Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th><Th>Avg Def. P1</Th><Th>Avg Def. P2</Th><Th>Verdict</Th></tr></thead>
           <tbody>{roPerformance.map(r=>(
@@ -774,6 +808,24 @@ export default function PerformanceReview({ vessels = [] }) {
 
       {/* 3c. Major Deficiency Type Comparison */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3c. Major Deficiency Type Comparison</div>
+      {deficiencyTypeComparison.length>0 &&
+      <Card style={{marginBottom:"20px"}}>
+        <ResponsiveContainer width="100%" height={Math.max(200, deficiencyTypeComparison.length*34)}>
+          <BarChart data={deficiencyTypeComparison.map(c=>({name:c.cat, [p1Label(p1Start,p1End)]:c.c1, [p2Label(p2Start,p2End)]:c.c2}))} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <YAxis type="category" dataKey="name" width={130} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            <Bar dataKey={p1Label(p1Start,p1End)} fill="#94a3b8" radius={[0,3,3,0]}>
+              <LabelList dataKey={p1Label(p1Start,p1End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+            <Bar dataKey={p2Label(p2Start,p2End)} fill="#3b82f6" radius={[0,3,3,0]}>
+              <LabelList dataKey={p2Label(p2Start,p2End)} position="right" style={{fontSize:10,fill:"var(--text2)"}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>}
       <Card style={{marginBottom:"20px"}}>
         {deficiencyTypeComparison.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No itemized deficiency data available for either period.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
