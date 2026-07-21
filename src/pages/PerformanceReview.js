@@ -58,8 +58,8 @@ export default function PerformanceReview({ vessels = [] }) {
   const [p2Start, setP2Start] = useState(todayISO().slice(0,4)+"-01-01");
   const [p2End, setP2End] = useState(todayISO());
   const [statusMap, setStatusMap] = useState({});
-  const [casualtyByCompany, setCasualtyByCompany] = useState([]);
-  const [mlcByCompany, setMlcByCompany] = useState([]);
+  const [casualtyRaw, setCasualtyRaw] = useState([]); // [{ism_client, inspection_date}, ...]
+  const [mlcRaw, setMlcRaw] = useState([]); // [{ism_client, reported_date}, ...]
   const [companyReportsLoading, setCompanyReportsLoading] = useState(true);
 
   useEffect(() => {
@@ -67,26 +67,56 @@ export default function PerformanceReview({ vessels = [] }) {
     (async () => {
       setCompanyReportsLoading(true);
       const [casRes, mlcRes] = await Promise.all([
-        supabase.from("inspection_history").select("ism_client").ilike("flag_psc", "VSL Casualty"),
-        supabase.from("mlc_complaints").select("ism_client"),
+        supabase.from("inspection_history").select("ism_client,inspection_date").ilike("flag_psc", "VSL Casualty"),
+        supabase.from("mlc_complaints").select("ism_client,reported_date"),
       ]);
       if (cancelled) return;
-      const tally = (rows) => {
-        const counts = {};
-        (rows||[]).forEach(r => {
-          const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
-          counts[c] = (counts[c]||0)+1;
-        });
-        return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([company,count])=>({company,count}));
-      };
       if (casRes.error) console.error("[CasualtyByCompany] fetch error:", casRes.error.message);
       if (mlcRes.error) console.error("[MlcByCompany] fetch error:", mlcRes.error.message);
-      setCasualtyByCompany(tally(casRes.data));
-      setMlcByCompany(tally(mlcRes.data));
+      setCasualtyRaw(casRes.data||[]);
+      setMlcRaw(mlcRes.data||[]);
       setCompanyReportsLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // ---- Casualty by Company, P1 vs P2 comparison (same pattern as RO Performance) ----
+  const casualtyByCompany = useMemo(() => {
+    const inRangeLocal = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
+    const byCompany = {};
+    casualtyRaw.forEach(r => {
+      const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+      byCompany[c] = byCompany[c] || { company:c, p1:0, p2:0 };
+      if (inRangeLocal(r.inspection_date, p1Start, p1End)) byCompany[c].p1++;
+      if (inRangeLocal(r.inspection_date, p2Start, p2End)) byCompany[c].p2++;
+    });
+    return Object.values(byCompany).filter(c=>c.p1>0||c.p2>0).map(c => {
+      const pct = pctChange(c.p1, c.p2);
+      let verdict="Stable", vColor="var(--text3)";
+      if (pct<=-10) { verdict="Improved"; vColor="var(--green2)"; }
+      else if (pct>=10) { verdict="Worsened"; vColor="var(--red2)"; }
+      return { ...c, pct, verdict, vColor };
+    }).sort((a,b)=>(b.p1+b.p2)-(a.p1+a.p2)).slice(0,10);
+  }, [casualtyRaw, p1Start, p1End, p2Start, p2End]);
+
+  // ---- MLC by Company, P1 vs P2 comparison ----
+  const mlcByCompany = useMemo(() => {
+    const inRangeLocal = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
+    const byCompany = {};
+    mlcRaw.forEach(r => {
+      const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+      byCompany[c] = byCompany[c] || { company:c, p1:0, p2:0 };
+      if (inRangeLocal(r.reported_date, p1Start, p1End)) byCompany[c].p1++;
+      if (inRangeLocal(r.reported_date, p2Start, p2End)) byCompany[c].p2++;
+    });
+    return Object.values(byCompany).filter(c=>c.p1>0||c.p2>0).map(c => {
+      const pct = pctChange(c.p1, c.p2);
+      let verdict="Stable", vColor="var(--text3)";
+      if (pct<=-10) { verdict="Improved"; vColor="var(--green2)"; }
+      else if (pct>=10) { verdict="Worsened"; vColor="var(--red2)"; }
+      return { ...c, pct, verdict, vColor };
+    }).sort((a,b)=>(b.p1+b.p2)-(a.p1+a.p2)).slice(0,10);
+  }, [mlcRaw, p1Start, p1End, p2Start, p2End]);
 
   const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
   const inRange = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
@@ -458,29 +488,35 @@ export default function PerformanceReview({ vessels = [] }) {
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each completed quarter of {new Date().getFullYear()} compared to the same quarter in {new Date().getFullYear()-1}. Quarters that haven't started yet show as "upcoming".</div>
       </Card>
 
-      {/* Casualty & MLC by Company */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Casualty & MLC by Company</div>
+      {/* Casualty & MLC by Company — Worst Performers, P1 vs P2 Comparison */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Casualty & MLC by Company — Worst Performers (P1 vs P2)</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Companies — Casualty Reports" subtitle="From Consolidated Inspection History (VSL Casualty)">
           {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
-          casualtyByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file.</div>:
+          casualtyByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file for either period.</div>:
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <thead><tr><Th>Company</Th><Th>P1</Th><Th>P2</Th><Th>% Change</Th><Th>Verdict</Th></tr></thead>
             <tbody>{casualtyByCompany.map(c=>(
               <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
                 <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td style={{color:"var(--text2)",fontFamily:"var(--mono)",textAlign:"right"}}>{c.count}</Td>
+                <Td>{c.p1}</Td><Td>{c.p2}</Td>
+                <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
+                <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
               </tr>
             ))}</tbody>
           </table>}
         </Card>
         <Card title="Top 10 Companies — MLC Complaints" subtitle="From MLC Complaints">
           {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
-          mlcByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No MLC complaints on file.</div>:
+          mlcByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No MLC complaints on file for either period.</div>:
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <thead><tr><Th>Company</Th><Th>P1</Th><Th>P2</Th><Th>% Change</Th><Th>Verdict</Th></tr></thead>
             <tbody>{mlcByCompany.map(c=>(
               <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
                 <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td style={{color:"var(--text2)",fontFamily:"var(--mono)",textAlign:"right"}}>{c.count}</Td>
+                <Td>{c.p1}</Td><Td>{c.p2}</Td>
+                <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
+                <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
               </tr>
             ))}</tbody>
           </table>}
