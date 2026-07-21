@@ -211,6 +211,23 @@ export default function PerformanceReview({ vessels = [] }) {
   // ---- Registry performance ----
   const dominantMou = mouPerformance[0]?.mou || "—";
 
+  // ---- Worst performing company per period (most detentions, with avg deficiencies as context) ----
+  const worstCompany = (periodArr) => {
+    const counts = {};
+    periodArr.forEach(v => {
+      const c = v.company && v.company!=="—" ? v.company : "Unknown";
+      if (!counts[c]) counts[c] = { company:c, count:0, totalDefs:0 };
+      counts[c].count++;
+      counts[c].totalDefs += v.defs||0;
+    });
+    const ranked = Object.values(counts).sort((a,b)=>b.count-a.count);
+    if (ranked.length===0) return null;
+    const top = ranked[0];
+    return { ...top, avgDefs: top.count ? (top.totalDefs/top.count).toFixed(1) : "—" };
+  };
+  const worstCompanyP1 = worstCompany(period1);
+  const worstCompanyP2 = worstCompany(period2);
+
   // ---- Recommendations + conclusion (templated) ----
   const worseningMous = mouPerformance.filter(m=>m.verdict.includes("Worsened")||m.verdict.includes("higher deficiency"));
   const risingPorts = portsP1.filter(p => (portsP2Map[p.port]||0) > p.count).slice(0,5);
@@ -351,6 +368,42 @@ export default function PerformanceReview({ vessels = [] }) {
         </table>
       </Card>
 
+      {/* Worst Performing Company */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Worst Performing Company</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <Card title="Period 1" subtitle={p1Start+" to "+p1End}>
+          {worstCompanyP1 ? (
+            <div>
+              <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>{worstCompanyP1.company}</div>
+              <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"4px"}}>{worstCompanyP1.count} detention(s) · avg {worstCompanyP1.avgDefs} deficiencies/detention</div>
+            </div>
+          ) : <div style={{fontSize:"12px",color:"var(--text3)"}}>No data in this period.</div>}
+        </Card>
+        <Card title="Period 2 (this year)" subtitle={p2Start+" to "+p2End}>
+          {worstCompanyP2 ? (
+            <div>
+              <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>{worstCompanyP2.company}</div>
+              <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"4px"}}>{worstCompanyP2.count} detention(s) · avg {worstCompanyP2.avgDefs} deficiencies/detention</div>
+            </div>
+          ) : <div style={{fontSize:"12px",color:"var(--text3)"}}>No data in this period.</div>}
+        </Card>
+      </div>
+
+      {/* Clean current-year month-by-month */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>{currentYearMonthly.year} — Month by Month</div>
+      <Card style={{marginBottom:"20px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Month","Detentions","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{currentYearMonthly.rows.map(r=>(
+            <tr key={r.month} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:600}}>{r.month}</Td>
+              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{r.count}</Td>
+              <Td style={{color:"var(--text2)"}}>{r.avgDefs}</Td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+
       {/* Quarter by Quarter (Q1-Q4) */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Quarter by Quarter — {new Date().getFullYear()} vs {new Date().getFullYear()-1}</div>
       <Card style={{marginBottom:"20px"}}>
@@ -369,21 +422,6 @@ export default function PerformanceReview({ vessels = [] }) {
           ))}</tbody>
         </table>
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each completed quarter of {new Date().getFullYear()} compared to the same quarter in {new Date().getFullYear()-1}. Quarters that haven't started yet show as "upcoming".</div>
-      </Card>
-
-      {/* Clean current-year month-by-month */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>{currentYearMonthly.year} — Month by Month</div>
-      <Card style={{marginBottom:"20px"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr>{["Month","Detentions","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
-          <tbody>{currentYearMonthly.rows.map(r=>(
-            <tr key={r.month} style={{borderBottom:"1px solid var(--border)"}}>
-              <Td style={{color:"var(--text)",fontWeight:600}}>{r.month}</Td>
-              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{r.count}</Td>
-              <Td style={{color:"var(--text2)"}}>{r.avgDefs}</Td>
-            </tr>
-          ))}</tbody>
-        </table>
       </Card>
 
       {/* Casualty & MLC by Company */}
