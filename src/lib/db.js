@@ -1,9 +1,24 @@
 import { supabase } from "./supabase";
 
 export async function getVessels() {
-  const { data, error } = await supabase.from("vessels").select("*").order("created_at", {ascending:false});
-  if (error) { console.error("getVessels:", error); return []; }
-  return data.map(mapVessel);
+  // Supabase caps a single request at 1000 rows by default. With no pagination, any table over
+  // 1000 rows gets silently truncated — this was cutting off ~97 real 2026 detentions once the
+  // 2023-2025 backfill pushed the total vessels count past 1000. Page through in batches of 1000
+  // until a page comes back with fewer than 1000 rows (meaning we've reached the end).
+  const PAGE_SIZE = 1000;
+  let allData = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase.from("vessels").select("*")
+      .order("created_at", {ascending:false})
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) { console.error("getVessels:", error); break; }
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < PAGE_SIZE) break; // last page
+    from += PAGE_SIZE;
+  }
+  return allData.map(mapVessel);
 }
 
 export async function upsertVessel(vessel) {
@@ -107,11 +122,21 @@ function tryParse(val) {
 }
 
 export async function getTasks(imo) {
-  let q = supabase.from("tasks").select("*").order("created_at", {ascending:false});
-  if (imo) q = q.eq("imo", imo);
-  const { data, error } = await q;
-  if (error) { console.error("getTasks:", error); return []; }
-  return data.map(t => ({
+  // Same pagination safeguard as getVessels — prevents silent truncation once this table passes 1000 rows.
+  const PAGE_SIZE = 1000;
+  let allData = [];
+  let from = 0;
+  while (true) {
+    let q = supabase.from("tasks").select("*").order("created_at", {ascending:false}).range(from, from + PAGE_SIZE - 1);
+    if (imo) q = q.eq("imo", imo);
+    const { data, error } = await q;
+    if (error) { console.error("getTasks:", error); break; }
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return allData.map(t => ({
     id: t.id, vessel: t.vessel, imo: t.imo,
     detentionDate: t.detention_date||"", title: t.title,
     taskOwner: t.task_owner||"", caseOwner: t.case_owner||"",
