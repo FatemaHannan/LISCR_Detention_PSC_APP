@@ -224,6 +224,37 @@ export default function PerformanceReview({ vessels = [] }) {
     }).sort((a,b)=>(b.d1+b.d2)-(a.d1+a.d2)).slice(0,10);
   }, [period1, period2]);
 
+  // ---- CAR Closure by Company: count of CAR status = Complete per company, P1 vs P2 ----
+  // Note: this counts how many CARs are marked Complete by the current status snapshot, not how fast
+  // they closed — there's no CAR closure/received date tracked, so closure SPEED can't be measured yet.
+  const carClosureByCompany = useMemo(() => {
+    const byCompany = {};
+    period1.forEach(v => {
+      const c = v.company && v.company!=="—" ? v.company : "Unknown";
+      byCompany[c] = byCompany[c] || { company:c, p1Total:0, p1Complete:0, p2Total:0, p2Complete:0 };
+      byCompany[c].p1Total++;
+      if (v.carStatus==="Complete") byCompany[c].p1Complete++;
+    });
+    period2.forEach(v => {
+      const c = v.company && v.company!=="—" ? v.company : "Unknown";
+      byCompany[c] = byCompany[c] || { company:c, p1Total:0, p1Complete:0, p2Total:0, p2Complete:0 };
+      byCompany[c].p2Total++;
+      if (v.carStatus==="Complete") byCompany[c].p2Complete++;
+    });
+    return Object.values(byCompany).map(c => {
+      const p1Rate = c.p1Total ? Math.round(c.p1Complete/c.p1Total*100) : null;
+      const p2Rate = c.p2Total ? Math.round(c.p2Complete/c.p2Total*100) : null;
+      const pct = (p1Rate!=null && p2Rate!=null) ? pctChange(p1Rate, p2Rate) : null;
+      let verdict="—", vColor="var(--text3)";
+      if (pct!=null) {
+        if (pct>=10) { verdict="Improved"; vColor="var(--green2)"; }
+        else if (pct<=-10) { verdict="Worsened"; vColor="var(--red2)"; }
+        else { verdict="Stable"; vColor="var(--amber2)"; }
+      }
+      return { ...c, p1Rate, p2Rate, pct, verdict, vColor };
+    }).filter(c=>c.p1Total>0||c.p2Total>0).sort((a,b)=>(b.p1Total+b.p2Total)-(a.p1Total+a.p2Total)).slice(0,10);
+  }, [period1, period2]);
+
   // ---- Major deficiency type comparison, P1 vs P2 ----
   const deficiencyTypeComparison = useMemo(() => {
     const catDef = (desc) => {
@@ -521,6 +552,27 @@ export default function PerformanceReview({ vessels = [] }) {
             ))}</tbody>
           </table>}
         </Card>
+      </div>
+
+      {/* CAR Closure by Company */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>CAR Closure by Company (P1 vs P2)</div>
+      <Card style={{marginBottom:"8px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr><Th>Company</Th><Th>P1 Detentions</Th><Th>P1 CAR Complete</Th><Th>P1 Rate</Th><Th>P2 Detentions</Th><Th>P2 CAR Complete</Th><Th>P2 Rate</Th><Th>Verdict</Th></tr></thead>
+          <tbody>{carClosureByCompany.map(c=>(
+            <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
+              <Td>{c.p1Total}</Td><Td>{c.p1Complete}</Td>
+              <Td style={{color:c.p1Rate==null?"var(--text3)":c.p1Rate>=70?"var(--green2)":c.p1Rate>=50?"var(--amber2)":"var(--red2)"}}>{c.p1Rate!=null?c.p1Rate+"%":"—"}</Td>
+              <Td>{c.p2Total}</Td><Td>{c.p2Complete}</Td>
+              <Td style={{color:c.p2Rate==null?"var(--text3)":c.p2Rate>=70?"var(--green2)":c.p2Rate>=50?"var(--amber2)":"var(--red2)"}}>{c.p2Rate!=null?c.p2Rate+"%":"—"}</Td>
+              <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+      <div style={{fontSize:"11px",color:"var(--amber2)",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"20px"}}>
+        <b>Note:</b> This shows how many CARs are currently marked "Complete" per company, not how quickly they were closed. There's no CAR closure/received date tracked in the system — only the current status — so true closure speed (e.g. average days to close) can't be measured yet. If that's needed, a "CAR Received Date" field would need to start being captured going forward.
       </div>
 
       {/* 1. Detention Rate Trend by Month */}
