@@ -58,6 +58,35 @@ export default function PerformanceReview({ vessels = [] }) {
   const [p2Start, setP2Start] = useState(todayISO().slice(0,4)+"-01-01");
   const [p2End, setP2End] = useState(todayISO());
   const [statusMap, setStatusMap] = useState({});
+  const [casualtyByCompany, setCasualtyByCompany] = useState([]);
+  const [mlcByCompany, setMlcByCompany] = useState([]);
+  const [companyReportsLoading, setCompanyReportsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCompanyReportsLoading(true);
+      const [casRes, mlcRes] = await Promise.all([
+        supabase.from("inspection_history").select("ism_client").ilike("flag_psc", "VSL Casualty"),
+        supabase.from("mlc_complaints").select("ism_client"),
+      ]);
+      if (cancelled) return;
+      const tally = (rows) => {
+        const counts = {};
+        (rows||[]).forEach(r => {
+          const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+          counts[c] = (counts[c]||0)+1;
+        });
+        return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([company,count])=>({company,count}));
+      };
+      if (casRes.error) console.error("[CasualtyByCompany] fetch error:", casRes.error.message);
+      if (mlcRes.error) console.error("[MlcByCompany] fetch error:", mlcRes.error.message);
+      setCasualtyByCompany(tally(casRes.data));
+      setMlcByCompany(tally(mlcRes.data));
+      setCompanyReportsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
   const inRange = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
@@ -356,6 +385,35 @@ export default function PerformanceReview({ vessels = [] }) {
           ))}</tbody>
         </table>
       </Card>
+
+      {/* Casualty & MLC by Company */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Casualty & MLC by Company</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <Card title="Top 10 Companies — Casualty Reports" subtitle="From Consolidated Inspection History (VSL Casualty)">
+          {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
+          casualtyByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <tbody>{casualtyByCompany.map(c=>(
+              <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
+                <Td style={{color:"var(--text2)",fontFamily:"var(--mono)",textAlign:"right"}}>{c.count}</Td>
+              </tr>
+            ))}</tbody>
+          </table>}
+        </Card>
+        <Card title="Top 10 Companies — MLC Complaints" subtitle="From MLC Complaints">
+          {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
+          mlcByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No MLC complaints on file.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <tbody>{mlcByCompany.map(c=>(
+              <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
+                <Td style={{color:"var(--text2)",fontFamily:"var(--mono)",textAlign:"right"}}>{c.count}</Td>
+              </tr>
+            ))}</tbody>
+          </table>}
+        </Card>
+      </div>
 
       {/* 1. Detention Rate Trend by Month */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Detention Rate Trend by Month</div>
