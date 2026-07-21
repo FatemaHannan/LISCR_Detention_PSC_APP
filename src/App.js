@@ -244,6 +244,9 @@ export default function App() {
             const trendColor=trend.includes("Increasing")?"var(--red2)":trend.includes("Decreasing")?"var(--green2)":"var(--text3)";
             const compCounts={};detained.forEach(v=>{if(v.company&&v.company!=="—")compCounts[v.company]=(compCounts[v.company]||0)+1;});
             const topCompanies=Object.entries(compCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const yearCounts={};detainedAll.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}/)){const yr=String(v.detentionDate).slice(0,4);yearCounts[yr]=(yearCounts[yr]||0)+1;}});
+            const yearData=Object.entries(yearCounts).sort((a,b)=>a[0]>b[0]?1:-1);
+            const maxYear=yearData.length?Math.max(...yearData.map(y=>y[1])):1;
 
             const NAV_CARDS = [
               {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detainedAll.length+" detained vessels",color:"var(--blue)",badge:detainedAll.length},
@@ -323,7 +326,7 @@ export default function App() {
                 ))}
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"12px"}}>
                 {/* Monthly trend */}
                 <div className="card">
                   <div className="card-t">Monthly Detention Trend — {monthYearFilter} YTD</div>
@@ -337,6 +340,18 @@ export default function App() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Detentions by Year */}
+                <div className="card">
+                  <div className="card-t">Detentions by Year</div>
+                  {yearData.map(([yr,v])=>(
+                    <div key={yr} className="bar-r">
+                      <div className="bar-l">{yr}</div>
+                      <div className="bar-t"><div className="bar-f" style={{width:`${(v/maxYear)*100}%`,background:yr===homeYear?"var(--red)":"var(--blue)"}}></div></div>
+                      <div className="bar-v">{v}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Top companies */}
