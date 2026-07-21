@@ -58,7 +58,7 @@ export default function PerformanceReview({ vessels = [] }) {
   const [p2Start, setP2Start] = useState(todayISO().slice(0,4)+"-01-01");
   const [p2End, setP2End] = useState(todayISO());
   const [statusMap, setStatusMap] = useState({});
-  const [casualtyRaw, setCasualtyRaw] = useState([]); // [{ism_client, inspection_date}, ...]
+  const [casualtyRaw, setCasualtyRaw] = useState([]); // [{managing_company, incident_date, casualty_type}, ...]
   const [mlcRaw, setMlcRaw] = useState([]); // [{ism_client, reported_date}, ...]
   const [companyReportsLoading, setCompanyReportsLoading] = useState(true);
 
@@ -67,7 +67,7 @@ export default function PerformanceReview({ vessels = [] }) {
     (async () => {
       setCompanyReportsLoading(true);
       const [casRes, mlcRes] = await Promise.all([
-        supabase.from("inspection_history").select("ism_client,inspection_date").ilike("flag_psc", "VSL Casualty"),
+        supabase.from("vessel_casualty").select("managing_company,incident_date,casualty_type"),
         supabase.from("mlc_complaints").select("ism_client,reported_date"),
       ]);
       if (cancelled) return;
@@ -192,23 +192,24 @@ export default function PerformanceReview({ vessels = [] }) {
       const m = {};
       arr.forEach(v => {
         if (v.detentionDate && String(v.detentionDate).match(/^\d{4}-\d{2}/)) {
-          const key = String(v.detentionDate).slice(0,7);
+          const key = String(v.detentionDate).slice(5,7); // MM only — align by calendar month, not by year+month string
           if (!m[key]) m[key] = { count:0, defs:0 };
           m[key].count++; m[key].defs += v.defs||0;
         }
       });
-      return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0]));
+      return m;
     }
     const b1 = bucket(period1), b2 = bucket(period2);
-    const len = Math.max(b1.length, b2.length);
+    const allMonths = new Set([...Object.keys(b1), ...Object.keys(b2)]);
     const rows = [];
-    for (let i=0;i<len;i++) {
-      const m1 = b1[i], m2 = b2[i];
-      const label = m2 ? MONTH_NAMES[parseInt(m2[0].slice(5,7))-1] : (m1 ? MONTH_NAMES[parseInt(m1[0].slice(5,7))-1] : "Month "+(i+1));
-      const c1 = m1?m1[1].count:0, c2 = m2?m2[1].count:0;
-      const f1 = m1?m1[1].defs:0, f2 = m2?m2[1].defs:0;
+    for (let mm=1; mm<=12; mm++) {
+      const key = String(mm).padStart(2,"0");
+      if (!allMonths.has(key)) continue; // skip months with zero activity in both periods
+      const m1 = b1[key], m2 = b2[key];
+      const c1 = m1?m1.count:0, c2 = m2?m2.count:0;
+      const f1 = m1?m1.defs:0, f2 = m2?m2.defs:0;
       rows.push({
-        month: label, c1, c2, change: c2-c1, pct: pctChange(c1,c2),
+        month: MONTH_NAMES[mm-1], c1, c2, change: c2-c1, pct: pctChange(c1,c2),
         f1, f2, avg1: c1?+(f1/c1).toFixed(1):0, avg2: c2?+(f2/c2).toFixed(1):0,
       });
     }
