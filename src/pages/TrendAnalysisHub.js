@@ -8,8 +8,10 @@ import VIPProtocol from "./VIPProtocol";
 import FleetCompositionTrends from "./FleetCompositionTrends";
 import HighRiskAreas from "./HighRiskAreas";
 import OperationalResponseTracking from "./OperationalResponseTracking";
+import PreventionFocus from "./PreventionFocus";
 
 const SUB_TABS = [
+  { id: "focus", label: "🎯 Prevention Focus" },
   { id: "dashboard", label: "Dashboard" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
@@ -22,7 +24,7 @@ const SUB_TABS = [
 ];
 
 export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
-  const [subTab, setSubTab] = useState("dashboard");
+  const [subTab, setSubTab] = useState("focus");
 
   return (
     <div className="pg active">
@@ -46,6 +48,7 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
       </div>
 
       <div style={{ margin: "-16px", padding: "0" }}>
+        {subTab === "focus" && <PreventionFocus vessels={vessels} />}
         {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
