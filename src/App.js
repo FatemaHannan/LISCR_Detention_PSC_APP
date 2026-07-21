@@ -99,6 +99,7 @@ export default function App() {
   const [openCaseImo, setOpenCaseImo] = useState(null);
   const [openCaseDate, setOpenCaseDate] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [homeYear, setHomeYear] = useState(String(new Date().getFullYear()));
   const [evpQ, setEvpQ] = useState(0);
   const [chatMessages, setChatMessages] = useState([{role:"ai", text:"Good morning. I have your full fleet data loaded — 107 detentions Jan-Jun 2026, 136 PDAIP tasks, and all active case files including OCEAN GALAXY. What do you need?"}]);
   const [chatInput, setChatInput] = useState("");
@@ -218,19 +219,21 @@ export default function App() {
         <div className="content">
 
           {page === "home" && (()=>{
-            const detained = fleetVessels.filter(v=>v.detained);
+            const homeYearOptions = [...new Set(fleetVessels.filter(v=>v.detained && v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+            const detainedAll = fleetVessels.filter(v=>v.detained);
+            const detained = homeYear==="All" ? detainedAll : detainedAll.filter(v=>v.detentionDate && String(v.detentionDate).startsWith(homeYear));
             const imoCounts={};fleetVessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
-            const reDetained = [...new Set(fleetVessels.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
-            const carMissing = fleetVessels.filter(v=>v.carStatus==="Not Received").length;
-            const carComplete = fleetVessels.filter(v=>v.carStatus==="Complete").length;
+            const reDetained = [...new Set(detained.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
+            const carMissing = detained.filter(v=>v.carStatus==="Not Received").length;
+            const carComplete = detained.filter(v=>v.carStatus==="Complete").length;
             const carRate = detained.length?Math.round(carComplete/detained.length*100):0;
             const overdueTasks = fleetTasks.filter(t=>t.status!=="Executed"&&t.due&&new Date(t.due)<new Date()).length;
             const openTasks = fleetTasks.filter(t=>t.status!=="Executed").length;
             const carOverdue60 = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
             const highDef = detained.filter(v=>(v.defs||0)>=20);
             const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE")));
-            const currentYearStr = String(new Date().getFullYear());
-            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}-\d{2}/)&&String(v.detentionDate).startsWith(currentYearStr)){const m=String(v.detentionDate).slice(0,7);months[m]=(months[m]||0)+1;}});
+            const monthYearFilter = homeYear==="All" ? String(new Date().getFullYear()) : homeYear;
+            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&String(v.detentionDate).match(/^\d{4}-\d{2}/)&&String(v.detentionDate).startsWith(monthYearFilter)){const m=String(v.detentionDate).slice(0,7);months[m]=(months[m]||0)+1;}});
             const monthData=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1);
             const maxMonth=monthData.length?Math.max(...monthData.map(m=>m[1])):1;
             const mouCounts={};detained.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
@@ -243,7 +246,7 @@ export default function App() {
             const topCompanies=Object.entries(compCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
             const NAV_CARDS = [
-              {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detained.length+" detained vessels",color:"var(--blue)",badge:detained.length},
+              {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detainedAll.length+" detained vessels",color:"var(--blue)",badge:detainedAll.length},
               {id:"evp",icon:"ti-presentation",label:"EVP Briefing",desc:"Live executive summary",color:"var(--amber2)",badge:null},
               {id:"gaps",icon:"ti-alert-triangle",label:"Critical Gaps",desc:carOverdue60.length+" urgent items",color:"var(--red2)",badge:carOverdue60.length},
               {id:"trends",icon:"ti-chart-line",label:"Trend Analysis",desc:"Where, when & why detentions happen — plus patterns, AIS, VIP",color:"var(--blue)",badge:null},
@@ -257,6 +260,13 @@ export default function App() {
                 <div>
                   <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Good {new Date().getHours()<12?"morning":new Date().getHours()<17?"afternoon":"evening"}, Fatema</div>
                   <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>LISCR PSC Intelligence Platform · Live from Supabase · {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                  <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
+                  <select value={homeYear} onChange={e=>setHomeYear(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"6px 10px"}}>
+                    {homeYearOptions.map(y=><option key={y} value={y}>{y}</option>)}
+                    <option value="All">All Years</option>
+                  </select>
                 </div>
                 <button className="btn btn-primary" onClick={()=>{nav("chat");sendChat("Good morning. Give me a quick 2-minute briefing on the most important things I need to know about our PSC detention program today.");}}><i className="ti ti-sparkles"></i> AI Morning Briefing</button>
               </div>
@@ -284,11 +294,11 @@ export default function App() {
               {/* KPI row */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"12px",marginTop:"4px"}}>
                 {[
-                  {l:"Total Detentions",v:detained.length,s:"YTD 2026",c:"var(--text)"},
+                  {l:"Total Detentions",v:detained.length,s:homeYear==="All"?"All years":"YTD "+homeYear,c:"var(--text)"},
                   {l:"Avg Deficiencies",v:avgDefs,s:"per detention",c:parseFloat(avgDefs)>=15?"var(--red2)":"var(--amber2)"},
                   {l:"CAR Compliance",v:carRate+"%",s:carComplete+" complete",c:carRate>=70?"var(--green2)":carRate>=50?"var(--amber2)":"var(--red2)"},
                   {l:"CAR Not Received",v:carMissing,s:"outstanding",c:carMissing>20?"var(--red2)":"var(--amber2)"},
-                  {l:"Re-Detained",v:reDetained,s:"multiple 2026",c:reDetained>0?"var(--red2)":"var(--green2)"},
+                  {l:"Re-Detained",v:reDetained,s:"multiple "+(homeYear==="All"?"years":homeYear),c:reDetained>0?"var(--red2)":"var(--green2)"},
                   {l:"Trend",v:trend,s:"vs last month",c:trendColor},
                 ].map(m=>(
                   <div key={m.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
@@ -316,7 +326,7 @@ export default function App() {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
                 {/* Monthly trend */}
                 <div className="card">
-                  <div className="card-t">Monthly Detention Trend — {currentYearStr} YTD</div>
+                  <div className="card-t">Monthly Detention Trend — {monthYearFilter} YTD</div>
                   {monthData.map(([m,v])=>{
                     const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.slice(5,7))-1];
                     return (
