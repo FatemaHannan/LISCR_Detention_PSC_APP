@@ -451,11 +451,105 @@ export default function PerformanceReview({ vessels = [] }) {
     });
   }, [detained]);
 
+  // ---- Recommended Areas of Focus — computed once, used by both the page and the PDF export ----
+  const focusAreas = useMemo(() => {
+    const worseningRos = roPerformance.filter(r=>r.verdict.includes("Worsened")||r.verdict.includes("higher deficiency"));
+    const improvingMous = mouPerformance.filter(m=>m.verdict.includes("Improved")||m.verdict.includes("lower deficiency"));
+    const risingCats = deficiencyTypeComparison.filter(c=>c.pct>=15 && (c.c1+c.c2)>=3);
+    const fallingCats = deficiencyTypeComparison.filter(c=>c.pct<=-15 && (c.c1+c.c2)>=3);
+    const good = [], attention = [];
+
+    if (kpi.detPct<=-10) good.push("Total detentions are down "+Math.abs(kpi.detPct)+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
+    else if (kpi.detPct>=10) attention.push("Total detentions are up "+kpi.detPct+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
+    if (kpi.defPct<=-10) good.push("Total deficiencies fell "+Math.abs(kpi.defPct)+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
+    else if (kpi.defPct>=10) attention.push("Total deficiencies rose "+kpi.defPct+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
+
+    if (improvingMous.length>0) good.push(improvingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(improvingMous.length>1?"are":"is")+" trending better period over period.");
+    if (worseningMous.length>0) attention.push("Keep close watch on "+worseningMous.map(m=>m.mou).join(", ")+" — "+(worseningMous.length>1?"these show":"this shows")+" a worsening trend.");
+    if (worseningRos.length>0) attention.push("RO performance worth a conversation: "+worseningRos.slice(0,3).map(r=>r.ro).join(", ")+" "+(worseningRos.length>1?"are":"is")+" trending worse period over period.");
+
+    if (fallingCats.length>0) good.push(fallingCats.slice(0,2).map(c=>c.cat).join(", ")+" deficiencies are down "+Math.abs(fallingCats[0].pct)+"%+ — whatever's being done there is working.");
+    if (risingCats.length>0) attention.push(risingCats.slice(0,2).map(c=>c.cat+" (+"+c.pct+"%)").join(", ")+" — this is where inspection/training focus should go next.");
+
+    if (repeatVessels.length===0) good.push("No vessel was detained more than once across the two periods.");
+    else attention.push(repeatVessels.length+" vessel(s) detained more than once across the two periods — review for a pattern before the next port call.");
+
+    if (worstInspections.length>0) attention.push("Highest single-inspection deficiency count: "+worstInspections[0].name+" at "+worstInspections[0].defs+" deficiencies — warrants a detailed root-cause review.");
+    if (risingPorts.length>0) attention.push("Ports showing a rising trend: "+risingPorts.map(p=>p.port).join(", ")+".");
+
+    good.push("Keep "+dominantMou+" as the primary operational focus — it remains the largest detention source, so improvement there moves the whole number.");
+
+    return { good, attention };
+  }, [kpi, mouPerformance, roPerformance, deficiencyTypeComparison, repeatVessels, worstInspections, risingPorts, dominantMou, worseningMous]);
+
+  // ---- Export PDF: opens a clean popup window and prints, same pattern used for Case Brief exports ----
+  const printReport = () => {
+    const esc = (s) => String(s==null?"":s);
+    const table = (headers, rows) =>
+      "<table style='border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:9.5pt;'>"
+      + "<thead><tr>" + headers.map(h=>"<th style='border:1px solid #999;padding:5px 8px;background:#eee;text-align:left;'>"+esc(h)+"</th>").join("") + "</tr></thead>"
+      + "<tbody>" + rows.map(r=>"<tr>"+r.map(c=>"<td style='border:1px solid #ccc;padding:5px 8px;'>"+esc(c)+"</td>").join("")+"</tr>").join("") + "</tbody></table>";
+    const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;'>"+esc(t)+"</h3>";
+
+    const html =
+      "<h1 style='font-size:16pt;margin-bottom:2px;'>PSC Detention Performance Review</h1>"
+      + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Period 1: "+p1Start+" to "+p1End+" &nbsp;|&nbsp; Period 2: "+p2Start+" to "+p2End+" &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+
+      + "<div style='border:2px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:14px;'>"
+      + "<b style='font-size:13pt;'>"+esc(verdict.label)+"</b><br/>"
+      + "Period 2 vs Period 1: "+kpi.d2+" vs "+kpi.d1+" detentions ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%)"
+      + "</div>"
+
+      + sectionTitle("Quarter by Quarter — "+new Date().getFullYear()+" vs "+(new Date().getFullYear()-1))
+      + table(["Quarter",(new Date().getFullYear()-1)+" Det.",new Date().getFullYear()+" Det.","Change","Trend"],
+          quarterly.map(q=>[q.q, q.priorCount, q.curCount!=null?q.curCount:"upcoming", q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—", q.qVerdict]))
+
+      + sectionTitle(currentYearMonthly.year+" — Month by Month")
+      + table(["Month","Detentions","Avg Deficiencies"], currentYearMonthly.rows.map(r=>[r.month,r.count,r.avgDefs]))
+
+      + sectionTitle("MoU-Level Performance")
+      + table(["MoU","P1 Det.","P2 Det.","% Change","Verdict"], mouPerformance.map(m=>[m.mou,m.d1,m.d2,(m.detPct>0?"+":"")+m.detPct+"%",m.verdict]))
+
+      + sectionTitle("RO Performance")
+      + table(["RO","P1 Det.","P2 Det.","% Change","Verdict"], roPerformance.map(r=>[r.ro,r.d1,r.d2,(r.detPct>0?"+":"")+r.detPct+"%",r.verdict]))
+
+      + sectionTitle("Major Deficiency Type Comparison")
+      + table(["Deficiency Type","Period 1","Period 2","% Change"], deficiencyTypeComparison.map(c=>[c.cat,c.c1,c.c2,(c.pct>0?"+":"")+c.pct+"%"]))
+
+      + sectionTitle("Worst Performing Company")
+      + table(["Period","Company","Detentions","Avg Deficiencies"], [
+          ["Period 1", worstCompanyP1?worstCompanyP1.company:"—", worstCompanyP1?worstCompanyP1.count:"—", worstCompanyP1?worstCompanyP1.avgDefs:"—"],
+          ["Period 2", worstCompanyP2?worstCompanyP2.company:"—", worstCompanyP2?worstCompanyP2.count:"—", worstCompanyP2?worstCompanyP2.avgDefs:"—"],
+        ])
+
+      + sectionTitle("Recommended Areas of Focus")
+      + "<div style='display:flex;gap:16px;margin-top:8px;'>"
+      + "<div style='flex:1;border:1px solid #22c55e;border-radius:6px;padding:10px 14px;'>"
+      + "<b style='color:#16a34a;'>✓ Where We're Doing Well</b>"
+      + "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;line-height:1.6;'>"+focusAreas.good.map(g=>"<li>"+esc(g)+"</li>").join("")+"</ul></div>"
+      + "<div style='flex:1;border:1px solid #ef4444;border-radius:6px;padding:10px 14px;'>"
+      + "<b style='color:#dc2626;'>⚠ Where We Need Attention</b>"
+      + "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;line-height:1.6;'>"+(focusAreas.attention.length?focusAreas.attention.map(a=>"<li>"+esc(a)+"</li>").join(""):"<li>No significant red flags this period.</li>")+"</ul></div>"
+      + "</div>";
+
+    const w = window.open("", "_blank", "width=900,height=1000");
+    if (!w) { alert("Please allow pop-ups for this site to export the PDF."); return; }
+    w.document.write("<html><head><meta charset='utf-8'><title>Performance Review</title>"
+      + "<style>@page{margin:0.75in} body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:10.5pt;color:#111;} table{page-break-inside:avoid;} h3{page-break-after:avoid;}</style>"
+      + "</head><body>"+html+"</body></html>");
+    w.document.close();
+    w.onload = ()=>{ w.focus(); w.print(); };
+    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
+  };
+
   return (
     <div className="pg active">
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>PSC Detention Performance Review</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Period-over-period comparison — live from Supabase</div>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+        <div>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>PSC Detention Performance Review</div>
+          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Period-over-period comparison — live from Supabase</div>
+        </div>
+        <button onClick={printReport} style={{background:"var(--blue)",color:"#fff",border:"none",borderRadius:"6px",padding:"8px 16px",fontSize:"12px",fontWeight:600,cursor:"pointer"}}>⬇ Export PDF</button>
       </div>
 
       {/* Performance Verdict */}
@@ -938,51 +1032,21 @@ export default function PerformanceReview({ vessels = [] }) {
 
       {/* 8. Recommended Areas of Focus */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Recommended Areas of Focus</div>
-      {(()=>{
-        const worseningRos = roPerformance.filter(r=>r.verdict.includes("Worsened")||r.verdict.includes("higher deficiency"));
-        const improvingMous = mouPerformance.filter(m=>m.verdict.includes("Improved")||m.verdict.includes("lower deficiency"));
-        const risingCats = deficiencyTypeComparison.filter(c=>c.pct>=15 && (c.c1+c.c2)>=3);
-        const fallingCats = deficiencyTypeComparison.filter(c=>c.pct<=-15 && (c.c1+c.c2)>=3);
-        const good = [], attention = [];
-
-        if (kpi.detPct<=-10) good.push("Total detentions are down "+Math.abs(kpi.detPct)+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
-        else if (kpi.detPct>=10) attention.push("Total detentions are up "+kpi.detPct+"% from Period 1 to Period 2 ("+kpi.d1+" → "+kpi.d2+").");
-        if (kpi.defPct<=-10) good.push("Total deficiencies fell "+Math.abs(kpi.defPct)+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
-        else if (kpi.defPct>=10) attention.push("Total deficiencies rose "+kpi.defPct+"%, and avg deficiencies per detention moved from "+kpi.a1+" to "+kpi.a2+".");
-
-        if (improvingMous.length>0) good.push(improvingMous.slice(0,3).map(m=>m.mou).join(", ")+" "+(improvingMous.length>1?"are":"is")+" trending better period over period.");
-        if (worseningMous.length>0) attention.push("Keep close watch on "+worseningMous.map(m=>m.mou).join(", ")+" — "+(worseningMous.length>1?"these show":"this shows")+" a worsening trend.");
-        if (worseningRos.length>0) attention.push("RO performance worth a conversation: "+worseningRos.slice(0,3).map(r=>r.ro).join(", ")+" "+(worseningRos.length>1?"are":"is")+" trending worse period over period.");
-
-        if (fallingCats.length>0) good.push(fallingCats.slice(0,2).map(c=>c.cat).join(", ")+" deficiencies are down "+Math.abs(fallingCats[0].pct)+"%+ — whatever's being done there is working.");
-        if (risingCats.length>0) attention.push(risingCats.slice(0,2).map(c=>c.cat+" (+"+c.pct+"%)").join(", ")+" — this is where inspection/training focus should go next.");
-
-        if (repeatVessels.length===0) good.push("No vessel was detained more than once across the two periods.");
-        else attention.push(repeatVessels.length+" vessel(s) detained more than once across the two periods — review for a pattern before the next port call.");
-
-        if (worstInspections.length>0) attention.push("Highest single-inspection deficiency count: "+worstInspections[0].name+" at "+worstInspections[0].defs+" deficiencies — warrants a detailed root-cause review.");
-        if (risingPorts.length>0) attention.push("Ports showing a rising trend: "+risingPorts.map(p=>p.port).join(", ")+".");
-
-        good.push("Keep "+dominantMou+" as the primary operational focus — it remains the largest detention source, so improvement there moves the whole number.");
-
-        return (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
-            <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
-              <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
-              <ul style={{margin:0,paddingLeft:"18px"}}>
-                {good.map((g,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{g}</li>)}
-              </ul>
-            </div>
-            <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"14px"}}>
-              <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>⚠ Where We Need Attention</div>
-              {attention.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No significant red flags this period.</div>:
-              <ul style={{margin:0,paddingLeft:"18px"}}>
-                {attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{a}</li>)}
-              </ul>}
-            </div>
-          </div>
-        );
-      })()}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+        <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
+          <ul style={{margin:0,paddingLeft:"18px"}}>
+            {focusAreas.good.map((g,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{g}</li>)}
+          </ul>
+        </div>
+        <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>⚠ Where We Need Attention</div>
+          {focusAreas.attention.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No significant red flags this period.</div>:
+          <ul style={{margin:0,paddingLeft:"18px"}}>
+            {focusAreas.attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.8}}>{a}</li>)}
+          </ul>}
+        </div>
+      </div>
 
       {/* 9. Conclusion */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Conclusion</div>
