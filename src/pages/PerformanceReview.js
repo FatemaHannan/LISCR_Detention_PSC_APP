@@ -186,11 +186,91 @@ export default function PerformanceReview({ vessels = [] }) {
   const worseningMous = mouPerformance.filter(m=>m.verdict.includes("Worsened")||m.verdict.includes("higher deficiency"));
   const risingPorts = portsP1.filter(p => (portsP2Map[p.port]||0) > p.count).slice(0,5);
 
+  // ---- Performance Verdict — based on the current Period 1 vs Period 2 comparison ----
+  const verdict = useMemo(() => {
+    const pct = kpi.detPct;
+    if (pct == null || isNaN(pct)) return { label: "NOT ENOUGH DATA", color: "var(--text3)", icon: "→" };
+    if (pct <= -10) return { label: "DETENTIONS DECREASING", color: "var(--green2)", icon: "✓" };
+    if (pct >= 10) return { label: "DETENTIONS INCREASING", color: "var(--red2)", icon: "⚠" };
+    return { label: "STABLE PERFORMANCE", color: "var(--amber2)", icon: "→" };
+  }, [kpi]);
+
+  // ---- Clean current-year month-by-month (independent of the P1/P2 date pickers) ----
+  const currentYearMonthly = useMemo(() => {
+    const yr = String(new Date().getFullYear());
+    const currentMonth = new Date().getMonth()+1;
+    const counts = {}, defsByMonth = {};
+    detained.forEach(v => {
+      if (v.detentionDate && String(v.detentionDate).startsWith(yr)) {
+        const mm = String(v.detentionDate).slice(5,7);
+        counts[mm] = (counts[mm]||0)+1;
+        defsByMonth[mm] = (defsByMonth[mm]||0) + (v.defs||0);
+      }
+    });
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const rows = [];
+    for (let m=1; m<=currentMonth; m++) {
+      const mm = String(m).padStart(2,"0");
+      const c = counts[mm]||0;
+      rows.push({ month: monthNames[m-1], count: c, avgDefs: c ? (defsByMonth[mm]/c).toFixed(1) : "—" });
+    }
+    return { rows, year: yr };
+  }, [detained]);
+
+  // ---- Quarterly (Q1-Q4) comparison: current year vs prior year, same quarter ----
+  const quarterly = useMemo(() => {
+    const curYr = new Date().getFullYear();
+    const priorYr = curYr - 1;
+    const getQuarter = (dateStr) => {
+      const m = parseInt(String(dateStr).slice(5,7),10);
+      return Math.ceil(m/3);
+    };
+    const countsByYearQ = { [curYr]: {1:0,2:0,3:0,4:0}, [priorYr]: {1:0,2:0,3:0,4:0} };
+    const defsByYearQ = { [curYr]: {1:0,2:0,3:0,4:0}, [priorYr]: {1:0,2:0,3:0,4:0} };
+    detained.forEach(v => {
+      if (!v.detentionDate) return;
+      const yr = parseInt(String(v.detentionDate).slice(0,4),10);
+      if (yr!==curYr && yr!==priorYr) return;
+      const q = getQuarter(v.detentionDate);
+      countsByYearQ[yr][q]++;
+      defsByYearQ[yr][q] += v.defs||0;
+    });
+    const currentMonth = new Date().getMonth()+1;
+    const currentQuarter = Math.ceil(currentMonth/3);
+    return [1,2,3,4].map(q => {
+      // Only compare quarters that have fully or partially started this year (avoid showing empty future quarters as "0 vs X")
+      const curCount = countsByYearQ[curYr][q];
+      const priorCount = countsByYearQ[priorYr][q];
+      const isFuture = q > currentQuarter;
+      const pct = (!isFuture && priorCount) ? +((curCount-priorCount)/priorCount*100).toFixed(1) : null;
+      let qVerdict = "—", qColor = "var(--text3)";
+      if (pct!=null) {
+        if (pct<=-10) { qVerdict="↓ Improving"; qColor="var(--green2)"; }
+        else if (pct>=10) { qVerdict="↑ Increasing"; qColor="var(--red2)"; }
+        else { qVerdict="→ Stable"; qColor="var(--amber2)"; }
+      }
+      return {
+        q: "Q"+q, curCount: isFuture?null:curCount, priorCount, pct, qVerdict, qColor,
+        curAvgDefs: (!isFuture && curCount) ? (defsByYearQ[curYr][q]/curCount).toFixed(1) : "—",
+        priorAvgDefs: priorCount ? (defsByYearQ[priorYr][q]/priorCount).toFixed(1) : "—",
+      };
+    });
+  }, [detained]);
+
   return (
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
         <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>PSC Detention Performance Review</div>
         <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Period-over-period comparison — live from Supabase</div>
+      </div>
+
+      {/* Performance Verdict */}
+      <div style={{background:verdict.color+"14",border:"2px solid "+verdict.color,borderRadius:"10px",padding:"16px 20px",marginBottom:"14px",display:"flex",alignItems:"center",gap:"14px"}}>
+        <div style={{fontSize:"28px",color:verdict.color}}>{verdict.icon}</div>
+        <div>
+          <div style={{fontSize:"18px",fontWeight:800,color:verdict.color,letterSpacing:".02em"}}>{verdict.label}</div>
+          <div style={{fontSize:"12px",color:"var(--text2)",marginTop:"3px"}}>Period 2 vs Period 1: <b>{kpi.d2}</b> vs <b>{kpi.d1}</b> detentions ({kpi.detPct>0?"+":""}{kpi.detPct}%)</div>
+        </div>
       </div>
 
       <Card title="Comparison Periods" style={{marginBottom:"14px"}}>
@@ -239,6 +319,41 @@ export default function PerformanceReview({ vessels = [] }) {
               </tr>
             ))}
           </tbody>
+        </table>
+      </Card>
+
+      {/* Quarter by Quarter (Q1-Q4) */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Quarter by Quarter — {new Date().getFullYear()} vs {new Date().getFullYear()-1}</div>
+      <Card style={{marginBottom:"20px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Quarter",String(new Date().getFullYear()-1)+" Detentions",new Date().getFullYear()+" Detentions","Change","Avg Def. ("+(new Date().getFullYear()-1)+")","Avg Def. ("+new Date().getFullYear()+")","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{quarterly.map(q=>(
+            <tr key={q.q} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:700}}>{q.q}</Td>
+              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{q.priorCount}</Td>
+              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{q.curCount!=null?q.curCount:"— (upcoming)"}</Td>
+              <Td style={{color:q.pct==null?"var(--text3)":q.pct>0?"var(--red2)":"var(--green2)",fontWeight:600}}>{q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—"}</Td>
+              <Td style={{color:"var(--text3)"}}>{q.priorAvgDefs}</Td>
+              <Td style={{color:"var(--text3)"}}>{q.curAvgDefs}</Td>
+              <Td style={{color:q.qColor,fontWeight:600}}>{q.qVerdict}</Td>
+            </tr>
+          ))}</tbody>
+        </table>
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each completed quarter of {new Date().getFullYear()} compared to the same quarter in {new Date().getFullYear()-1}. Quarters that haven't started yet show as "upcoming".</div>
+      </Card>
+
+      {/* Clean current-year month-by-month */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>{currentYearMonthly.year} — Month by Month</div>
+      <Card style={{marginBottom:"20px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Month","Detentions","Avg Deficiencies"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{currentYearMonthly.rows.map(r=>(
+            <tr key={r.month} style={{borderBottom:"1px solid var(--border)"}}>
+              <Td style={{color:"var(--text)",fontWeight:600}}>{r.month}</Td>
+              <Td style={{color:"var(--text2)",fontFamily:"var(--mono)"}}>{r.count}</Td>
+              <Td style={{color:"var(--text2)"}}>{r.avgDefs}</Td>
+            </tr>
+          ))}</tbody>
         </table>
       </Card>
 
