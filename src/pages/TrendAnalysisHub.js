@@ -55,7 +55,7 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
         {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}
         {subTab === "fleet" && <FleetCompositionTrends vessels={vessels} />}
         {subTab === "response" && <OperationalResponseTracking vessels={vessels} tasks={tasks} />}
-        {subTab === "patterns" && <PatternDetection vessels={vessels} learnedPatterns={window._learnedPatterns||[]} />}
+        {subTab === "patterns" && <PatternDetection vessels={vessels} tasks={tasks} learnedPatterns={window._learnedPatterns||[]} />}
         {subTab === "ais" && <AISMonitor vessels={vessels} />}
         {subTab === "vip" && <VIPProtocol vessels={vessels} />}
       </div>

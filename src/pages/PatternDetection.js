@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from "react";
-import { VESSELS, TASKS } from "../data/masterData";
 
 // Session pattern store - grows as documents are analyzed
 const patternStore = {
@@ -9,15 +8,6 @@ const patternStore = {
   mouCounts: {},
   deficiencyCodes: {},
 };
-
-const STATIC_PATTERNS = [
-  { id:"p1", severity:"Critical", type:"Port escalation", title:"Xiamen (CMN): 300% detention increase YTD", evidence:"3 detentions YTD vs 0 prior year. Full Sun Ocean (13 defs), plus 2 others.", vessels:["FULL SUN OCEAN","KOSTAS K"], action:"Treat all Xiamen calls as mandatory boarding regardless of CMSA cooperation.", learned:false },
-  { id:"p2", severity:"Critical", type:"Post-event trigger", title:"Post-dry dock detention cluster — China yards", evidence:"Multiple vessels detained within days of departing Chinese dry dock. Anna Maria: BV survey May 22-28 showed acceptable — detained 3 days later.", vessels:["ANNA MARIA","EVER ONWARD"], action:"Mandatory Fleet Performance alert within 24 hours of dry dock departure from any Chinese yard.", learned:false },
-  { id:"p3", severity:"High", type:"Trade route risk", title:"Australia to China corridor — highest risk YTD", evidence:"Vessels trading Australia to China account for disproportionate share. AMSA + Tokyo MOU = 65% of all detentions.", vessels:["MORNING CLOUD","HONG BO 18"], action:"Flag all vessels on this corridor with last inspection over 4 months.", learned:false },
-  { id:"p4", severity:"High", type:"MoU escalation", title:"USCG target exceeded — 6 detentions vs 1.5 benchmark", evidence:"USCG YTD: 6 detentions. Paris MoU benchmark is 1.5. Already 4x the target.", vessels:["KOSTAS K","SOPOT"], action:"Review all US-calling vessels in next 60 days.", learned:false },
-  { id:"p5", severity:"High", type:"Inspector coverage gap", title:"Indonesia: 3 usable inspectors of 8 listed", evidence:"5 of 8 listed inspectors are non-committed or underperforming.", vessels:["EVER ONWARD"], action:"Retrain or replace underperforming inspectors. Establish coverage zones.", learned:false },
-  { id:"p6", severity:"High", type:"CMSA cooperation", title:"China CMSA: 80% rejection rate for preemptive inspections", evidence:"CMSA stated they follow own procedures and do not honor flag state pre-emption requests.", vessels:["FULL SUN OCEAN","MORNING CLOUD","WANTAI"], action:"All China arrivals treated as requiring internal LISCR inspection regardless of CMSA.", learned:false },
-];
 
 const SEV_COLOR = { Critical:"var(--red)", High:"var(--amber)", Medium:"var(--blue)", Watch:"var(--text3)" };
 const SEV_BG = { Critical:"var(--red-bg)", High:"var(--amber-bg)", Medium:"var(--blue-bg)", Watch:"var(--bg3)" };
@@ -36,7 +26,7 @@ function Sparkline({data, color}) {
   );
 }
 
-export default function PatternDetection({ learnedPatterns, vessels=[] }) {
+export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[] }) {
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -168,7 +158,7 @@ export default function PatternDetection({ learnedPatterns, vessels=[] }) {
       v.name + " (IMO:" + v.imo + ") — " + v.mou + " — " + v.defs + " defs — " + (v.detained?"DETAINED":"Active") + " — Flags: " + (v.flags?.join(",")||"none")
     ).join("\n");
 
-    const taskSummary = TASKS.slice(0,10).map(t =>
+    const taskSummary = tasks.slice(0,10).map(t =>
       t.vessel + ": " + t.title + " [" + t.status + "]"
     ).join("\n");
 
