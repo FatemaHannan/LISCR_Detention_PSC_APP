@@ -38,11 +38,18 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
     const livePatterns = [];
     let id = 1;
     const currentYear = String(new Date().getFullYear());
-    const currentYearDetained = vessels.filter(v=>v.detained && v.detentionDate && String(v.detentionDate).startsWith(currentYear));
+    const allDetained = vessels.filter(v=>v.detained);
+    const currentYearDetained = allDetained.filter(v=>v.detentionDate && String(v.detentionDate).startsWith(currentYear));
+
+    // Repeat detention: genuinely spans all years on file (a vessel detained once in 2024 and again in
+    // 2025 is a real repeat pattern worth flagging, not just repeats within a single calendar year).
+    const yearsOnFile = [...new Set(allDetained.filter(v=>v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
+    const earliestYear = yearsOnFile[0] || currentYear;
     const imoCounts={};
-    currentYearDetained.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
-    const uniqueRepeats=[...new Map(currentYearDetained.filter(v=>imoCounts[v.imo]>1).map(v=>[v.imo,v])).values()];
-    if(uniqueRepeats.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"Repeat detention",title:uniqueRepeats.length+" vessel(s) detained multiple times in "+currentYear,evidence:uniqueRepeats.map(v=>v.name+" ("+imoCounts[v.imo]+"x)").join(", "),vessels:uniqueRepeats.map(v=>v.name),action:"Immediate ASI and company engagement for repeat detention vessels.",learned:false});
+    allDetained.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
+    const uniqueRepeats=[...new Map(allDetained.filter(v=>imoCounts[v.imo]>1).map(v=>[v.imo,v])).values()].sort((a,b)=>imoCounts[b.imo]-imoCounts[a.imo]);
+    if(uniqueRepeats.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"Repeat detention",title:uniqueRepeats.length+" vessel(s) detained multiple times since "+earliestYear,evidence:uniqueRepeats.map(v=>v.name+" ("+imoCounts[v.imo]+"x)").join(", "),vessels:uniqueRepeats.map(v=>v.name),action:"Immediate ASI and company engagement for repeat detention vessels.",learned:false});
+
     const carOverdue=vessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
     if(carOverdue.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR compliance",title:carOverdue.length+" vessel(s) with CAR overdue >60 days",evidence:carOverdue.slice(0,5).map(v=>v.name+" ("+Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d)").join(", "),vessels:carOverdue.map(v=>v.name),action:"Urgent follow-up with companies. Escalate to FSI case owner.",learned:false});
     const mouCounts={};
