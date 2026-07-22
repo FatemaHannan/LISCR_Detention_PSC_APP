@@ -252,6 +252,16 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
   }, [detained, typeMap]);
 
+  // ---- Major Deficiency Category — fleet-wide, using the shared catDef categorization ----
+  const deficiencyCategoryBreakdown = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => (v.deficiencies||[]).forEach(d => {
+      const cat = catDef(d.desc);
+      counts[cat] = (counts[cat]||0)+1;
+    }));
+    return DEF_CATEGORY_ORDER.filter(c=>counts[c]>0).map(cat=>({cat, count:counts[cat]}));
+  }, [detained]);
+
   // ---- Combined Age x Type breakdown, for a stacked bar chart (age bracket on X, one segment per top vessel type) ----
   const ageByTypeBreakdown = useMemo(() => {
     const topTypes = vesselTypeBreakdown.slice(0,6).map(t=>t.type);
@@ -754,6 +764,24 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
             {ageByTypeBreakdown.seriesKeys.map((key,i)=>(
               <Bar key={key} dataKey={key} stackId="a" fill={["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#64748b"][i%7]} radius={i===ageByTypeBreakdown.seriesKeys.length-1?[3,3,0,0]:[0,0,0,0]} />
             ))}
+          </BarChart>
+        </ResponsiveContainer>}
+      </Card>
+
+      <Card title="Major Deficiency Category" subtitle="Fleet-wide, from itemized deficiency descriptions — Fire Safety & LSA highlighted for CIC campaign relevance" style={{marginBottom:"20px"}}>
+        {deficiencyCategoryBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No itemized deficiency data available.</div>:
+        <ResponsiveContainer width="100%" height={Math.max(200, deficiencyCategoryBreakdown.length*36)}>
+          <BarChart data={deficiencyCategoryBreakdown} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <YAxis type="category" dataKey="cat" width={140} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Bar dataKey="count" radius={[0,3,3,0]}>
+              {deficiencyCategoryBreakdown.map((d,i)=>(
+                <Cell key={i} fill={d.cat==="Fire Safety"?"#ef4444":d.cat==="LSA / Life Saving"?"#f59e0b":"#3b82f6"} />
+              ))}
+              <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>}
       </Card>
