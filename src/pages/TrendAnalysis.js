@@ -351,8 +351,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     // happened. Only call it "worse" when the rate itself is actually climbing.
     let verdict = "STABLE PERFORMANCE", color = "var(--amber2)", icon = "→";
     if (rateChangePct != null) {
-      if (rateChangePct <= -10) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
-      else if (rateChangePct >= 10) { verdict = "DETENTIONS INCREASING"; color = "var(--red2)"; icon = "⚠"; }
+      if (rateChangePct <= -5) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
+      else if (rateChangePct >= 5) { verdict = "DETENTIONS INCREASING"; color = "var(--red2)"; icon = "⚠"; }
       else if (inspChangePct != null && inspChangePct >= 15 && detChangePct != null && detChangePct >= 10) {
         // Rate is flat/stable, but both inspections and detentions rose together — informational, not a verdict on performance
         verdict = "INSPECTIONS INCREASING"; color = "var(--blue)"; icon = "↑";
@@ -361,8 +361,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
       }
     } else if (detChangePct != null) {
       // No inspection-rate data available — fall back to raw detention count trend only
-      if (detChangePct <= -10) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
-      else if (detChangePct >= 10) { verdict = "DETENTIONS INCREASING"; color = "var(--amber2)"; icon = "↑"; }
+      if (detChangePct <= -5) { verdict = "DETENTIONS DECREASING"; color = "var(--green2)"; icon = "✓"; }
+      else if (detChangePct >= 5) { verdict = "DETENTIONS INCREASING"; color = "var(--amber2)"; icon = "↑"; }
     }
 
     return { verdict, color, icon, detChangePct, rateChangePct, inspChangePct, curCount:cur.count, prevCount:prev.count, curRate, prevRate, curPsc, prevPsc, currentYear, priorYear };
@@ -481,11 +481,11 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     const good = [], attention = [];
 
     if (performanceVerdict) {
-      if (performanceVerdict.detChangePct <= -10) good.push("Overall detentions are down "+Math.abs(performanceVerdict.detChangePct)+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
-      else if (performanceVerdict.detChangePct >= 10) attention.push("Overall detentions are up "+performanceVerdict.detChangePct+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
+      if (performanceVerdict.detChangePct <= -5) good.push("Overall detentions are down "+Math.abs(performanceVerdict.detChangePct)+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
+      else if (performanceVerdict.detChangePct >= 5) attention.push("Overall detentions are up "+performanceVerdict.detChangePct+"% vs the same period last year ("+performanceVerdict.curCount+" vs "+performanceVerdict.prevCount+").");
       if (performanceVerdict.rateChangePct!=null) {
-        if (performanceVerdict.rateChangePct <= -10) good.push("Detention rate improved to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — fewer detentions per inspection.");
-        else if (performanceVerdict.rateChangePct >= 10) attention.push("Detention rate worsened to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — more detentions per inspection.");
+        if (performanceVerdict.rateChangePct <= -5) good.push("Detention rate improved to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — fewer detentions per inspection.");
+        else if (performanceVerdict.rateChangePct >= 5) attention.push("Detention rate worsened to "+performanceVerdict.curRate+"% from "+performanceVerdict.prevRate+"% — more detentions per inspection.");
       }
     }
 
@@ -503,6 +503,20 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
 
     return { good, attention };
   }, [performanceVerdict, mouTrend, currentYearRepeatVessels, weekendVsWeekday]);
+
+  // ---- PDAIP & Tasks — major initiatives, grouped by project ----
+  const majorInitiatives = useMemo(() => {
+    const byProject = {};
+    tasks.forEach(t => {
+      const p = t.project && t.project.trim() ? t.project.trim() : null;
+      if (!p) return;
+      byProject[p] = byProject[p] || { project:p, total:0, open:0, overdue:0 };
+      byProject[p].total++;
+      if (t.status !== "Executed") byProject[p].open++;
+      if (t.status !== "Executed" && t.due && new Date(t.due) < new Date()) byProject[p].overdue++;
+    });
+    return Object.values(byProject).sort((a,b)=>b.total-a.total).slice(0,6);
+  }, [tasks]);
 
   const totalDetentions = detained.length;
   const avgPerMonth = (() => {
@@ -557,9 +571,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
         </div>
       )}
 
-      {/* Where we're doing well / where we need attention — auto-generated from the data above */}
-      {(insights.good.length>0 || insights.attention.length>0) && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
+      {/* Where we're doing well / where we need attention / major initiatives — auto-generated from the data above */}
+      {(insights.good.length>0 || insights.attention.length>0 || majorInitiatives.length>0) && (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
           <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
             <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
             {insights.good.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>Nothing stands out as a clear positive right now.</div>:
@@ -572,6 +586,19 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
             {insights.attention.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No significant red flags right now.</div>:
             <ul style={{margin:0,paddingLeft:"18px"}}>
               {insights.attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{a}</li>)}
+            </ul>}
+          </div>
+          <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"14px"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--blue)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>📋 PDAIP & Tasks — Major Initiatives</div>
+            {majorInitiatives.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No initiatives with a Project tag on file yet.</div>:
+            <ul style={{margin:0,paddingLeft:"18px"}}>
+              {majorInitiatives.map((p,i)=>(
+                <li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>
+                  <b style={{color:"var(--text)"}}>{p.project}</b> — {p.total} task{p.total!==1?"s":""}
+                  {p.open>0 && <>, {p.open} open</>}
+                  {p.overdue>0 && <span style={{color:"var(--red2)",fontWeight:600}}>, {p.overdue} overdue</span>}
+                </li>
+              ))}
             </ul>}
           </div>
         </div>
