@@ -23,7 +23,7 @@ const SUB_TABS = [
   { id: "vip", label: "VIP Protocol" },
 ];
 
-export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
+export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) {
   const [subTab, setSubTab] = useState("focus");
 
   return (
@@ -49,7 +49,7 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [] }) {
 
       <div style={{ margin: "-16px", padding: "0" }}>
         {subTab === "focus" && <PreventionFocus vessels={vessels} />}
-        {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} />}
+        {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} setPage={setPage} />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
         {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}

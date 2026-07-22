@@ -72,7 +72,7 @@ export function ScopeBadge({ filtered }) {
   );
 }
 
-export default function TrendAnalysis({ vessels = [], tasks = [] }) {
+export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
   const [selectedYear, setSelectedYear] = useState("All");
   const [mouRates, setMouRates] = useState({ rows: [], years: [] });
   const [rateLoading, setRateLoading] = useState(true);
@@ -524,18 +524,35 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     return { good, attention };
   }, [performanceVerdict, mouTrend, currentYearRepeatVessels, weekendVsWeekday]);
 
-  // ---- PDAIP & Tasks — major initiatives, grouped by project ----
+  // ---- PDAIP & Tasks — real auto-detected PD initiatives (same detection logic as the PD Initiatives tab) ----
   const majorInitiatives = useMemo(() => {
-    const byProject = {};
-    tasks.forEach(t => {
-      const p = t.project && t.project.trim() ? t.project.trim() : null;
-      if (!p) return;
-      byProject[p] = byProject[p] || { project:p, total:0, open:0, overdue:0 };
-      byProject[p].total++;
-      if (t.status !== "Executed") byProject[p].open++;
-      if (t.status !== "Executed" && t.due && new Date(t.due) < new Date()) byProject[p].overdue++;
+    const INITIATIVE_PATTERNS = [
+      {key:"wechat",label:"WeChat Inspector Communication",keywords:["wechat","we chat","chinese inspector","china inspector"]},
+      {key:"marine_advisory",label:"Marine Advisory (MA)",keywords:["marine advisory","ma issued","ma sent","advisory"]},
+      {key:"dpp",label:"DPP Case File Management",keywords:["dpp","dpp case","dpp file","detention prevention program","dpp report"]},
+      {key:"pbi",label:"Power BI Reporting",keywords:["power bi","pbi report","pbi update","pbi dashboard","powerbi"]},
+      {key:"dispensation",label:"Dispensation Management",keywords:["dispensation","dispens"]},
+      {key:"asi",label:"ASI / Preemptive Inspection",keywords:["asi","preemptive","pre-emptive","safety inspection","advance safety"]},
+      {key:"ism",label:"ISM SMS Update",keywords:["ism","sms","safety management system","procedure update","work instruction"]},
+      {key:"ro_survey",label:"RO / Class Survey Coordination",keywords:["ro survey","class survey","classification","lloyd","bureau veritas","dnv","class attendance"]},
+      {key:"mlc",label:"MLC Compliance Program",keywords:["mlc","manning","seafarer","crew welfare","rest hours","working hours"]},
+      {key:"car",label:"CAR Follow-up Program",keywords:["car","corrective action","corrective report","response to psc"]},
+      {key:"appeal",label:"Appeal & NOC Management",keywords:["appeal","noc","notice of correction","challenge","contest detention"]},
+      {key:"vip",label:"VIP / Inspector Network",keywords:["vip","inspector network","inspector contact","psco contact","inspector relationship"]},
+      {key:"cic",label:"Concentrated Inspection Campaign (CIC)",keywords:["cic","concentrated inspection","campaign","mou campaign"]},
+    ];
+    const results = [];
+    INITIATIVE_PATTERNS.forEach(pattern=>{
+      const matchingTasks = tasks.filter(t=>{
+        const text = ((t.title||"")+" "+(t.actions||"")+" "+(t.type||"")+" "+(t.remark||"")).toLowerCase();
+        return pattern.keywords.some(kw=>text.includes(kw));
+      });
+      if (matchingTasks.length===0) return;
+      const doneTasks = matchingTasks.filter(t=>t.status==="Executed"||t.status==="Completed");
+      const openTasks = matchingTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
+      results.push({ label: pattern.label, total: matchingTasks.length, done: doneTasks.length, open: openTasks.length });
     });
-    return Object.values(byProject).sort((a,b)=>b.total-a.total).slice(0,6);
+    return results.sort((a,b)=>b.total-a.total).slice(0,6);
   }, [tasks]);
 
   const totalDetentions = detained.length;
@@ -608,18 +625,24 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
               {insights.attention.map((a,i)=><li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{a}</li>)}
             </ul>}
           </div>
-          <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"14px"}}>
-            <div style={{fontSize:"12px",fontWeight:700,color:"var(--blue)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>📋 PDAIP & Tasks — Major Initiatives</div>
-            {majorInitiatives.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No initiatives with a Project tag on file yet.</div>:
-            <ul style={{margin:0,paddingLeft:"18px"}}>
+          <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"14px",display:"flex",flexDirection:"column"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--blue)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>📋 Prevention Team — Major Initiatives</div>
+            {majorInitiatives.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No initiatives detected in current task data yet.</div>:
+            <ul style={{margin:0,paddingLeft:"18px",flex:1}}>
               {majorInitiatives.map((p,i)=>(
                 <li key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>
-                  <b style={{color:"var(--text)"}}>{p.project}</b> — {p.total} task{p.total!==1?"s":""}
-                  {p.open>0 && <>, {p.open} open</>}
-                  {p.overdue>0 && <span style={{color:"var(--red2)",fontWeight:600}}>, {p.overdue} overdue</span>}
+                  <b style={{color:"var(--text)"}}>{p.label}</b> — {p.total} task{p.total!==1?"s":""}, {p.done} done{p.open>0 && <>, {p.open} open</>}
                 </li>
               ))}
             </ul>}
+            {setPage && (
+              <button
+                onClick={()=>{ window._pdaipInitialTab = "initiatives"; setPage("initiatives"); }}
+                style={{marginTop:"10px",alignSelf:"flex-start",background:"transparent",border:"1px solid var(--blue)",color:"var(--blue)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}
+              >
+                View all in PDAIP & Tasks →
+              </button>
+            )}
           </div>
         </div>
       )}

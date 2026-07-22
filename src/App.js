@@ -813,7 +813,7 @@ export default function App() {
           {page === "inspector" && <InspectorNetwork />}
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
-          {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} />}
+          {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} setPage={setPage} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}

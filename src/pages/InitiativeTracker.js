@@ -6,7 +6,11 @@ export default function InitiativeTracker() {
   const [tasks, setTasks] = useState([]);
   const [vessels, setVessels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [subTab, setSubTab] = useState("overview");
+  const [subTab, setSubTab] = useState(() => {
+    const initial = window._pdaipInitialTab;
+    window._pdaipInitialTab = null;
+    return initial || "overview";
+  });
 
   useEffect(() => {
     Promise.all([getTasks(), getVessels()]).then(([t, v]) => {
