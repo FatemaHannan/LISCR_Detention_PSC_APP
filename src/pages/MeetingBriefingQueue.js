@@ -121,8 +121,21 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
             <div key={v.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--amber2)",borderRadius:"8px",padding:"12px 14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"12px",flexWrap:"wrap"}}>
                 <div style={{flex:1,minWidth:"260px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{v.name} <span style={{fontWeight:400,color:"var(--text3)",fontSize:"11px"}}>· IMO {v.imo} · {v.mou||"—"}</span></div>
-                  <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>Detained {daysAgo}d ago ({v.detentionDate}) · {e.port||"—"} · Reg: {v.regDate||"—"}</div>
+                  <div style={{fontSize:"14px",fontWeight:700,color:"var(--text)"}}>{v.name} <span style={{fontWeight:400,color:"var(--text3)",fontSize:"11px"}}>· IMO {v.imo} · {v.mou||"—"}</span></div>
+                  <div style={{display:"flex",gap:"18px",marginTop:"8px",flexWrap:"wrap"}}>
+                    <div>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Detention Date</div>
+                      <div style={{fontSize:"15px",fontWeight:700,color:"var(--amber2)",fontFamily:"var(--mono)"}}>{v.detentionDate} <span style={{fontSize:"11px",fontWeight:400,color:"var(--text3)"}}>({daysAgo}d ago)</span></div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Port</div>
+                      <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>{e.port||"—"}</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Reg. Date</div>
+                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text2)",fontFamily:"var(--mono)"}}>{v.regDate||"—"}</div>
+                    </div>
+                  </div>
                 </div>
                 <div style={{display:"flex",gap:"8px",flexShrink:0}}>
                   <button onClick={()=>onOpenCase && onOpenCase(v.imo, v.detentionDate)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text2)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>View Full Case →</button>
