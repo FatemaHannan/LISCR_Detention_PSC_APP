@@ -66,6 +66,7 @@ function mapVessel(v) {
     clientRejection: v.client_rejection||null,
     dispensation: v.dispensation||null,
     regDate: v.reg_date||null,
+    meetingReviewedAt: v.meeting_reviewed_at||null,
     caseOwner: v.case_owner||"—", taskOwners: v.task_owners||[], fsiCaseOwner: v.fsi_case_owner||"—", pscOwner: v.psc_case_owner||"—",
     release: v.release_condition||"", appeal: v.appeal||"", psco: v.psco||"",
     roSurveyDate: v.ro_survey_date||"", roSurveyGap: v.ro_survey_gap||0,
@@ -221,6 +222,12 @@ export async function getFileUrl(path) {
 
 export async function markDocumentAnalyzed(id) {
   await supabase.from("documents").update({analyzed:true, status:"analyzed"}).eq("id", id);
+}
+
+export async function markMeetingReviewed(id) {
+  const { data, error } = await supabase.from("vessels").update({ meeting_reviewed_at: new Date().toISOString() }).eq("id", id).select();
+  if (error) { console.error("markMeetingReviewed:", error); return null; }
+  return data?.[0] ? mapVessel(data[0]) : null;
 }
 
 export async function deleteDocument(id, storagePath) {

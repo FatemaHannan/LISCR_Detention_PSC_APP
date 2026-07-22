@@ -8,6 +8,7 @@ import InspectorNetwork from "./pages/InspectorNetwork";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import TrendAnalysisHub from "./pages/TrendAnalysisHub";
+import MeetingBriefingQueue from "./pages/MeetingBriefingQueue";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
 import { MASTER_PROMPT } from "./lib/masterPrompt";
@@ -413,6 +414,10 @@ export default function App() {
             const monthTrend=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-3);
             const trend = monthTrend.length>=2?(monthTrend[monthTrend.length-1][1]>monthTrend[monthTrend.length-2][1]?"increasing":"decreasing"):"stable";
             const trendColor = trend==="increasing"?"var(--red2)":trend==="decreasing"?"var(--green2)":"var(--text3)";
+            const monthsYtd={};detained.forEach(v=>{if(v.detentionDate&&v.detentionDate.match(/^\d{4}-\d{2}/)){const m=v.detentionDate.slice(5,7);monthsYtd[m]=(monthsYtd[m]||0)+1;}});
+            const monthNamesEvp=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            const monthlyTrendData=Object.entries(monthsYtd).sort((a,b)=>a[0]>b[0]?1:-1).map(([m,v])=>({month:monthNamesEvp[parseInt(m)-1],count:v}));
+            const maxMonthEvp=monthlyTrendData.length?Math.max(...monthlyTrendData.map(m=>m.count)):1;
 
             return (
             <div className="pg active">
@@ -461,6 +466,24 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {/* Monthly Trend YTD */}
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Monthly Detention Trend — {evpYear==="All"?"All Years":evpYear} YTD</div>
+                {monthlyTrendData.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No detentions on file for this period.</div>:
+                monthlyTrendData.map(m=>(
+                  <div key={m.month} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"4px"}}>
+                    <div style={{width:"32px",fontSize:"11px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{m.month}</div>
+                    <div style={{flex:1,background:"var(--bg3)",borderRadius:"3px",height:"14px",overflow:"hidden"}}>
+                      <div style={{height:"100%",width:(m.count/maxMonthEvp*100)+"%",background:m.count===maxMonthEvp?"var(--red)":"var(--blue)",borderRadius:"3px"}}></div>
+                    </div>
+                    <div style={{width:"24px",fontSize:"12px",fontWeight:600,fontFamily:"var(--mono)",color:"var(--text)",textAlign:"right"}}>{m.count}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Meeting Case Briefing Queue */}
+              <MeetingBriefingQueue vessels={fleetVessels} onOpenCase={(imo,date)=>{setOpenCaseImo(imo);setOpenCaseDate(date);nav("case");}} />
 
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"14px"}}>
                 {/* CAR Status */}
