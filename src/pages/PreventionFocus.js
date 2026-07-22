@@ -64,17 +64,33 @@ export default function PreventionFocus({ vessels = [] }) {
     // Score each node: volume (0-50, relative to biggest MoU) + trend (0-30) + severity (0-20, avg defs)
     const scoreNode = (node, maxVol) => {
       const volScore = Math.min(50, (node.count/maxVol)*50);
-      const trendPct = node.priorYtd ? ((node.curYtd-node.priorYtd)/node.priorYtd*100) : (node.curYtd>0?100:0);
-      const trendScore = Math.max(0, Math.min(30, 15 + trendPct*0.3));
+      // trendPctForScore: used only internally to compute the 0-30 trend component of the score.
+      // Going from 0 -> something is treated as a moderate concern (not a literal, meaningless "+100%").
+      // Going from something -> 0 is a genuine, valid -100% (a real decrease to zero).
+      let trendPctForScore;
+      if (node.priorYtd > 0) trendPctForScore = (node.curYtd-node.priorYtd)/node.priorYtd*100;
+      else if (node.curYtd > 0) trendPctForScore = 40; // new activity where there was none — real concern, but not a fabricated percentage
+      else trendPctForScore = 0;
+      const trendScore = Math.max(0, Math.min(30, 15 + trendPctForScore*0.3));
       const avgDefs = node.count ? node.defs/node.count : 0;
       const sevScore = Math.min(20, avgDefs*1.5);
       const score = Math.round(volScore + trendScore + sevScore);
-      let trendLabel="→", trendColor="var(--text3)";
-      if (node.priorYtd || node.curYtd) {
-        if (trendPct >= 15) { trendLabel="↑"; trendColor="#ef4444"; }
-        else if (trendPct <= -15) { trendLabel="↓"; trendColor="#22c55e"; }
+
+      // trendDisplay: what's actually shown to the user — honest about zero-baseline cases, no fake math.
+      let trendLabel="→", trendColor="var(--text3)", trendText="No change vs last year (YTD)";
+      if (node.priorYtd > 0 && node.curYtd > 0) {
+        const pct = Math.round((node.curYtd-node.priorYtd)/node.priorYtd*100);
+        if (pct >= 15) { trendLabel="↑"; trendColor="#ef4444"; trendText=(pct>0?"+":"")+pct+"% vs last year (YTD)"; }
+        else if (pct <= -15) { trendLabel="↓"; trendColor="#22c55e"; trendText=pct+"% vs last year (YTD)"; }
+        else { trendText=(pct>0?"+":"")+pct+"% vs last year (YTD) — roughly stable"; }
+      } else if (node.priorYtd === 0 && node.curYtd > 0) {
+        trendLabel="↑"; trendColor="#ef4444"; trendText="New this year: "+node.curYtd+" (0 last year, YTD)";
+      } else if (node.priorYtd > 0 && node.curYtd === 0) {
+        trendLabel="↓"; trendColor="#22c55e"; trendText="None this year yet ("+node.priorYtd+" last year, YTD)";
+      } else {
+        trendText="No activity in either year (YTD)";
       }
-      return { ...node, score, trendPct: Math.round(trendPct), trendLabel, trendColor, avgDefs: avgDefs.toFixed(1) };
+      return { ...node, score, trendLabel, trendColor, trendText, avgDefs: avgDefs.toFixed(1) };
     };
 
     const mous = Object.values(mouMap).map(m => {
@@ -128,7 +144,7 @@ export default function PreventionFocus({ vessels = [] }) {
                 <div style={{fontSize:"18px",fontWeight:800,color:tier.color,width:"24px",textAlign:"center"}}>{i+1}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{p.mou} <span style={{color:"var(--text3)",fontWeight:400}}>→</span> {p.country} <span style={{color:"var(--text3)",fontWeight:400}}>→</span> {p.location}</div>
-                  <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>{p.count} detentions · avg {p.avgDefs} deficiencies · <span style={{color:p.trendColor,fontWeight:600}}>{p.trendLabel} {p.trendPct>0?"+":""}{p.trendPct}% vs last year (YTD)</span></div>
+                  <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>{p.count} detentions · avg {p.avgDefs} deficiencies · <span style={{color:p.trendColor,fontWeight:600}}>{p.trendLabel} {p.trendText}</span></div>
                 </div>
                 <div style={{fontSize:"11px",fontWeight:700,color:tier.color,background:tier.bg,border:"1px solid "+tier.border,borderRadius:"20px",padding:"4px 12px",whiteSpace:"nowrap"}}>{tier.label}</div>
               </div>
@@ -150,7 +166,7 @@ export default function PreventionFocus({ vessels = [] }) {
                 <div style={{fontSize:"14px",fontWeight:700,color:"var(--text)",minWidth:"170px"}}>{m.name}</div>
                 <div style={{fontSize:"11px",color:"var(--text3)",minWidth:"70px"}}>{m.count} det.</div>
                 <Bar pct={(m.count/maxMouCount)*100} color={tier.color} />
-                <div style={{fontSize:"11px",color:m.trendColor,fontWeight:600,minWidth:"90px",textAlign:"right"}}>{m.trendLabel} {m.trendPct>0?"+":""}{m.trendPct}%</div>
+                <div style={{fontSize:"11px",color:m.trendColor,fontWeight:600,minWidth:"170px",textAlign:"right"}}>{m.trendLabel} {m.trendText}</div>
                 <div style={{fontSize:"10px",fontWeight:700,color:tier.color,background:tier.bg,border:"1px solid "+tier.border,borderRadius:"20px",padding:"3px 10px",minWidth:"84px",textAlign:"center"}}>{tier.label}</div>
               </div>
               {isOpen && (
@@ -166,7 +182,7 @@ export default function PreventionFocus({ vessels = [] }) {
                           <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",minWidth:"140px"}}>{c.name}</div>
                           <div style={{fontSize:"10px",color:"var(--text3)",minWidth:"60px"}}>{c.count} det.</div>
                           <Bar pct={(c.count/(m.count||1))*100} color={cTier.color} />
-                          <div style={{fontSize:"10px",color:c.trendColor,fontWeight:600,minWidth:"80px",textAlign:"right"}}>{c.trendLabel} {c.trendPct>0?"+":""}{c.trendPct}%</div>
+                          <div style={{fontSize:"10px",color:c.trendColor,fontWeight:600,minWidth:"160px",textAlign:"right"}}>{c.trendLabel} {c.trendText}</div>
                           <div style={{fontSize:"9px",fontWeight:700,color:cTier.color,background:cTier.bg,border:"1px solid "+cTier.border,borderRadius:"20px",padding:"2px 8px",minWidth:"70px",textAlign:"center"}}>{cTier.label}</div>
                         </div>
                         {cOpen && (
@@ -178,7 +194,7 @@ export default function PreventionFocus({ vessels = [] }) {
                                   <div style={{fontSize:"11px",color:"var(--text2)",minWidth:"140px"}}>{l.name}</div>
                                   <div style={{fontSize:"10px",color:"var(--text3)",minWidth:"60px"}}>{l.count} det.</div>
                                   <Bar pct={(l.count/(c.count||1))*100} color={lTier.color} />
-                                  <div style={{fontSize:"10px",color:l.trendColor,fontWeight:600,minWidth:"80px",textAlign:"right"}}>{l.trendLabel} {l.trendPct>0?"+":""}{l.trendPct}%</div>
+                                  <div style={{fontSize:"10px",color:l.trendColor,fontWeight:600,minWidth:"160px",textAlign:"right"}}>{l.trendLabel} {l.trendText}</div>
                                   <div style={{fontSize:"10px",color:"var(--text3)",minWidth:"90px",textAlign:"right"}}>avg {l.avgDefs} defs</div>
                                 </div>
                               );
