@@ -13,6 +13,43 @@ export function ageBracket(age) {
   return "31+ yrs";
 }
 
+// Deficiency category order for consistent chart/table ordering wherever this is used
+export const DEF_CATEGORY_ORDER = ["Fire Safety","LSA / Life Saving","ISM / Safety Mgmt","MARPOL / Pollution","MLC / Manning","Navigation","Hull / Maintenance","Certification","Radio / GMDSS","Other"];
+
+// Single source of truth for deficiency categorization — used by Performance Review, By MoU (Major Causes),
+// and the CIC tab. Keywords expanded to match the actual CIC Fire Safety & LSA checklist terminology
+// (previously only matched "fire"/"lsa"/"life saving"/"lifeboat"/"rescue", missing most real deficiency
+// wording like CO2 systems, EPIRB, muster list, immersion suits, pyrotechnics, davits, etc.)
+export function catDef(desc) {
+  const d = String(desc||"").toLowerCase();
+  if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
+  if (
+    d.includes("fire")||d.includes("co2")||d.includes("foam system")||d.includes("water mist")||
+    d.includes("dry powder")||d.includes("sprinkler")||d.includes("extinguish")||d.includes("hydrant")||
+    d.includes("fire hose")||d.includes("fireman")||d.includes("scba")||d.includes("eebd")||
+    d.includes("breathing device")||d.includes("smoke detect")||d.includes("fire detect")||
+    d.includes("fire alarm")||d.includes("manual call point")||d.includes("fire door")||
+    d.includes("fire damper")||d.includes("shore connection")||d.includes("emergency lighting")||
+    d.includes("escape route")||d.includes("general alarm")||d.includes("public address")
+  ) return "Fire Safety";
+  if (
+    d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue boat")||
+    d.includes("liferaft")||d.includes("life raft")||d.includes("davit")||d.includes("lifejacket")||
+    d.includes("life jacket")||d.includes("immersion suit")||d.includes("anti-exposure")||
+    d.includes("lifebuoy")||d.includes("life buoy")||d.includes("pyrotechnic")||d.includes("parachute flare")||
+    d.includes("hand flare")||d.includes("smoke signal")||d.includes("epirb")||d.includes("sart")||
+    d.includes("hydrostatic release")||d.includes("marine evacuation")||d.includes("embarkation")||
+    d.includes("muster")||d.includes("release gear")||d.includes("winch")||d.includes("survival craft")
+  ) return "LSA / Life Saving";
+  if (d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")) return "MARPOL / Pollution";
+  if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC / Manning";
+  if (d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
+  if (d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull / Maintenance";
+  if (d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
+  if (d.includes("radio")||d.includes("gmdss")||d.includes("vhf")) return "Radio / GMDSS";
+  return "Other";
+}
+
 function extractCountry(port) {
   if (!port || port === "—") return "Unknown";
   const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);

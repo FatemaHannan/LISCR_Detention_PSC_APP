@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, BarChart, Bar, Legend } from "recharts";
 import { supabase } from "../lib/supabase";
+import { catDef, DEF_CATEGORY_ORDER } from "./TrendAnalysis";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -279,23 +280,11 @@ export default function PerformanceReview({ vessels = [] }) {
 
   // ---- Major deficiency type comparison, P1 vs P2 ----
   const deficiencyTypeComparison = useMemo(() => {
-    const catDef = (desc) => {
-      const d = String(desc||"").toLowerCase();
-      if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
-      if (d.includes("fire")) return "Fire Safety";
-      if (d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue")) return "LSA / Life Saving";
-      if (d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")) return "MARPOL / Pollution";
-      if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC / Manning";
-      if (d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
-      if (d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull / Maintenance";
-      if (d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
-      if (d.includes("radio")||d.includes("gmdss")) return "Radio / GMDSS";
-      return "Other";
-    };
     const byCat = {};
     period1.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c1++; }));
     period2.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c2++; }));
-    return Object.values(byCat).map(c => ({ ...c, pct: pctChange(c.c1,c.c2) })).sort((a,b)=>(b.c1+b.c2)-(a.c1+a.c2));
+    return Object.values(byCat).map(c => ({ ...c, pct: pctChange(c.c1,c.c2) }))
+      .sort((a,b)=>DEF_CATEGORY_ORDER.indexOf(a.cat)-DEF_CATEGORY_ORDER.indexOf(b.cat));
   }, [period1, period2]);
 
   // ---- Highest single-inspection deficiency counts ----

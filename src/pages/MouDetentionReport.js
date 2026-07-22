@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
-import { ageBracket, AGE_BRACKET_ORDER } from "./TrendAnalysis";
+import { ageBracket, AGE_BRACKET_ORDER, catDef } from "./TrendAnalysis";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -10,20 +10,6 @@ function extractLocation(port) {
   if (!port || port === "—") return "Unknown";
   const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
   return parts[0] || "Unknown";
-}
-
-function catDef(desc) {
-  const d = String(desc||"").toLowerCase();
-  if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
-  if (d.includes("fire")) return "Fire Safety";
-  if (d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue")) return "LSA / Life Saving";
-  if (d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")) return "MARPOL / Pollution";
-  if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC / Manning";
-  if (d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
-  if (d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull / Maintenance";
-  if (d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
-  if (d.includes("radio")||d.includes("gmdss")) return "Radio / GMDSS";
-  return "Other";
 }
 
 function pctChange(a,b) {
