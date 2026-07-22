@@ -99,6 +99,35 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
     else alert("Couldn't close this case — please try again.");
   };
 
+  // ---- Auto-generated brief summary of the queue — flags worth knowing before the meeting starts ----
+  const queueSummary = useMemo(() => {
+    if (queue.length === 0 || loading) return null;
+    const enriched = queue.map(v => ({ v, e: enrich(v) }));
+    const repeats = enriched.filter(x => x.e.repeatCount > 1);
+    const highRisk = enriched.filter(x => x.e.risk==="High" || x.e.risk==="Highest");
+    const noAsi = enriched.filter(x => !x.e.asi);
+    const withCasualty = enriched.filter(x => x.e.casualty36mo > 0);
+    const withMlc = enriched.filter(x => x.e.mlc36mo > 0);
+    const unresponsiveCases = enriched.filter(x => x.e.unresponsive || x.e.rejection);
+    const highDefs = enriched.filter(x => x.v.defs >= 20);
+    const companyCounts = {};
+    enriched.forEach(x => { if (x.v.company && x.v.company!=="—") companyCounts[x.v.company] = (companyCounts[x.v.company]||0)+1; });
+    const repeatCompanies = Object.entries(companyCounts).filter(([,c])=>c>1);
+
+    const parts = [];
+    parts.push(queue.length+" case"+(queue.length!==1?"s":"")+" waiting to review.");
+    if (repeats.length>0) parts.push(repeats.length+" "+(repeats.length===1?"is a repeat detention":"are repeat detentions")+" ("+repeats.map(x=>x.v.name).slice(0,3).join(", ")+(repeats.length>3?", +"+(repeats.length-3)+" more":"")+").");
+    if (highRisk.length>0) parts.push(highRisk.length+" flagged High/Highest vetting risk.");
+    if (highDefs.length>0) parts.push(highDefs.length+" with 20+ deficiencies.");
+    if (unresponsiveCases.length>0) parts.push(unresponsiveCases.length+" involve an unresponsive company or inspection rejection.");
+    if (withCasualty.length>0) parts.push(withCasualty.length+" have a casualty on file in the last 36 months.");
+    if (withMlc.length>0) parts.push(withMlc.length+" have an MLC complaint on file in the last 36 months.");
+    if (repeatCompanies.length>0) parts.push(repeatCompanies.length+" compan"+(repeatCompanies.length===1?"y has":"ies have")+" more than one case in this batch ("+repeatCompanies.map(([c])=>c).slice(0,2).join(", ")+").");
+    if (noAsi.length===queue.length) parts.push("None of these have an ASI/preemptive inspection on file.");
+    else if (noAsi.length>0) parts.push(noAsi.length+" have no ASI/preemptive inspection on file.");
+    return parts.join(" ");
+  }, [queue, loading]); // eslint-disable-line
+
   if (queue.length === 0) {
     return (
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px",fontSize:"12px",color:"var(--text3)"}}>
@@ -113,6 +142,11 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📋 Meeting Case Briefing Queue <span style={{fontWeight:400,color:"var(--text3)"}}>— {queue.length} case{queue.length!==1?"s":""} awaiting review</span></div>
         {loading && <span style={{fontSize:"11px",color:"var(--text3)"}}>Loading case detail…</span>}
       </div>
+      {queueSummary && (
+        <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"10px 14px",marginBottom:"10px",fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>
+          <b style={{color:"var(--blue)"}}>Briefing summary: </b>{queueSummary}
+        </div>
+      )}
       <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
         {queue.map(v => {
           const e = enrich(v);
