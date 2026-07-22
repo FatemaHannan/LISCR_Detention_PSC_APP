@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, Legend } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -214,6 +214,26 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
     });
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([type,count])=>({type,count}));
   }, [detained, typeMap]);
+
+  // ---- Combined Age x Type breakdown, for a stacked bar chart (age bracket on X, one segment per top vessel type) ----
+  const ageByTypeBreakdown = useMemo(() => {
+    const topTypes = vesselTypeBreakdown.slice(0,6).map(t=>t.type);
+    const grid = {};
+    AGE_BRACKET_ORDER.forEach(b => { grid[b] = { bracket:b }; topTypes.forEach(t=>{ grid[b][t]=0; }); grid[b]["Other"]=0; });
+    detained.forEach(v => {
+      const b = ageBracket(ageMap[v.imo]);
+      const t = typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : "Unknown");
+      if (!grid[b]) return;
+      const key = topTypes.includes(t) ? t : "Other";
+      grid[b][key] = (grid[b][key]||0)+1;
+    });
+    const hasOther = Object.values(grid).some(row=>row["Other"]>0);
+    const rows = AGE_BRACKET_ORDER.filter(b=>{
+      const row = grid[b];
+      return topTypes.some(t=>row[t]>0) || row["Other"]>0;
+    }).map(b=>grid[b]);
+    return { rows, seriesKeys: hasOther ? [...topTypes, "Other"] : topTypes };
+  }, [detained, ageMap, typeMap, vesselTypeBreakdown]);
 
   const vesselRiskBreakdown = useMemo(() => {
     const counts = {};
@@ -661,6 +681,22 @@ export default function TrendAnalysis({ vessels = [], tasks = [] }) {
           </ResponsiveContainer>}
         </Card>
       </div>
+
+      <Card title="Detentions by Vessel Age × Vessel Type" subtitle="Age bracket, broken down by type — Source: Consolidated Inspection History" style={{marginBottom:"20px"}}>
+        {ageByTypeBreakdown.rows.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No age/type data available.</div>:
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={ageByTypeBreakdown.rows} margin={{top:20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="bracket" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            {ageByTypeBreakdown.seriesKeys.map((key,i)=>(
+              <Bar key={key} dataKey={key} stackId="a" fill={["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#64748b"][i%7]} radius={i===ageByTypeBreakdown.seriesKeys.length-1?[3,3,0,0]:[0,0,0,0]} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>}
+      </Card>
 
       {/* Top Companies & RO by Detentions */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Top 10 Companies & RO by Detentions<ScopeBadge filtered={false} /></div>
