@@ -101,6 +101,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [homeYear, setHomeYear] = useState(String(new Date().getFullYear()));
   const [evpYear, setEvpYear] = useState(String(new Date().getFullYear()));
+  const [evpCarOverdueExpanded, setEvpCarOverdueExpanded] = useState(false);
   const [evpQ, setEvpQ] = useState(0);
   const [chatMessages, setChatMessages] = useState([{role:"ai", text:"Good morning. I have your full fleet data loaded — 107 detentions Jan-Jun 2026, 136 PDAIP tasks, and all active case files including OCEAN GALAXY. What do you need?"}]);
   const [chatInput, setChatInput] = useState("");
@@ -545,7 +546,20 @@ export default function App() {
               {/* Overdue CARs list */}
               {carOverdue60.length>0&&(
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-                  <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>⚠ CAR Overdue >60 Days ({carOverdue60.length})</div>
+                  <div
+                    onClick={()=>setEvpCarOverdueExpanded(x=>!x)}
+                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:evpCarOverdueExpanded?"10px":"0"}}
+                  >
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>⚠ CAR Overdue &gt;60 Days ({carOverdue60.length})</div>
+                    <div style={{fontSize:"11px",color:"var(--text3)",display:"flex",alignItems:"center",gap:"4px"}}>
+                      {evpCarOverdueExpanded?"Hide vessel list":"Show vessel list"}
+                      <span style={{display:"inline-block",transform:evpCarOverdueExpanded?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
+                    </div>
+                  </div>
+                  {!evpCarOverdueExpanded && (
+                    <div style={{fontSize:"12px",color:"var(--text3)"}}>Top: {carOverdue60.slice(0,3).map(v=>v.name).join(", ")}{carOverdue60.length>3?", +"+(carOverdue60.length-3)+" more":""}</div>
+                  )}
+                  {evpCarOverdueExpanded && (
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
                     <thead><tr>{["Vessel","IMO","Company","Detention Date","Days Overdue","PSC Owner"].map(h=><th key={h} style={{fontSize:"11px",color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                     <tbody>{carOverdue60.map((v,i)=>{
@@ -562,6 +576,7 @@ export default function App() {
                       );
                     })}</tbody>
                   </table>
+                  )}
                 </div>
               )}
             </div>
