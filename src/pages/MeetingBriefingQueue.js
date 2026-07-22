@@ -132,6 +132,10 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
                       <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>{e.port||"—"}</div>
                     </div>
                     <div>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>CAR Status</div>
+                      <div style={{fontSize:"15px",fontWeight:700,color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>{v.carStatus||"—"}</div>
+                    </div>
+                    <div>
                       <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Reg. Date</div>
                       <div style={{fontSize:"13px",fontWeight:600,color:"var(--text2)",fontFamily:"var(--mono)"}}>{v.regDate||"—"}</div>
                     </div>
