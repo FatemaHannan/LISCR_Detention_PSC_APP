@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { supabase } from "../lib/supabase";
 
 // Session pattern store - grows as documents are analyzed
 const patternStore = {
@@ -32,6 +33,39 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
   const [analyzing, setAnalyzing] = useState(false);
   const [lastScan, setLastScan] = useState(null);
   const [patterns, setPatterns] = useState([]);
+  const [ageMap, setAgeMap] = useState({});
+  const [typeMap, setTypeMap] = useState({});
+
+  // ---- Vessel age + type lookup — Consolidated Inspection History (inspection_history), for enriched pattern evidence ----
+  React.useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(vessels.filter(v=>v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const ageResult = {}, typeResult = {};
+      const CHUNK = 100;
+      for (let i=0; i<imos.length; i+=CHUNK) {
+        const chunk = imos.slice(i, i+CHUNK);
+        const { data, error } = await supabase.from("inspection_history").select("imo,age,vessel_type").in("imo", chunk).order("inspection_date", { ascending:false });
+        if (error) { console.error("[PatternDetection] age/type fetch error:", error.message); continue; }
+        (data||[]).forEach(d => {
+          if (d.age!=null && ageResult[d.imo]==null) ageResult[d.imo] = d.age;
+          if (d.vessel_type && !typeResult[d.imo]) typeResult[d.imo] = d.vessel_type;
+        });
+      }
+      if (!cancelled) { setAgeMap(ageResult); setTypeMap(typeResult); }
+    })();
+    return () => { cancelled = true; };
+  }, [vessels]);
+
+  // Enrich a vessel with company/age/type/days-since-detention for richer pattern evidence display
+  const enrichVessel = useCallback((v) => ({
+    name: v.name, imo: v.imo,
+    company: v.company && v.company!=="—" ? v.company : "Unknown",
+    age: ageMap[v.imo]!=null ? ageMap[v.imo] : "—",
+    type: typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : "Unknown"),
+    daysSinceDetention: v.detentionDate ? Math.floor((new Date()-new Date(v.detentionDate))/86400000) : null,
+  }), [ageMap, typeMap]);
 
   React.useEffect(()=>{
     if(!vessels.length) return;
@@ -48,16 +82,16 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
     const imoCounts={};
     allDetained.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
     const uniqueRepeats=[...new Map(allDetained.filter(v=>imoCounts[v.imo]>1).map(v=>[v.imo,v])).values()].sort((a,b)=>imoCounts[b.imo]-imoCounts[a.imo]);
-    if(uniqueRepeats.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"Repeat detention",title:uniqueRepeats.length+" vessel(s) detained multiple times since "+earliestYear,evidence:uniqueRepeats.map(v=>v.name+" ("+imoCounts[v.imo]+"x)").join(", "),vessels:uniqueRepeats.map(v=>v.name),action:"Immediate ASI and company engagement for repeat detention vessels.",learned:false});
+    if(uniqueRepeats.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"Repeat detention",title:uniqueRepeats.length+" vessel(s) detained multiple times since "+earliestYear,evidence:uniqueRepeats.map(v=>v.name+" ("+imoCounts[v.imo]+"x)").join(", "),vessels:uniqueRepeats.map(v=>v.name),vesselDetails:uniqueRepeats.map(v=>({...enrichVessel(v), extra:imoCounts[v.imo]+"x detained"})),action:"Immediate ASI and company engagement for repeat detention vessels.",learned:false});
 
     const carOverdue=vessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
-    if(carOverdue.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR compliance",title:carOverdue.length+" vessel(s) with CAR overdue >60 days",evidence:carOverdue.slice(0,5).map(v=>v.name+" ("+Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d)").join(", "),vessels:carOverdue.map(v=>v.name),action:"Urgent follow-up with companies. Escalate to FSI case owner.",learned:false});
+    if(carOverdue.length>0) livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR compliance",title:carOverdue.length+" vessel(s) with CAR overdue >60 days",evidence:carOverdue.slice(0,5).map(v=>v.name+" ("+Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d)").join(", "),vessels:carOverdue.map(v=>v.name),vesselDetails:carOverdue.map(v=>({...enrichVessel(v), extra:Math.floor((new Date()-new Date(v.detentionDate))/86400000)+"d overdue"})),action:"Urgent follow-up with companies. Escalate to FSI case owner.",learned:false});
     const mouCounts={};
     currentYearDetained.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
     const topMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0];
     if(topMou) livePatterns.push({id:"p"+(id++),severity:"High",type:"MoU concentration",title:topMou[0]+" leads with "+topMou[1]+" detentions YTD",evidence:"Highest detention count among all MoUs, "+currentYear+" year-to-date.",vessels:[],action:"Increase ASI frequency for vessels calling "+topMou[0]+" ports.",learned:false});
     const critDef=vessels.filter(v=>(v.defs||0)>=20);
-    if(critDef.length>0) livePatterns.push({id:"p"+(id++),severity:"High",type:"Critical deficiency",title:critDef.length+" detention(s) with ≥20 deficiencies",evidence:critDef.slice(0,5).map(v=>v.name+" ("+v.defs+" defs)").join(", "),vessels:critDef.map(v=>v.name),action:"Flag for priority ASI and company engagement.",learned:false});
+    if(critDef.length>0) livePatterns.push({id:"p"+(id++),severity:"High",type:"Critical deficiency",title:critDef.length+" detention(s) with ≥20 deficiencies",evidence:critDef.slice(0,5).map(v=>v.name+" ("+v.defs+" defs)").join(", "),vessels:critDef.map(v=>v.name),vesselDetails:critDef.map(v=>({...enrichVessel(v), extra:v.defs+" deficiencies"})),action:"Flag for priority ASI and company engagement.",learned:false});
     const compDefs={};const compCount={};
     vessels.forEach(v=>{if(v.company&&v.company!=="—"){compDefs[v.company]=(compDefs[v.company]||0)+(v.defs||0);compCount[v.company]=(compCount[v.company]||0)+1;}});
     const highDefComp=Object.entries(compDefs).map(([c,d])=>([c,d,compCount[c],Math.round(d/compCount[c])])).filter(r=>r[3]>=15).sort((a,b)=>b[3]-a[3]).slice(0,3);
@@ -101,7 +135,7 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
       livePatterns.push({id:"p"+(id++),severity:"Critical",type:"CAR quality",
         title:closedRedetained.length+" vessel(s) re-detained after previous CAR was closed",
         evidence:closedRedetained.map(v=>v.name).join(", ")+" — CAR marked complete but vessel detained again. Corrective actions may not have been properly implemented.",
-        vessels:closedRedetained.map(v=>v.name),action:"Review CAR quality for these vessels. Implement verification step before CAR closure.",learned:false});
+        vessels:closedRedetained.map(v=>v.name),vesselDetails:closedRedetained.map(v=>({...enrichVessel(v), extra:"CAR re-opened"})),action:"Review CAR quality for these vessels. Implement verification step before CAR closure.",learned:false});
     }
 
     // 6. Vessel Age Pattern
@@ -147,7 +181,7 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
     }
 
     setPatterns(livePatterns);
-  },[vessels]);
+  },[vessels, ageMap, typeMap, enrichVessel]);
 
   const allPatterns = [
     ...patterns,
@@ -261,9 +295,25 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
               <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"6px",fontFamily:"var(--mono)"}}>Recommended action</div>
               <div style={{fontSize:"11px",color:"var(--text)",lineHeight:1.6,marginBottom:"10px",padding:"8px 11px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid var(--border)"}}>{p.action}</div>
               <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"6px",fontFamily:"var(--mono)"}}>Vessels affected</div>
-              <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                {p.vessels?.map(v => <span key={v} style={{fontFamily:"var(--mono)",fontSize:"10px",padding:"2px 8px",background:"var(--bg3)",borderRadius:"3px",border:"1px solid var(--border)",color:"var(--text2)"}}>{v}</span>)}
-              </div>
+              {p.vesselDetails && p.vesselDetails.length>0 ? (
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                  <thead><tr>{["Vessel","Company","Age","Type","Days Since Detention","Detail"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>{p.vesselDetails.map((v,i)=>(
+                    <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{v.name}</td>
+                      <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.company}</td>
+                      <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.age}</td>
+                      <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.type}</td>
+                      <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.daysSinceDetention!=null?v.daysSinceDetention+"d":"—"}</td>
+                      <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.extra}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              ) : (
+                <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                  {p.vessels?.map(v => <span key={v} style={{fontFamily:"var(--mono)",fontSize:"10px",padding:"2px 8px",background:"var(--bg3)",borderRadius:"3px",border:"1px solid var(--border)",color:"var(--text2)"}}>{v}</span>)}
+                </div>
+              )}
             </div>
           )}
         </div>
