@@ -167,9 +167,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       const found = preSelectDate
         ? dbVessels.find(x => String(x.imo) === String(preSelectImo) && x.detentionDate === preSelectDate)
         : dbVessels.find(x => String(x.imo) === String(preSelectImo));
-      if (found) { setSel(found); if(onClearPreSelect) onClearPreSelect(); }
+      if (found) { openModal(found); if(onClearPreSelect) onClearPreSelect(); }
     }
-  }, [preSelectImo, preSelectDate]); // eslint-disable-line
+  }, [preSelectImo, preSelectDate, dbVessels]); // eslint-disable-line
 
 
 
