@@ -130,7 +130,7 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
 
   if (queue.length === 0) {
     return (
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px",fontSize:"12px",color:"var(--text3)"}}>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px",fontSize:"14px",color:"var(--text3)"}}>
         No new cases in the last {QUEUE_WINDOW_DAYS} days awaiting meeting review. Queue is clear.
       </div>
     );
@@ -139,11 +139,11 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
   return (
     <div style={{marginBottom:"14px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📋 Meeting Case Briefing Queue <span style={{fontWeight:400,color:"var(--text3)"}}>— {queue.length} case{queue.length!==1?"s":""} awaiting review</span></div>
-        {loading && <span style={{fontSize:"11px",color:"var(--text3)"}}>Loading case detail…</span>}
+        <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>📋 Meeting Case Briefing Queue <span style={{fontWeight:400,color:"var(--text3)"}}>— {queue.length} case{queue.length!==1?"s":""} awaiting review</span></div>
+        {loading && <span style={{fontSize:"13px",color:"var(--text3)"}}>Loading case detail…</span>}
       </div>
       {queueSummary && (
-        <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"10px 14px",marginBottom:"10px",fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>
+        <div style={{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:"8px",padding:"10px 14px",marginBottom:"10px",fontSize:"14px",color:"var(--text2)",lineHeight:1.6}}>
           <b style={{color:"var(--blue)"}}>Briefing summary: </b>{queueSummary}
         </div>
       )}
@@ -155,29 +155,29 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
             <div key={v.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--amber2)",borderRadius:"8px",padding:"12px 14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"12px",flexWrap:"wrap"}}>
                 <div style={{flex:1,minWidth:"260px"}}>
-                  <div style={{fontSize:"14px",fontWeight:700,color:"var(--text)"}}>{v.name} <span style={{fontWeight:400,color:"var(--text3)",fontSize:"11px"}}>· IMO {v.imo} · {v.mou||"—"}</span></div>
+                  <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>{v.name} <span style={{fontWeight:400,color:"var(--text3)",fontSize:"13px"}}>· IMO {v.imo} · {v.mou||"—"}</span></div>
                   <div style={{display:"flex",gap:"18px",marginTop:"8px",flexWrap:"wrap"}}>
                     <div>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Detention Date</div>
-                      <div style={{fontSize:"15px",fontWeight:700,color:"var(--amber2)",fontFamily:"var(--mono)"}}>{v.detentionDate} <span style={{fontSize:"11px",fontWeight:400,color:"var(--text3)"}}>({daysAgo}d ago)</span></div>
+                      <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Detention Date</div>
+                      <div style={{fontSize:"17px",fontWeight:700,color:"var(--amber2)",fontFamily:"var(--mono)"}}>{v.detentionDate} <span style={{fontSize:"13px",fontWeight:400,color:"var(--text3)"}}>({daysAgo}d ago)</span></div>
                     </div>
                     <div>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Port</div>
-                      <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>{e.port||"—"}</div>
+                      <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Port</div>
+                      <div style={{fontSize:"17px",fontWeight:700,color:"var(--text)"}}>{e.port||"—"}</div>
                     </div>
                     <div>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>CAR Status</div>
-                      <div style={{fontSize:"15px",fontWeight:700,color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>{v.carStatus||"—"}</div>
+                      <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>CAR Status</div>
+                      <div style={{fontSize:"17px",fontWeight:700,color:v.carStatus==="Complete"?"var(--green2)":v.carStatus==="Not Received"?"var(--red2)":"var(--amber2)"}}>{v.carStatus||"—"}</div>
                     </div>
                     <div>
-                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Reg. Date</div>
-                      <div style={{fontSize:"13px",fontWeight:600,color:"var(--text2)",fontFamily:"var(--mono)"}}>{v.regDate||"—"}</div>
+                      <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em"}}>Reg. Date</div>
+                      <div style={{fontSize:"15px",fontWeight:600,color:"var(--text2)",fontFamily:"var(--mono)"}}>{v.regDate||"—"}</div>
                     </div>
                   </div>
                 </div>
                 <div style={{display:"flex",gap:"8px",flexShrink:0}}>
-                  <button onClick={()=>onOpenCase && onOpenCase(v.imo, v.detentionDate)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text2)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>View Full Case →</button>
-                  <button onClick={()=>handleClose(v)} disabled={closingId===v.id} style={{background:"var(--green2)",border:"none",color:"#06281a",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:700,cursor:"pointer",opacity:closingId===v.id?0.6:1}}>{closingId===v.id?"Closing…":"✓ Discussed — Close Case"}</button>
+                  <button onClick={()=>onOpenCase && onOpenCase(v.imo, v.detentionDate)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text2)",borderRadius:"6px",padding:"6px 12px",fontSize:"13px",fontWeight:600,cursor:"pointer"}}>View Full Case →</button>
+                  <button onClick={()=>handleClose(v)} disabled={closingId===v.id} style={{background:"var(--green2)",border:"none",color:"#06281a",borderRadius:"6px",padding:"6px 12px",fontSize:"13px",fontWeight:700,cursor:"pointer",opacity:closingId===v.id?0.6:1}}>{closingId===v.id?"Closing…":"✓ Discussed — Close Case"}</button>
                 </div>
               </div>
 
@@ -197,7 +197,7 @@ export default function MeetingBriefingQueue({ vessels = [], onOpenCase }) {
           );
         })}
       </div>
-      <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Target: review within ~1 week of detention. Cases stay in this queue up to {QUEUE_WINDOW_DAYS} days if not closed. Full deficiency lists, documents, and history are in Case View — click "View Full Case" for anything beyond this summary.</div>
+      <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"8px"}}>Target: review within ~1 week of detention. Cases stay in this queue up to {QUEUE_WINDOW_DAYS} days if not closed. Full deficiency lists, documents, and history are in Case View — click "View Full Case" for anything beyond this summary.</div>
     </div>
   );
 }
@@ -211,6 +211,6 @@ function Chip({ label, tone="neutral", title }) {
   };
   const t = tones[tone]||tones.neutral;
   return (
-    <span title={title} style={{fontSize:"10px",fontWeight:600,padding:"3px 9px",borderRadius:"20px",background:t.bg,border:"1px solid "+t.border,color:t.color,whiteSpace:"nowrap"}}>{label}</span>
+    <span title={title} style={{fontSize:"12px",fontWeight:600,padding:"3px 9px",borderRadius:"20px",background:t.bg,border:"1px solid "+t.border,color:t.color,whiteSpace:"nowrap"}}>{label}</span>
   );
 }
