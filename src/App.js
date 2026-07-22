@@ -100,6 +100,7 @@ export default function App() {
   const [openCaseDate, setOpenCaseDate] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [homeYear, setHomeYear] = useState(String(new Date().getFullYear()));
+  const [evpYear, setEvpYear] = useState(String(new Date().getFullYear()));
   const [evpQ, setEvpQ] = useState(0);
   const [chatMessages, setChatMessages] = useState([{role:"ai", text:"Good morning. I have your full fleet data loaded — 107 detentions Jan-Jun 2026, 136 PDAIP tasks, and all active case files including OCEAN GALAXY. What do you need?"}]);
   const [chatInput, setChatInput] = useState("");
@@ -284,7 +285,7 @@ export default function App() {
               {reDetained>0&&(
                 <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 14px",marginBottom:"8px",fontSize:"13px",color:"var(--red2)",display:"flex",gap:"10px",alignItems:"center",cursor:"pointer"}} onClick={()=>nav("case")}>
                   <i className="ti ti-alert-circle" style={{fontSize:"16px",flexShrink:0}}></i>
-                  <div><strong>{reDetained} vessel(s) detained multiple times in 2026</strong> · Click to view in Case View</div>
+                  <div><strong>{reDetained} vessel(s) detained multiple times in {homeYear==="All"?"the data on file":homeYear}</strong> · Click to view in Case View</div>
                 </div>
               )}
               {unresponsive.length>0&&(
@@ -388,12 +389,16 @@ export default function App() {
           })()}
 
           {page === "evp" && (()=>{
-            const detained = fleetVessels.filter(v=>v.detained);
+            const evpYearOptions = [...new Set(fleetVessels.filter(v=>v.detained && v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+            const detainedAllEvp = fleetVessels.filter(v=>v.detained);
+            const detained = evpYear==="All" ? detainedAllEvp : detainedAllEvp.filter(v=>v.detentionDate && String(v.detentionDate).startsWith(evpYear));
             const imoCounts={};fleetVessels.forEach(v=>{imoCounts[v.imo]=(imoCounts[v.imo]||0)+1;});
-            const reDetained = [...new Set(fleetVessels.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
+            const reDetained = [...new Set(detained.filter(v=>imoCounts[v.imo]>1).map(v=>v.imo))].length;
+            // CAR compliance reflects ALL currently-outstanding CAR issues regardless of detention year — these are
+            // active items needing attention now, not a historical count tied to when the detention happened.
             const carMissing = fleetVessels.filter(v=>v.carStatus==="Not Received").length;
             const carComplete = fleetVessels.filter(v=>v.carStatus==="Complete").length;
-            const carRate = detained.length?Math.round(carComplete/detained.length*100):0;
+            const carRate = detainedAllEvp.length?Math.round(carComplete/detainedAllEvp.length*100):0;
             const highDef = detained.filter(v=>(v.defs||0)>=20).length;
             const unresponsive = fleetVessels.filter(v=>(v.flags||[]).some(f=>String(f).toUpperCase().includes("UNRESPONSIVE"))).length;
             const carOverdue60 = fleetVessels.filter(v=>v.carStatus==="Not Received"&&v.detentionDate&&Math.floor((new Date()-new Date(v.detentionDate))/86400000)>60);
@@ -402,7 +407,8 @@ export default function App() {
             const compCounts={};detained.forEach(v=>{if(v.company&&v.company!=="—")compCounts[v.company]=(compCounts[v.company]||0)+1;});
             const topCompanies=Object.entries(compCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
             const avgDefs=detained.length?(detained.reduce((a,v)=>a+(v.defs||0),0)/detained.length).toFixed(1):0;
-            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&v.detentionDate.match(/^\d{4}-\d{2}/)){const m=v.detentionDate.slice(0,7);months[m]=(months[m]||0)+1;}});
+            const monthYearFilterEvp = evpYear==="All" ? String(new Date().getFullYear()) : evpYear;
+            const months={};fleetVessels.forEach(v=>{if(v.detentionDate&&v.detentionDate.match(/^\d{4}-\d{2}/)&&v.detentionDate.startsWith(monthYearFilterEvp)){const m=v.detentionDate.slice(0,7);months[m]=(months[m]||0)+1;}});
             const monthTrend=Object.entries(months).sort((a,b)=>a[0]>b[0]?1:-1).slice(-3);
             const trend = monthTrend.length>=2?(monthTrend[monthTrend.length-1][1]>monthTrend[monthTrend.length-2][1]?"increasing":"decreasing"):"stable";
             const trendColor = trend==="increasing"?"var(--red2)":trend==="decreasing"?"var(--green2)":"var(--text3)";
@@ -415,7 +421,12 @@ export default function App() {
                   <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>LISCR PSC Detention Intelligence — Executive Briefing</div>
                   <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Live from Supabase · {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})}</div>
                 </div>
-                <div style={{display:"flex",gap:"8px"}}>
+                <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                  <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
+                  <select value={evpYear} onChange={e=>setEvpYear(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"6px 10px"}}>
+                    {evpYearOptions.map(y=><option key={y} value={y}>{y}</option>)}
+                    <option value="All">All Years</option>
+                  </select>
                   <button className="btn btn-primary" onClick={()=>nav("questions")}><i className="ti ti-help-circle"></i> EVP Q&A</button>
                   <button className="btn" onClick={()=>nav("gaps")}><i className="ti ti-alert-triangle"></i> Critical Gaps</button>
                   <button className="btn" onClick={()=>{nav("chat");sendChat("As EVP, give me a 3-minute briefing on current PSC detention status, top risks, and what decisions I need to make today.");}}><i className="ti ti-sparkles"></i> AI Briefing</button>
@@ -427,7 +438,7 @@ export default function App() {
                 <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"12px 16px",marginBottom:"14px",fontSize:"13px",color:"var(--red2)",lineHeight:1.65}}>
                   <strong>⚠ Immediate Attention Required: </strong>
                   {carOverdue60.length>0&&<span>{carOverdue60.length} vessel(s) with CAR overdue >60 days ({carOverdue60.slice(0,3).map(v=>v.name).join(", ")}). </span>}
-                  {reDetained>0&&<span>{reDetained} vessel(s) detained multiple times in 2026. </span>}
+                  {reDetained>0&&<span>{reDetained} vessel(s) detained multiple times in {evpYear==="All"?"the data on file":evpYear}. </span>}
                   {unresponsive>0&&<span>{unresponsive} company(ies) flagged as unresponsive.</span>}
                 </div>
               )}
@@ -435,7 +446,7 @@ export default function App() {
               {/* KPIs */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"14px"}}>
                 {[
-                  {l:"Total Detentions",v:detained.length,s:"YTD 2026",c:"var(--text)"},
+                  {l:"Total Detentions",v:detained.length,s:evpYear==="All"?"All years":"YTD "+evpYear,c:"var(--text)"},
                   {l:"Detention Trend",v:trend.toUpperCase(),s:monthTrend.length>=2?monthTrend.slice(-2).map(m=>m[1]).join("→"):"",c:trendColor},
                   {l:"Avg Deficiencies",v:avgDefs,s:"per detention",c:parseFloat(avgDefs)>=15?"var(--red2)":parseFloat(avgDefs)>=10?"var(--amber2)":"var(--text)"},
                   {l:"CAR Compliance",v:carRate+"%",s:carComplete+" complete / "+detained.length+" total",c:carRate>=70?"var(--green2)":carRate>=50?"var(--amber2)":"var(--red2)"},
@@ -513,7 +524,7 @@ export default function App() {
                   {reDetained>0&&(
                     <div style={{display:"flex",gap:"10px",padding:"10px 12px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A",alignItems:"flex-start"}}>
                       <span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontWeight:700,flexShrink:0}}>DECISION</span>
-                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>{reDetained} vessel(s) detained multiple times in 2026. Should LISCR initiate cancellation review for repeat offenders?</div>
+                      <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:1.6}}>{reDetained} vessel(s) detained multiple times in {evpYear==="All"?"the data on file":evpYear}. Should LISCR initiate cancellation review for repeat offenders?</div>
                     </div>
                   )}
                   {carRate<50&&(
