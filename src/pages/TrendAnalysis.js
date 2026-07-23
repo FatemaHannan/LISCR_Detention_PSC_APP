@@ -339,9 +339,12 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
             .eq("mou", mou).ilike("flag_psc", "PSC").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
           const { count: flagCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
             .eq("mou", mou).ilike("flag_psc", "FLAG").gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
+          const { count: flagDetCount } = await supabase.from("inspection_history").select("*", { count:"exact", head:true })
+            .eq("mou", mou).ilike("flag_psc", "FLAG").or("was_detained.ilike.%yes%,was_detained.ilike.%true%")
+            .gte("inspection_date", yr+"-01-01").lt("inspection_date", (parseInt(yr)+1)+"-01-01");
           byYear[yr] = {
             detentions: detCount, totalInspections: pscCount||0, rate: pscCount ? +(detCount/pscCount*100).toFixed(2) : null,
-            flagInspections: flagCount||0,
+            flagInspections: flagCount||0, flagDetentions: flagDetCount||0, flagRate: flagCount ? +((flagDetCount||0)/flagCount*100).toFixed(2) : null,
           };
         }
         results.push({ mou, byYear });
@@ -992,7 +995,55 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
             })}</tbody>
           </table>
         )}
-        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each cell: Detentions / Inspections (Rate%). Trend: one arrow per year-over-year change in Rate% (↑ worsening, ↓ improving) — PSC detentions ÷ PSC inspections only, Flag State excluded from both sides.</div>
+        <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"10px",lineHeight:1.6,background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px"}}>
+          <b style={{color:"var(--text2)"}}>How this is calculated:</b> Each cell shows <i>PSC Detentions ÷ PSC Inspections</i> for that MoU in that year, as a percentage. Detentions come from your own case records (the vessels table); inspections come from the Consolidated Inspection History, counting only rows tagged "PSC" for that MoU and year (Flag State inspections are excluded from both sides here — see the Flag table below for that). <b style={{color:"var(--text2)"}}>Trend arrows:</b> one arrow per year-to-year jump, comparing the rate% only (not raw counts) — any increase shows ↑ (red), any decrease shows ↓ (green), no change shows →. There's no "stable" tolerance band on this table, so even a small rate change will show an arrow.
+        </div>
+      </Card>
+
+      <Card title={<>Flag Inspection Rate by MoU (Flag detentions ÷ Flag inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
+        {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <thead><tr>
+              <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>MoU</th>
+              {mouRates.years.map(yr=>(
+                <th key={yr} style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{yr}</th>
+              ))}
+              <th style={{textAlign:"left",padding:"8px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>Trend</th>
+            </tr></thead>
+            <tbody>{mouRates.rows.map(r=>{
+              const arrows = mouRates.years.slice(1).map((yr,i)=>{
+                const prevYr = mouRates.years[i];
+                const prevRate = r.byYear[prevYr]?.flagRate, curRate = r.byYear[yr]?.flagRate;
+                if (prevRate==null || curRate==null) return "—";
+                if (curRate > prevRate) return "↑";
+                if (curRate < prevRate) return "↓";
+                return "→";
+              });
+              return (
+                <tr key={r.mou} style={{borderBottom:"1px solid var(--border)"}}>
+                  <td style={{padding:"9px 10px",color:"var(--text)",fontWeight:600,verticalAlign:"top"}}>{r.mou}</td>
+                  {mouRates.years.map(yr=>{
+                    const y = r.byYear[yr]||{};
+                    return (
+                      <td key={yr} style={{padding:"9px 10px",color:"var(--text2)",verticalAlign:"top"}}>
+                        {(y.flagDetentions??0)+" / "+(y.flagInspections!=null?y.flagInspections.toLocaleString():"—")}
+                        <span style={{color:y.flagRate>3?"var(--red2)":"var(--text3)",fontWeight:600}}> ({y.flagRate!=null?y.flagRate+"%":"—"})</span>
+                      </td>
+                    );
+                  })}
+                  <td style={{padding:"9px 10px",color:"var(--text2)",fontFamily:"var(--mono)",fontSize:"14px",verticalAlign:"top"}}>
+                    {arrows.map((a,i)=>(
+                      <span key={i} style={{color:a==="↑"?"var(--red2)":a==="↓"?"var(--green2)":"var(--text3)",marginRight:"4px"}}>{a}</span>
+                    ))}
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        )}
+        <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"10px",lineHeight:1.6,background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px"}}>
+          <b style={{color:"var(--text2)"}}>How this is calculated:</b> Same method as the PSC table above, but scoped entirely to Flag State activity — <i>Flag Detentions ÷ Flag Inspections</i>, both counted directly from the Consolidated Inspection History (rows tagged "FLAG"), not from case records. This is a genuinely separate metric from the PSC table — it answers "when LISCR inspects as flag state, how often does that result in a detention," not the PSC picture.
+        </div>
       </Card>
 
       {(()=>{
