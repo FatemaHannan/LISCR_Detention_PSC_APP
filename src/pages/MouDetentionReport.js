@@ -645,6 +645,21 @@ export default function MouDetentionReport({ vessels = [] }) {
                       </table>}
                     </Card>
                   </div>
+
+                  <Card title="Top Recurring Deficiency Codes" subtitle="Ranked by frequency — codes marked as grounds for detention are highlighted" style={{marginBottom:"12px"}}>
+                    {(dd.topCodes||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No deficiency code data.</div>:
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                      <thead><tr>{["Code","Description","Count","Grounds for Detention"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{dd.topCodes.map(c=>(
+                        <tr key={c.code} style={{borderBottom:"1px solid var(--border)",background:c.detainable>0?"rgba(239,68,68,0.05)":"transparent"}}>
+                          <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,fontFamily:"var(--mono)"}}>{c.code}</td>
+                          <td style={{padding:"5px 8px",color:"var(--text2)",maxWidth:"260px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.desc||"—"}</td>
+                          <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{c.count}</td>
+                          <td style={{padding:"5px 8px",color:c.detainable>0?"var(--red2)":"var(--text3)",fontWeight:c.detainable>0?700:400}}>{c.detainable>0?c.detainable+"x":"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>}
+                  </Card>
                   <Card title="Risk Vessels (repeated detentions or high deficiencies)" style={{marginBottom:"12px"}}>
                     {(dd.riskVessels||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No vessel data.</div>:
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>

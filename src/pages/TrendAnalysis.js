@@ -263,6 +263,31 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
     return DEF_CATEGORY_ORDER.filter(c=>counts[c]>0).map(cat=>({cat, count:counts[cat]}));
   }, [detained]);
 
+  // ---- Top Recurring Deficiency Codes — fleet-wide, grounds-for-detention highlighted ----
+  const topDeficiencyCodes = useMemo(() => {
+    const codeCounts = {};
+    detained.forEach(v => (v.deficiencies||[]).forEach(d => {
+      const code = d.code||"Unknown";
+      if (!codeCounts[code]) codeCounts[code] = { code, count:0, detainable:0, desc:d.desc };
+      codeCounts[code].count++;
+      if (d.detainable || String(d.action).trim()==="30") codeCounts[code].detainable++;
+    }));
+    return Object.values(codeCounts).sort((a,b)=>b.count-a.count).slice(0,15);
+  }, [detained]);
+
+  // ---- What's actually inside "Other" — surfaces any recurring/detainable items hiding in the catch-all bucket ----
+  const otherBucketBreakdown = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => (v.deficiencies||[]).forEach(d => {
+      if (catDef(d.desc) !== "Other") return;
+      const key = (d.desc||"Unspecified").trim();
+      if (!counts[key]) counts[key] = { desc:key, count:0, detainable:0 };
+      counts[key].count++;
+      if (d.detainable || String(d.action).trim()==="30") counts[key].detainable++;
+    }));
+    return Object.values(counts).sort((a,b)=>b.count-a.count).slice(0,15);
+  }, [detained]);
+
   // ---- Combined Age x Type breakdown, for a stacked bar chart (age bracket on X, one segment per top vessel type) ----
   const ageByTypeBreakdown = useMemo(() => {
     const topTypes = vesselTypeBreakdown.slice(0,6).map(t=>t.type);
@@ -788,6 +813,36 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
             </Bar>
           </BarChart>
         </ResponsiveContainer>}
+      </Card>
+
+      <Card title="Top Recurring Deficiency Codes" subtitle="Fleet-wide, ranked by frequency — codes marked as grounds for detention are highlighted" style={{marginBottom:"20px"}}>
+        {topDeficiencyCodes.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No deficiency code data available.</div>:
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Code","Description","Count","Grounds for Detention"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{topDeficiencyCodes.map(c=>(
+            <tr key={c.code} style={{borderBottom:"1px solid var(--border)",background:c.detainable>0?"rgba(239,68,68,0.05)":"transparent"}}>
+              <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600,fontFamily:"var(--mono)"}}>{c.code}</td>
+              <td style={{padding:"7px 10px",color:"var(--text2)",maxWidth:"340px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.desc||"—"}</td>
+              <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{c.count}</td>
+              <td style={{padding:"7px 10px",color:c.detainable>0?"var(--red2)":"var(--text3)",fontWeight:c.detainable>0?700:400}}>{c.detainable>0?c.detainable+"x":"—"}</td>
+            </tr>
+          ))}</tbody>
+        </table>}
+      </Card>
+
+      <Card title={"What's Inside \"Other\" (" + otherBucketBreakdown.reduce((a,d)=>a+d.count,0) + " deficiencies)"} subtitle="Descriptions not matching any named category — surfaced so nothing recurring or detainable stays hidden" style={{marginBottom:"20px"}}>
+        {otherBucketBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>Nothing in "Other" — every deficiency matched a named category.</div>:
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Description","Count","Grounds for Detention"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+          <tbody>{otherBucketBreakdown.map((d,i)=>(
+            <tr key={i} style={{borderBottom:"1px solid var(--border)",background:d.detainable>0?"rgba(239,68,68,0.05)":"transparent"}}>
+              <td style={{padding:"7px 10px",color:"var(--text2)"}}>{d.desc}</td>
+              <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{d.count}</td>
+              <td style={{padding:"7px 10px",color:d.detainable>0?"var(--red2)":"var(--text3)",fontWeight:d.detainable>0?700:400}}>{d.detainable>0?d.detainable+"x":"—"}</td>
+            </tr>
+          ))}</tbody>
+        </table>}
+        <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>If a recurring or detainable item shows up here regularly, it's a sign the category keyword list should be expanded to catch it — let me know and I'll add it.</div>
       </Card>
 
       {/* Top Companies & RO by Detentions */}
