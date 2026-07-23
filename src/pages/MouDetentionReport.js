@@ -424,7 +424,7 @@ export default function MouDetentionReport({ vessels = [] }) {
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
         <div>
-          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Detention Trend by MoU</div>
+          <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>Detention Trend by MoU</div>
           <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and how detentions are happening — broken down by PSC authority</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
@@ -438,7 +438,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"14px"}}>Year filter applies to the MoU list below and each authority's expanded detail (monthly trend, causes, risk vessels, age/type/risk, companies, RO). The by-year comparison tables above always show every year regardless of this filter, since that's their purpose.</div>
 
       {/* MoU Metrics by Year (YTD) */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
 
       <Card style={{marginBottom:"14px"}} subtitle="Detentions per year, YTD-aligned so partial years compare fairly (top 8 by volume — full list in table below)">
         {mouMetricsByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No MoU data found.</div>:<>
@@ -558,7 +558,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       </Card>
 
       {/* Expandable per-MoU analysis */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Detention Analysis by MoU</div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Detention Analysis by MoU</div>
       <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"20px"}}>
         {mouList.map(m => {
           const dd = deepDive[m.mou] || {};

@@ -625,7 +625,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
         <div>
-          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Trend Analysis Dashboard</div>
+          <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>Trend Analysis Dashboard</div>
           <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Where, when, and why detentions are happening</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
@@ -703,7 +703,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       </div>
 
       {/* Vessel Profile — Age, Type, Risk */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Vessel Profile — Detentions by Age, Type & Risk<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Vessel Profile — Detentions by Age, Type & Risk<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
           {vesselAgeBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No age data available.</div>:
@@ -787,7 +787,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       </Card>
 
       {/* Top Companies & RO by Detentions */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Top 10 Companies & RO by Detentions<ScopeBadge filtered={false} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Top 10 Companies & RO by Detentions<ScopeBadge filtered={false} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Companies by Detentions">
           {companyByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No company data available.</div>:
@@ -861,7 +861,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       </Card>
 
       {/* Section 1: Detention Overview */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Detention Overview {selectedYear!=="All"?"— "+selectedYear:""}<ScopeBadge filtered={true} /></div>
       <Card title={"Monthly Detention Trend — Jan-Dec "+monthDataYear} style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthData} margin={{top:20}}>
@@ -893,7 +893,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       </Card>
 
       {/* Vetting, Casualty & MLC Reports — fleet-wide, YTD-aligned */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Vetting, Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Vetting, Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
       {(()=>{
         const currentMonthNum = new Date().getMonth()+1;
         const currentYearStr3 = String(new Date().getFullYear());
@@ -1054,7 +1054,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       })()}
 
       {/* Section 2: Geographic Risk */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Geographic Risk<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Geographic Risk<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Countries by Detentions">
           <ResponsiveContainer width="100%" height={280}>
@@ -1098,7 +1098,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
       </Card>
 
       {/* Section 3: Time Pattern Analysis */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Time Pattern Analysis<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Time Pattern Analysis<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Day of Week">
           <ResponsiveContainer width="100%" height={220}>
