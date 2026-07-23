@@ -9,10 +9,12 @@ import FleetCompositionTrends from "./FleetCompositionTrends";
 import HighRiskAreas from "./HighRiskAreas";
 import OperationalResponseTracking from "./OperationalResponseTracking";
 import PreventionFocus from "./PreventionFocus";
+import CasualtyMlcReport from "./CasualtyMlcReport";
 
 const SUB_TABS = [
   { id: "focus", label: "🎯 Prevention Focus" },
   { id: "dashboard", label: "Dashboard" },
+  { id: "casualtymlc", label: "⚓ MLC & Casualty" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
   { id: "highrisk", label: "High-Risk Areas" },
@@ -24,7 +26,11 @@ const SUB_TABS = [
 ];
 
 export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) {
-  const [subTab, setSubTab] = useState("focus");
+  const [subTab, setSubTab] = useState(() => {
+    const initial = window._trendsInitialSubTab;
+    window._trendsInitialSubTab = null;
+    return initial || "focus";
+  });
 
   return (
     <div className="pg active">
@@ -49,7 +55,8 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) 
 
       <div style={{ margin: "-16px", padding: "0" }}>
         {subTab === "focus" && <PreventionFocus vessels={vessels} />}
-        {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} setPage={setPage} />}
+        {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} setPage={setPage} onNavigateSubTab={setSubTab} />}
+        {subTab === "casualtymlc" && <CasualtyMlcReport />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
         {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}
