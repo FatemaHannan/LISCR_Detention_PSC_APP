@@ -11,7 +11,7 @@ import TrendAnalysisHub from "./pages/TrendAnalysisHub";
 import MeetingBriefingQueue from "./pages/MeetingBriefingQueue";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
-import { MASTER_PROMPT } from "./lib/masterPrompt";
+import { MASTER_PROMPT, buildLiveFleetContext } from "./lib/masterPrompt";
 import UploadAnalyze from "./pages/UploadAnalyze";
 import { METRICS, VESSELS, TASKS } from "./data/masterData";
 import { getVessels, getTasks } from "./lib/db";
@@ -141,10 +141,11 @@ export default function App() {
     setChatMessages(prev => [...prev, {role:"ai", text:"...", id:aiId}]);
     try {
       const history = chatMessages.map(m => ({role:m.role==="ai"?"assistant":"user", content:m.text}));
+      const liveContext = buildLiveFleetContext(fleetVessels, fleetTasks);
       const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
-        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,system:MASTER_PROMPT,messages:[...history,{role:"user",content:q}]})
+        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,system:MASTER_PROMPT+"\n\n"+liveContext,messages:[...history,{role:"user",content:q}]})
       });
       const data = await resp.json();
       console.log("API Response:", JSON.stringify(data).slice(0,200));
