@@ -1,23 +1,31 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const SEVERITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e", Unknown: "#64748b" };
 const STATUS_COLORS = { Open: "#f59e0b", Closed: "#22c55e", Unknown: "#64748b" };
-const PERIODS = [
-  { id: "month", label: "Monthly" },
-  { id: "quarter", label: "Quarterly" },
-  { id: "half", label: "Half-Yearly" },
-  { id: "year", label: "Yearly" },
-];
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const EARLIEST_YEAR = 2023; // per direct instruction: exclude 2022 and earlier
 
-// ---- Severity classification — defaults, refine once source document is confirmed ----
+// ---- Severity classification ----
+// Marine Casualty: based on the casualty_type field itself (vessel-affecting event categories)
 function casualtySeverity(type) {
   const t = String(type||"").toLowerCase();
   if (t.includes("very serious")) return "High";
   if (t.includes("deliberate")) return "High";
   if (t.includes("marine casualty")) return "Medium";
-  if (t.includes("marine incident")) return "Low";
+  return "Unknown";
+}
+// Personal Incident: casualty_type is always "Marine incident" for this bucket, so severity has to come
+// from other fields on file — near_miss, investigated, and keyword scan of marine_casualties/details_summary.
+// Defaults to Medium/Unknown (not Low) when nothing indicates otherwise, since assuming personal injury/
+// death records are automatically low-severity is not a safe default.
+function personalIncidentSeverity(row) {
+  const nearMiss = String(row.near_miss||"").toLowerCase();
+  if (nearMiss.includes("yes")||nearMiss==="y") return "Low";
+  const text = (String(row.marine_casualties||"")+" "+String(row.details_summary||"")).toLowerCase();
+  if (text.includes("fatal")||text.includes("death")||text.includes("died")) return "High";
+  if (text.includes("injur")||text.includes("hospital")) return "Medium";
   return "Unknown";
 }
 function statusBucket(status) {
@@ -26,45 +34,40 @@ function statusBucket(status) {
   if (s.includes("close")) return "Closed";
   return "Open";
 }
-function periodKey(dateStr, period) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d)) return null;
-  const y = d.getFullYear(), m = d.getMonth();
-  if (period === "month") return y+"-"+String(m+1).padStart(2,"0");
-  if (period === "quarter") return y+" Q"+(Math.floor(m/3)+1);
-  if (period === "half") return y+" H"+(m<6?1:2);
-  return String(y);
+function inScope(dateStr) {
+  if (!dateStr) return false;
+  const y = new Date(dateStr).getFullYear();
+  return y >= EARLIEST_YEAR;
 }
 
 function DonutChart({ data, colors, title }) {
   const total = data.reduce((a,d)=>a+d.value,0);
   if (total===0) return <div style={{fontSize:"12px",color:"var(--text3)",textAlign:"center",padding:"30px 0"}}>No data</div>;
   return (
-    <div>
+    <div style={{position:"relative"}}>
       <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",textAlign:"center",marginBottom:"4px"}}>{title}</div>
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
             {data.map((d,i)=><Cell key={i} fill={colors[d.name]||"#64748b"} />)}
           </Pie>
-          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-          <Legend wrapperStyle={{fontSize:11}} />
+          <Tooltip contentStyle={{background:"#1a1f2e",border:"1px solid var(--border)",fontSize:12,color:"#fff"}} itemStyle={{color:"#fff"}} labelStyle={{color:"#fff"}} />
+          <Legend wrapperStyle={{fontSize:11,color:"var(--text2)"}} />
         </PieChart>
       </ResponsiveContainer>
-      <div style={{textAlign:"center",fontSize:"18px",fontWeight:700,color:"var(--text)",marginTop:"-110px",pointerEvents:"none"}}>{total}</div>
+      <div style={{position:"absolute",top:"96px",left:0,right:0,textAlign:"center",fontSize:"20px",fontWeight:700,color:"#fff",pointerEvents:"none"}}>{total}</div>
     </div>
   );
 }
 
-function CategorySection({ title, subtitle, rows, dateField, typeField, severityFn, companyField }) {
-  const [period, setPeriod] = useState("quarter");
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel }) {
+  const scoped = useMemo(() => rows.filter(r => inScope(r[dateField])), [rows, dateField]);
 
-  const enriched = useMemo(() => rows.map(r => ({
+  const enriched = useMemo(() => scoped.map(r => ({
     ...r,
-    severity: severityFn(r[typeField]),
+    severity: getSeverity(r),
     status: statusBucket(r.case_status || r.mlc_status),
-  })), [rows, typeField, severityFn]);
+  })), [scoped, getSeverity]);
 
   const severityData = useMemo(() => {
     const counts = {};
@@ -78,27 +81,65 @@ function CategorySection({ title, subtitle, rows, dateField, typeField, severity
     return ["Open","Closed","Unknown"].filter(k=>counts[k]>0).map(k=>({name:k, value:counts[k]}));
   }, [enriched]);
 
+  // ---- Regular trend chart: X-axis = month name (Jan-Dec), one line per year ----
+  const trendYears = useMemo(() => {
+    const years = new Set();
+    enriched.forEach(r => { const d = r[dateField]; if (d) years.add(new Date(d).getFullYear()); });
+    return [...years].sort();
+  }, [enriched, dateField]);
+
   const trendData = useMemo(() => {
-    const counts = {};
-    enriched.forEach(r => { const k = periodKey(r[dateField], period); if (k) counts[k]=(counts[k]||0)+1; });
-    return Object.entries(counts).sort((a,b)=>a[0]>b[0]?1:-1).slice(-16).map(([k,v])=>({period:k, count:v}));
-  }, [enriched, dateField, period]);
+    const grid = MONTH_NAMES.map(m => ({ month: m }));
+    trendYears.forEach(yr => {
+      enriched.forEach(r => {
+        const d = r[dateField]; if (!d) return;
+        const dt = new Date(d);
+        if (dt.getFullYear() !== yr) return;
+        grid[dt.getMonth()][yr] = (grid[dt.getMonth()][yr]||0)+1;
+      });
+    });
+    return grid;
+  }, [enriched, dateField, trendYears]);
+
+  const yearColors = ["#3b82f6","#f59e0b","#22c55e","#ef4444","#8b5cf6","#06b6d4"];
 
   const byCompany = useMemo(() => {
     const counts = {};
     enriched.forEach(r => {
       const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
-      counts[c] = counts[c] || { company:c, total:0, High:0, Medium:0, Low:0 };
+      counts[c] = counts[c] || { company:c, total:0, High:0, Medium:0, Low:0, Unknown:0 };
       counts[c].total++;
       if (counts[c][r.severity]!=null) counts[c][r.severity]++;
     });
-    return Object.values(counts).sort((a,b)=>b.total-a.total).slice(0,10);
+    return Object.values(counts).sort((a,b)=>b.total-a.total).slice(0,25);
   }, [enriched, companyField]);
+
+  const recurringVessels = useMemo(() => {
+    const counts = {};
+    enriched.forEach(r => {
+      const key = r.imo || r.vessel;
+      if (!key) return;
+      counts[key] = counts[key] || { name: r.vessel||"Unknown", imo: r.imo||"—", count:0 };
+      counts[key].count++;
+    });
+    return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count);
+  }, [enriched]);
+
+  const recurringCompanies = useMemo(() => byCompany.filter(c=>c.total>1), [byCompany]);
+
+  const byType = useMemo(() => {
+    const counts = {};
+    enriched.forEach(r => {
+      const key = getTypeLabel ? getTypeLabel(r) : "Unspecified";
+      counts[key] = (counts[key]||0)+1;
+    });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([type,count])=>({type,count}));
+  }, [enriched, getTypeLabel]);
 
   return (
     <div style={{marginBottom:"28px"}}>
       <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>{title}</div>
-      <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>{subtitle} · {rows.length} total on file</div>
+      <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>{subtitle} · {scoped.length} total on file ({EARLIEST_YEAR}+)</div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
@@ -110,30 +151,65 @@ function CategorySection({ title, subtitle, rows, dateField, typeField, severity
       </div>
 
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-          <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)"}}>Trend Over Time</div>
-          <div style={{display:"flex",gap:"4px"}}>
-            {PERIODS.map(p=>(
-              <button key={p.id} onClick={()=>setPeriod(p.id)} style={{fontSize:"10px",fontWeight:600,padding:"4px 10px",borderRadius:"14px",border:"1px solid "+(period===p.id?"var(--blue)":"var(--border)"),background:period===p.id?"var(--blue)":"transparent",color:period===p.id?"#fff":"var(--text3)",cursor:"pointer"}}>{p.label}</button>
-            ))}
-          </div>
-        </div>
-        {trendData.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No dated records available.</div>:
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={trendData}>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Monthly Trend by Year</div>
+        {trendYears.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No dated records available.</div>:
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="period" tick={{fontSize:10,fill:"var(--text3)"}} />
-            <YAxis tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
-            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
-            <Bar dataKey="count" fill="#3b82f6" radius={[3,3,0,0]}>
-              <LabelList dataKey="count" position="top" style={{fontSize:9,fill:"var(--text2)"}} />
-            </Bar>
-          </BarChart>
+            <XAxis dataKey="month" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"#1a1f2e",border:"1px solid var(--border)",fontSize:12,color:"#fff"}} itemStyle={{color:"#fff"}} labelStyle={{color:"#fff"}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            {trendYears.map((yr,i)=>(
+              <Line key={yr} type="monotone" dataKey={yr} name={String(yr)} stroke={yearColors[i%yearColors.length]} strokeWidth={2} dot={{r:3}} />
+            ))}
+          </LineChart>
         </ResponsiveContainer>}
       </div>
 
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Recurring — Same Vessel More Than Once</div>
+          {recurringVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No vessel has more than one record.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <tbody>{recurringVessels.slice(0,15).map((v,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{v.name}</td>
+                <td style={{padding:"6px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
+                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700,textAlign:"right"}}>{v.count}x</td>
+              </tr>
+            ))}</tbody>
+          </table>}
+        </div>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Recurring — Same Company More Than Once</div>
+          {recurringCompanies.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No company has more than one record.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <tbody>{recurringCompanies.slice(0,15).map((c,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{c.company}</td>
+                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700,textAlign:"right"}}>{c.total}x</td>
+              </tr>
+            ))}</tbody>
+          </table>}
+        </div>
+      </div>
+
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 by Type</div>
+        {byType.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No type data available.</div>:
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <tbody>{byType.map((t,i)=>(
+            <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"6px 8px",color:"var(--text2)"}}>{t.type}</td>
+              <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{t.count}</td>
+            </tr>
+          ))}</tbody>
+        </table>}
+      </div>
+
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 10 Companies</div>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 Companies</div>
         {byCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No company data available.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Company","Total","High","Medium","Low"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
@@ -189,7 +265,7 @@ export default function CasualtyMlcReport() {
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
         <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>MLC & Casualty Report</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown</div>
+        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown ({EARLIEST_YEAR} onward)</div>
       </div>
 
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
@@ -203,23 +279,34 @@ export default function CasualtyMlcReport() {
           {activeTab==="casualty" && (
             <CategorySection
               title="Marine Casualty" subtitle="Vessel-affecting events — grounding, collision, fire, machinery failure, etc."
-              rows={marineCasualtyRows} dateField="incident_date" typeField="casualty_type"
-              severityFn={casualtySeverity} companyField="managing_company"
+              rows={marineCasualtyRows} dateField="incident_date"
+              getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
+              getTypeLabel={(r)=>r.casualty_type||"Unspecified"}
             />
           )}
           {activeTab==="personal" && (
-            <CategorySection
-              title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — sourced from casualty records tagged 'Marine incident'"
-              rows={personalIncidentRows} dateField="incident_date" typeField="casualty_type"
-              severityFn={()=>"Low"} companyField="managing_company"
-            />
+            <>
+              <div style={{fontSize:"11px",color:"var(--amber2)",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"14px"}}>
+                <b>Note on severity:</b> these records don't have a dedicated severity field — classification is inferred from "Near Miss," "Marine Casualties," and "Details Summary" text (fatality/death → High, injury/hospital → Medium, marked Near Miss → Low). Anything not matching a clear signal shows as Unknown rather than being assumed Low.
+              </div>
+              <CategorySection
+                title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — sourced from casualty records tagged 'Marine incident'"
+                rows={personalIncidentRows} dateField="incident_date"
+                getSeverity={personalIncidentSeverity} companyField="managing_company"
+                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"}
+              />
+            </>
           )}
           {activeTab==="mlc" && (
             <CategorySection
               title="MLC Complaints" subtitle="Maritime Labour Convention compliance issues"
-              rows={mlcRaw} dateField="reported_date" typeField="risk_level"
-              severityFn={(r)=>["High","Highest"].includes(r)?"High":r==="Medium"?"Medium":r==="Low"?"Low":"Unknown"}
+              rows={mlcRaw} dateField="reported_date"
+              getSeverity={(r)=>{
+                const rl = String(r.risk_level||"");
+                return ["High","Highest"].includes(rl)?"High":rl==="Medium"?"Medium":rl==="Low"?"Low":"Unknown";
+              }}
               companyField="ism_client"
+              getTypeLabel={(r)=>r.inspection_type||"Unspecified"}
             />
           )}
         </>

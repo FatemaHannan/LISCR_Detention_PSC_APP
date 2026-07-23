@@ -110,8 +110,6 @@ export function ScopeBadge({ filtered }) {
 }
 
 export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNavigateSubTab }) {
-  const [casualtyMlcExpanded, setCasualtyMlcExpanded] = useState(false);
-  const [vettingExpanded, setVettingExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState("All");
   const [mouRates, setMouRates] = useState({ rows: [], years: [] });
   const [rateLoading, setRateLoading] = useState(true);
@@ -953,13 +951,8 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
       </Card>
 
       {/* Vetting Report — separate from Casualty/MLC, fleet-wide, YTD-aligned */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)"}}>4. Vetting Report<ScopeBadge filtered={false} /></div>
-        <button onClick={()=>setVettingExpanded(x=>!x)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
-          {vettingExpanded?"Collapse ▴":"Expand ▾"}
-        </button>
-      </div>
-      {vettingExpanded && (()=>{
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Vetting Report<ScopeBadge filtered={false} /></div>
+      {(()=>{
         const currentMonthNum = new Date().getMonth()+1;
         const currentYearStr3 = String(new Date().getFullYear());
         const reportTable = (title, subtitle, countKey, countLabel, simple) => {
@@ -1020,12 +1013,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
               📊 Full MLC & Casualty Report →
             </button>
           )}
-          <button onClick={()=>setCasualtyMlcExpanded(x=>!x)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
-            {casualtyMlcExpanded?"Collapse ▴":"Expand ▾"}
-          </button>
         </div>
       </div>
-      {casualtyMlcExpanded && (()=>{
+      {(()=>{
         const currentMonthNum = new Date().getMonth()+1;
         const currentYearStr3 = String(new Date().getFullYear());
         const reportTable = (title, subtitle, countKey, countLabel, simple) => {
