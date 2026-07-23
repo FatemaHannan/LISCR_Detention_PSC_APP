@@ -5,10 +5,8 @@ import { supabase } from "../lib/supabase";
 const SEVERITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e", Unknown: "#64748b" };
 const STATUS_COLORS = { Open: "#f59e0b", Closed: "#22c55e", Unknown: "#64748b" };
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const EARLIEST_YEAR = 2023; // per direct instruction: exclude 2022 and earlier
+const EARLIEST_YEAR = 2023; // exclude 2022 and earlier
 
-// ---- Severity classification ----
-// Marine Casualty: based on the casualty_type field itself (vessel-affecting event categories)
 function casualtySeverity(type) {
   const t = String(type||"").toLowerCase();
   if (t.includes("very serious")) return "High";
@@ -16,10 +14,6 @@ function casualtySeverity(type) {
   if (t.includes("marine casualty")) return "Medium";
   return "Unknown";
 }
-// Personal Incident: casualty_type is always "Marine incident" for this bucket, so severity has to come
-// from other fields on file — near_miss, investigated, and keyword scan of marine_casualties/details_summary.
-// Defaults to Medium/Unknown (not Low) when nothing indicates otherwise, since assuming personal injury/
-// death records are automatically low-severity is not a safe default.
 function personalIncidentSeverity(row) {
   const nearMiss = String(row.near_miss||"").toLowerCase();
   if (nearMiss.includes("yes")||nearMiss==="y") return "Low";
@@ -34,10 +28,10 @@ function statusBucket(status) {
   if (s.includes("close")) return "Closed";
   return "Open";
 }
-function inScope(dateStr) {
-  if (!dateStr) return false;
+function yearOf(dateStr) {
+  if (!dateStr) return null;
   const y = new Date(dateStr).getFullYear();
-  return y >= EARLIEST_YEAR;
+  return isNaN(y) ? null : y;
 }
 
 function DonutChart({ data, colors, title }) {
@@ -60,14 +54,28 @@ function DonutChart({ data, colors, title }) {
   );
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel }) {
-  const scoped = useMemo(() => rows.filter(r => inScope(r[dateField])), [rows, dateField]);
+function mostCommon(arr) {
+  if (arr.length===0) return "—";
+  const counts = {};
+  arr.forEach(v => { counts[v] = (counts[v]||0)+1; });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear }) {
+  // Main filter (Year selector at top of the page) applies here
+  const scoped = useMemo(() => rows.filter(r => {
+    const y = yearOf(r[dateField]);
+    if (y==null || y < EARLIEST_YEAR) return false;
+    if (selectedYear !== "All" && y !== Number(selectedYear)) return false;
+    return true;
+  }), [rows, dateField, selectedYear]);
 
   const enriched = useMemo(() => scoped.map(r => ({
     ...r,
     severity: getSeverity(r),
     status: statusBucket(r.case_status || r.mlc_status),
-  })), [scoped, getSeverity]);
+    typeLabel: getTypeLabel ? getTypeLabel(r) : "Unspecified",
+  })), [scoped, getSeverity, getTypeLabel]);
 
   const severityData = useMemo(() => {
     const counts = {};
@@ -81,10 +89,9 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     return ["Open","Closed","Unknown"].filter(k=>counts[k]>0).map(k=>({name:k, value:counts[k]}));
   }, [enriched]);
 
-  // ---- Regular trend chart: X-axis = month name (Jan-Dec), one line per year ----
   const trendYears = useMemo(() => {
     const years = new Set();
-    enriched.forEach(r => { const d = r[dateField]; if (d) years.add(new Date(d).getFullYear()); });
+    enriched.forEach(r => { const y = yearOf(r[dateField]); if (y) years.add(y); });
     return [...years].sort();
   }, [enriched, dateField]);
 
@@ -103,6 +110,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
 
   const yearColors = ["#3b82f6","#f59e0b","#22c55e","#ef4444","#8b5cf6","#06b6d4"];
 
+  // ---- Top Companies by Year, side by side (two most recent years present in the FULL dataset, not the Year filter) ----
+  const recentTwoYears = useMemo(() => {
+    const years = new Set();
+    rows.forEach(r => { const y = yearOf(r[dateField]); if (y && y>=EARLIEST_YEAR) years.add(y); });
+    return [...years].sort((a,b)=>b-a).slice(0,2).reverse();
+  }, [rows, dateField]);
+
+  const topCompaniesByYear = useMemo(() => {
+    const result = {};
+    recentTwoYears.forEach(yr => {
+      const counts = {};
+      rows.forEach(r => {
+        if (yearOf(r[dateField]) !== yr) return;
+        const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
+        counts[c] = (counts[c]||0)+1;
+      });
+      result[yr] = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([company,count])=>({company,count}));
+    });
+    return result;
+  }, [rows, dateField, companyField, recentTwoYears]);
+
   const byCompany = useMemo(() => {
     const counts = {};
     enriched.forEach(r => {
@@ -119,27 +147,35 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     enriched.forEach(r => {
       const key = r.imo || r.vessel;
       if (!key) return;
-      counts[key] = counts[key] || { name: r.vessel||"Unknown", imo: r.imo||"—", count:0 };
+      counts[key] = counts[key] || { name: r.vessel||"Unknown", imo: r.imo||"—", company: r[companyField]||"—", count:0, types:[] };
       counts[key].count++;
+      counts[key].types.push(r.typeLabel);
+      // keep the most recently seen non-empty company in case it varies across records
+      if (r[companyField] && r[companyField].trim()) counts[key].company = r[companyField].trim();
     });
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count);
-  }, [enriched]);
+  }, [enriched, companyField]);
 
-  const recurringCompanies = useMemo(() => byCompany.filter(c=>c.total>1), [byCompany]);
+  const recurringCompanies = useMemo(() => {
+    const withTypes = {};
+    enriched.forEach(r => {
+      const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
+      withTypes[c] = withTypes[c] || [];
+      withTypes[c].push(r.typeLabel);
+    });
+    return byCompany.filter(c=>c.total>1).map(c=>({ ...c, primaryType: mostCommon(withTypes[c.company]||[]) }));
+  }, [byCompany, enriched, companyField]);
 
   const byType = useMemo(() => {
     const counts = {};
-    enriched.forEach(r => {
-      const key = getTypeLabel ? getTypeLabel(r) : "Unspecified";
-      counts[key] = (counts[key]||0)+1;
-    });
+    enriched.forEach(r => { counts[r.typeLabel] = (counts[r.typeLabel]||0)+1; });
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([type,count])=>({type,count}));
-  }, [enriched, getTypeLabel]);
+  }, [enriched]);
 
   return (
     <div style={{marginBottom:"28px"}}>
       <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>{title}</div>
-      <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>{subtitle} · {scoped.length} total on file ({EARLIEST_YEAR}+)</div>
+      <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>{subtitle} · {scoped.length} total on file ({EARLIEST_YEAR}+, {selectedYear==="All"?"all years":selectedYear})</div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
@@ -171,12 +207,14 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
           <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Recurring — Same Vessel More Than Once</div>
           {recurringVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No vessel has more than one record.</div>:
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+            <thead><tr>{["Vessel","Company","Count","Primary Type"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
             <tbody>{recurringVessels.slice(0,15).map((v,i)=>(
               <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
                 <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{v.name}</td>
-                <td style={{padding:"6px 8px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{v.imo}</td>
-                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700,textAlign:"right"}}>{v.count}x</td>
+                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{v.company}</td>
+                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700}}>{v.count}x</td>
+                <td style={{padding:"6px 8px",color:"var(--text3)"}}>{mostCommon(v.types)}</td>
               </tr>
             ))}</tbody>
           </table>}
@@ -184,11 +222,13 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
           <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Recurring — Same Company More Than Once</div>
           {recurringCompanies.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No company has more than one record.</div>:
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+            <thead><tr>{["Company","Count","Primary Type"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
             <tbody>{recurringCompanies.slice(0,15).map((c,i)=>(
               <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
                 <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{c.company}</td>
-                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700,textAlign:"right"}}>{c.total}x</td>
+                <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:700}}>{c.total}x</td>
+                <td style={{padding:"6px 8px",color:"var(--text3)"}}>{c.primaryType}</td>
               </tr>
             ))}</tbody>
           </table>}
@@ -208,8 +248,26 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
         </table>}
       </div>
 
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 25 Companies by Year</div>
+      <div style={{display:"grid",gridTemplateColumns:recentTwoYears.length>1?"1fr 1fr":"1fr",gap:"12px",marginBottom:"14px"}}>
+        {recentTwoYears.map(yr=>(
+          <div key={yr} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+            <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>{yr}</div>
+            {(topCompaniesByYear[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No records for {yr}.</div>:
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+              <tbody>{topCompaniesByYear[yr].map(c=>(
+                <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
+                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{c.company}</td>
+                  <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{c.count}</td>
+                </tr>
+              ))}</tbody>
+            </table>}
+          </div>
+        ))}
+      </div>
+
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 Companies</div>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 Companies (Selected Period)</div>
         {byCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No company data available.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Company","Total","High","Medium","Low"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
@@ -233,6 +291,7 @@ export default function CasualtyMlcReport() {
   const [mlcRaw, setMlcRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("casualty");
+  const [selectedYear, setSelectedYear] = useState("All");
 
   useEffect(() => {
     let cancelled = false;
@@ -255,6 +314,15 @@ export default function CasualtyMlcReport() {
   const marineCasualtyRows = useMemo(() => casualtyRaw.filter(r => !String(r.casualty_type||"").toLowerCase().includes("marine incident")), [casualtyRaw]);
   const personalIncidentRows = useMemo(() => casualtyRaw.filter(r => String(r.casualty_type||"").toLowerCase().includes("marine incident")), [casualtyRaw]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    [...casualtyRaw, ...mlcRaw].forEach(r => {
+      const y = yearOf(r.incident_date || r.reported_date);
+      if (y && y>=EARLIEST_YEAR) years.add(y);
+    });
+    return [...years].sort((a,b)=>b-a);
+  }, [casualtyRaw, mlcRaw]);
+
   const TABS = [
     { id: "casualty", label: "⚓ Marine Casualty" },
     { id: "personal", label: "🩹 Personal Incident" },
@@ -263,9 +331,18 @@ export default function CasualtyMlcReport() {
 
   return (
     <div className="pg active">
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
-        <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>MLC & Casualty Report</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown ({EARLIEST_YEAR} onward)</div>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+        <div>
+          <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>MLC & Casualty Report</div>
+          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown ({EARLIEST_YEAR} onward)</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
+          <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"6px 10px"}}>
+            <option value="All">All Years</option>
+            {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
       </div>
 
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
@@ -281,7 +358,7 @@ export default function CasualtyMlcReport() {
               title="Marine Casualty" subtitle="Vessel-affecting events — grounding, collision, fire, machinery failure, etc."
               rows={marineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
-              getTypeLabel={(r)=>r.casualty_type||"Unspecified"}
+              getTypeLabel={(r)=>r.casualty_type||"Unspecified"} selectedYear={selectedYear}
             />
           )}
           {activeTab==="personal" && (
@@ -293,7 +370,7 @@ export default function CasualtyMlcReport() {
                 title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — sourced from casualty records tagged 'Marine incident'"
                 rows={personalIncidentRows} dateField="incident_date"
                 getSeverity={personalIncidentSeverity} companyField="managing_company"
-                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"}
+                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"} selectedYear={selectedYear}
               />
             </>
           )}
@@ -306,7 +383,7 @@ export default function CasualtyMlcReport() {
                 return ["High","Highest"].includes(rl)?"High":rl==="Medium"?"Medium":rl==="Low"?"Low":"Unknown";
               }}
               companyField="ism_client"
-              getTypeLabel={(r)=>r.inspection_type||"Unspecified"}
+              getTypeLabel={(r)=>r.inspection_type||"Unspecified"} selectedYear={selectedYear}
             />
           )}
         </>
