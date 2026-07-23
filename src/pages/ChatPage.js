@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { callClaude } from '../lib/claude';
 import { saveChatSession } from '../lib/supabase';
 import './ChatPage.css';
+import DOMPurify from 'dompurify';
 
 const QUICK_ACTIONS = [
   { label: 'Full EVP briefing', prompt: 'Give me the 5-minute EVP briefing on fleet performance Jan-Jun 2026. Performance numbers, what is working, what is not, vessels to watch, decisions needed.' },
@@ -23,7 +24,7 @@ const HINT_CHIPS = [
 ];
 
 function renderText(text) {
-  return text
+  const html = text
     .replace(/\[WHISTLEBLOWER\]/g, '<span class="flag flag-red">[WHISTLEBLOWER]</span>')
     .replace(/\[FRAUDULENT RECORD[^\]]*\]/g, '<span class="flag flag-red">[FRAUDULENT RECORD]</span>')
     .replace(/\[REPEAT[^\]]*\]/g, '<span class="flag flag-red">[REPEAT DETAINEE]</span>')
@@ -37,7 +38,13 @@ function renderText(text) {
     .replace(/^(\d+)\. (.+)$/gm, '<div class="msg-li"><span class="msg-num mono accent">$1.</span><span>$2</span></div>')
     .replace(/\n\n/g, '<div class="msg-gap"></div>')
     .replace(/\n/g, '<br>');
+
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['span', 'strong', 'div', 'br'],
+    ALLOWED_ATTR: ['class'],
+  });
 }
+
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
