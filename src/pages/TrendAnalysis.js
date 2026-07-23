@@ -1000,7 +1000,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
         </div>
       </Card>
 
-      <Card title={<>Flag Inspection Rate by MoU (Flag detentions ÷ Flag inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
+      <Card title={<>Flag Inspection vs Flag Detention (Flag detentions ÷ Flag inspections)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         {rateLoading ? <div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading inspection totals…</div> : (
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
             <thead><tr>
@@ -1099,6 +1099,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage }) {
           </Card>
         );
         return (<>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Flag Inspection vs PSC Inspection Trend<ScopeBadge filtered={false} /></div>
           {detRateTrendTable("Flag Inspection Trend", "flagInspections", "Each cell: PSC Detentions / Flag Inspections (Rate%). Trend: one arrow per year-over-year change in Rate%.")}
           {detRateTrendTable("PSC Inspection Trend", "totalInspections", "Each cell: PSC Detentions / PSC Inspections (Rate%) — same as Detention Rate by MoU above, shown here for side-by-side comparison with the Flag table.")}
         </>);
