@@ -12,6 +12,7 @@ function casualtySeverity(type) {
   if (t.includes("very serious")) return "High";
   if (t.includes("deliberate")) return "High";
   if (t.includes("marine casualty")) return "Medium";
+  if (t.includes("marine incident")) return "Low";
   return "Unknown";
 }
 function personalIncidentSeverity(row) {
@@ -331,8 +332,11 @@ export default function CasualtyMlcReport() {
     return () => { cancelled = true; };
   }, []);
 
-  const marineCasualtyRows = useMemo(() => casualtyRaw.filter(r => !String(r.casualty_type||"").toLowerCase().includes("marine incident")), [casualtyRaw]);
-  const personalIncidentRows = useMemo(() => casualtyRaw.filter(r => String(r.casualty_type||"").toLowerCase().includes("marine incident")), [casualtyRaw]);
+  // All vessel_casualty records are Marine Casualty — "Marine incident" is a severity tier within MC,
+  // not a separate Personal Incident category. Personal Incident has no data source yet (a separate
+  // file will be uploaded for this in future) — kept empty on purpose, not pulled from vessel_casualty.
+  const marineCasualtyRows = casualtyRaw;
+  const personalIncidentRows = [];
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -383,11 +387,11 @@ export default function CasualtyMlcReport() {
           )}
           {activeTab==="personal" && (
             <>
-              <div style={{fontSize:"11px",color:"var(--amber2)",background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"6px",padding:"10px 14px",marginBottom:"14px"}}>
-                <b>Note on severity:</b> these records don't have a dedicated severity field — classification is inferred from "Near Miss," "Marine Casualties," and "Details Summary" text (fatality/death → High, injury/hospital → Medium, marked Near Miss → Low). Anything not matching a clear signal shows as Unknown rather than being assumed Low.
+              <div style={{fontSize:"12px",color:"var(--text3)",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"20px",marginBottom:"14px",textAlign:"center"}}>
+                No Personal Incident data has been uploaded yet — this will be a separate report once that data source is available. Currently, all records in the casualty file (including "Marine incident" type) are treated as Marine Casualty.
               </div>
               <CategorySection
-                title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — sourced from casualty records tagged 'Marine incident'"
+                title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — pending a dedicated data source"
                 rows={personalIncidentRows} dateField="incident_date"
                 getSeverity={personalIncidentSeverity} companyField="managing_company"
                 getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
