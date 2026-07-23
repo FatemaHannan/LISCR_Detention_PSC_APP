@@ -111,6 +111,7 @@ export function ScopeBadge({ filtered }) {
 
 export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNavigateSubTab }) {
   const [casualtyMlcExpanded, setCasualtyMlcExpanded] = useState(false);
+  const [vettingExpanded, setVettingExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState("All");
   const [mouRates, setMouRates] = useState({ rows: [], years: [] });
   const [rateLoading, setRateLoading] = useState(true);
@@ -951,9 +952,68 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
         )}
       </Card>
 
-      {/* Vetting, Casualty & MLC Reports — fleet-wide, YTD-aligned */}
+      {/* Vetting Report — separate from Casualty/MLC, fleet-wide, YTD-aligned */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}>
-        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)"}}>4. Vetting, Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
+        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)"}}>4. Vetting Report<ScopeBadge filtered={false} /></div>
+        <button onClick={()=>setVettingExpanded(x=>!x)} style={{background:"transparent",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
+          {vettingExpanded?"Collapse ▴":"Expand ▾"}
+        </button>
+      </div>
+      {vettingExpanded && (()=>{
+        const currentMonthNum = new Date().getMonth()+1;
+        const currentYearStr3 = String(new Date().getFullYear());
+        const reportTable = (title, subtitle, countKey, countLabel, simple) => {
+          let totalDet=0, totalCount=0, totalMonths=0;
+          const yearRows = availableYears.map(y=>{
+            const yd = yoyData.find(x=>x.year===y);
+            const det = yd?yd.count:0;
+            const cnt = fleetCounts[countKey]?.[y]||0;
+            const rate = cnt ? +(det/cnt*100).toFixed(3) : null;
+            const monthsInYear = (y===currentYearStr3 ? currentMonthNum : 12);
+            const avgDet = monthsInYear ? (det/monthsInYear).toFixed(1) : "—";
+            const avgCnt = monthsInYear ? (cnt/monthsInYear).toFixed(1) : "—";
+            totalDet+=det; totalCount+=cnt; totalMonths+=monthsInYear;
+            return { y, det, cnt, rate, avgDet, avgCnt };
+          });
+          const overallRate = totalCount ? +(totalDet/totalCount*100).toFixed(3) : null;
+          const avgDetMonth = totalMonths ? (totalDet/totalMonths).toFixed(1) : "—";
+          const avgCntMonth = totalMonths ? (totalCount/totalMonths).toFixed(1) : "—";
+          const headers = simple ? ["Year",countLabel,"Avg "+countLabel+"/Mo."] : ["Year","Detentions",countLabel,"Rate %","Avg Detentions/Mo.","Avg "+countLabel+"/Mo."];
+          return (
+            <Card title={title} subtitle={subtitle} style={{marginBottom:"20px"}}>
+              {fleetCountsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading {countLabel.toLowerCase()} totals…</div>:
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",tableLayout:"fixed"}}>
+                <thead><tr>{headers.map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {yearRows.map(r=>(
+                    <tr key={r.y} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.y}</td>
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.det}</td>}
+                      <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.cnt.toLocaleString()}</td>
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:600}}>{r.rate!=null?r.rate+"%":"—"}</td>}
+                      {!simple && <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgDet}</td>}
+                      <td style={{padding:"8px 10px",color:"var(--amber2)"}}>{r.avgCnt}</td>
+                    </tr>
+                  ))}
+                  <tr style={{borderTop:"2px solid var(--border)"}}>
+                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>Total</td>
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalDet}</td>}
+                    <td style={{padding:"8px 10px",color:"var(--text)",fontWeight:700}}>{totalCount.toLocaleString()}</td>
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--blue)",fontWeight:700}}>{overallRate!=null?overallRate+"%":"—"}</td>}
+                    {!simple && <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgDetMonth}</td>}
+                    <td style={{padding:"8px 10px",color:"var(--amber2)",fontWeight:700}}>{avgCntMonth}</td>
+                  </tr>
+                </tbody>
+              </table>}
+            </Card>
+          );
+        };
+        return reportTable("Vetting Report", "Detentions ÷ ALL vetting activity, fleet-wide — from DPP Vetting History", "vetting", "Vetting Count", false);
+      })()}
+
+      {/* Casualty & MLC Reports — separate from Vetting, fleet-wide, YTD-aligned */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}>
+        <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)"}}>5. Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
           {onNavigateSubTab && (
             <button onClick={()=>onNavigateSubTab("casualtymlc")} style={{background:"transparent",border:"1px solid var(--blue)",color:"var(--blue)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
@@ -1015,7 +1075,6 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
           );
         };
         return (<>
-          {reportTable("Vetting Report", "Detentions ÷ ALL vetting activity, fleet-wide — from DPP Vetting History", "vetting", "Vetting Count", false)}
           {reportTable("Casualty Report", "Vessel Casualty records, fleet-wide — from Consolidated Inspection History", "casualty", "Casualty Count", true)}
           {reportTable("MLC Report", "MLC Complaints, fleet-wide — from MLC Complaints", "mlc", "MLC Count", true)}
         </>);
@@ -1174,7 +1233,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
       })()}
 
       {/* Section 2: Geographic Risk */}
-      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Geographic Risk<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Geographic Risk<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Top 10 Countries by Detentions">
           <ResponsiveContainer width="100%" height={280}>
@@ -1218,7 +1277,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
       </Card>
 
       {/* Section 3: Time Pattern Analysis */}
-      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Time Pattern Analysis<ScopeBadge filtered={true} /></div>
+      <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Time Pattern Analysis<ScopeBadge filtered={true} /></div>
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Day of Week">
           <ResponsiveContainer width="100%" height={220}>
