@@ -71,13 +71,12 @@ RESPONSE RULES:
 - For EVP: direct, brief, decisive. For operational: detailed, step-by-step, actionable.`;
 
 export async function callClaude(messages, onChunk) {
-  const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const proxyUrl = `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`;
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',

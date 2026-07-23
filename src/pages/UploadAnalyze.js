@@ -144,7 +144,6 @@ export default function UploadAnalyze({ nav, setChatMessages, onImport }) {
 
   async function analyzeAll() {
     setProcessing(true);
-    const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
     let allImported = [];
     let analysisText = "";
 
@@ -167,13 +166,11 @@ export default function UploadAnalyze({ nav, setChatMessages, onImport }) {
       : "";
 
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
+          "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",

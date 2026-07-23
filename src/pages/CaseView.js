@@ -281,7 +281,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function analyzeDocument(doc) {
     setAnalyzing(prev=>({...prev,[doc.id]:true}));
-    const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
 
     const prompts = {
       pscReport: "You are analyzing a PSC Port State Control inspection report for LISCR Liberia flag state. Extract ALL information. Return ONLY valid JSON: {vesselName, imo, port, mou, psco, grossTonnage, company, ro, classificationSociety, inspectionDate, detained, detentionDate, releaseConditions, deficiencies:[{n,code,desc,action,ro,detainable}], flags:[]}. Action codes: 30=detainable, 17=rectify before next port, 50=outstanding may sail.",
@@ -330,9 +329,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         messageContent = [{type:"text", text:(prompts[doc.doc_type]||prompts.other)+"\n\nDocument: "+doc.file_name+"\nVessel: "+sel?.name+" IMO:"+sel?.imo}];
       }
 
-      const apiResp = await fetch("https://api.anthropic.com/v1/messages", {
+      const apiResp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
         body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:3000,messages:[{role:"user",content:messageContent}]})
       });
       const data = await apiResp.json();

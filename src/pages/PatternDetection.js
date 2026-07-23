@@ -195,9 +195,8 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
 
   async function runPatternScan() {
     setAnalyzing(true);
-    const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
-    
-    const vesselSummary = vessels.map(v => 
+
+    const vesselSummary = vessels.map(v =>
       v.name + " (IMO:" + v.imo + ") — " + v.mou + " — " + v.defs + " defs — " + (v.detained?"DETAINED":"Active") + " — Flags: " + (v.flags?.join(",")||"none")
     ).join("\n");
 
@@ -206,9 +205,9 @@ export default function PatternDetection({ learnedPatterns, vessels=[], tasks=[]
     ).join("\n");
 
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
           max_tokens: 2000,

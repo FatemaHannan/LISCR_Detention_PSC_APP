@@ -140,11 +140,10 @@ export default function App() {
     const aiId = Date.now();
     setChatMessages(prev => [...prev, {role:"ai", text:"...", id:aiId}]);
     try {
-      const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
       const history = chatMessages.map(m => ({role:m.role==="ai"?"assistant":"user", content:m.text}));
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
         body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,system:MASTER_PROMPT,messages:[...history,{role:"user",content:q}]})
       });
       const data = await resp.json();
@@ -921,12 +920,11 @@ export default function App() {
                   <div style={{marginTop:"12px"}}>
                     <button className="btn btn-primary" onClick={async () => {
                     setProcessing(true);
-                    const apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY;
                     const fileNames = uploadedFiles.map(f=>f.name).join(", ");
                     try {
-                      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+                      const resp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
                         method:"POST",
-                        headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+                        headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
                         body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1500,messages:[{role:"user",content:"You are analyzing maritime PSC detention documents for LISCR flag state. Files uploaded: "+fileNames+". Based on these filenames and maritime context, provide: 1) Which vessels and IMOs are involved, 2) What document types are present, 3) Key actions recommended, 4) Any flags to raise (WHISTLEBLOWER, FRAUDULENT RECORD, HRS, RO SURVEY GAP). Give a structured intelligence summary."}]})
                       });
                       const data = await resp.json();
