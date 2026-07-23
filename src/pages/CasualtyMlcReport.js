@@ -61,7 +61,27 @@ function mostCommon(arr) {
   return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear }) {
+// Extracts a short, human-readable brief (Fire, Death, Grounding, etc.) from the free-text fields,
+// since casualty_type/risk_level only give a broad category, not what actually happened.
+function briefIncidentType(row) {
+  const text = (String(row.marine_casualties||"")+" "+String(row.details_summary||"")).toLowerCase();
+  if (!text.trim()) return "Unspecified";
+  if (text.includes("fatal")||text.includes("death")||text.includes("died")||text.includes("deceased")) return "Death / Fatality";
+  if (text.includes("fire")||text.includes("explosion")) return "Fire / Explosion";
+  if (text.includes("aground")||text.includes("grounding")) return "Grounding";
+  if (text.includes("collision")||text.includes("collide")) return "Collision";
+  if (text.includes("capsiz")||text.includes("sink")||text.includes("flood")) return "Flooding / Sinking";
+  if (text.includes("overboard")) return "Man Overboard";
+  if (text.includes("piracy")||text.includes("hijack")||text.includes("stowaway")) return "Piracy / Security";
+  if (text.includes("spill")||text.includes("pollut")||text.includes("discharge")) return "Pollution";
+  if (text.includes("blackout")||text.includes("engine failure")||text.includes("machinery")||text.includes("breakdown")) return "Machinery Failure";
+  if (text.includes("hospital")||text.includes("injur")||text.includes("wound")) return "Injury";
+  if (text.includes("illness")||text.includes("medical")||text.includes("sick")) return "Illness";
+  if (text.includes("fall")||text.includes("fell")) return "Fall";
+  return "Other";
+}
+
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType }) {
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -74,8 +94,8 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     ...r,
     severity: getSeverity(r),
     status: statusBucket(r.case_status || r.mlc_status),
-    typeLabel: getTypeLabel ? getTypeLabel(r) : "Unspecified",
-  })), [scoped, getSeverity, getTypeLabel]);
+    typeLabel: useBriefType ? briefIncidentType(r) : (getTypeLabel ? getTypeLabel(r) : "Unspecified"),
+  })), [scoped, getSeverity, getTypeLabel, useBriefType]);
 
   const severityData = useMemo(() => {
     const counts = {};
@@ -358,7 +378,7 @@ export default function CasualtyMlcReport() {
               title="Marine Casualty" subtitle="Vessel-affecting events — grounding, collision, fire, machinery failure, etc."
               rows={marineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
-              getTypeLabel={(r)=>r.casualty_type||"Unspecified"} selectedYear={selectedYear}
+              getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
             />
           )}
           {activeTab==="personal" && (
@@ -370,7 +390,7 @@ export default function CasualtyMlcReport() {
                 title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — sourced from casualty records tagged 'Marine incident'"
                 rows={personalIncidentRows} dateField="incident_date"
                 getSeverity={personalIncidentSeverity} companyField="managing_company"
-                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"} selectedYear={selectedYear}
+                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
               />
             </>
           )}
