@@ -1,11 +1,6 @@
 {
   "name": "LISCR PSC Detention Intelligence Platform",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:24",
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "24"
-    }
-  },
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
   "postCreateCommand": "npm install",
   "customizations": {
     "vscode": {
