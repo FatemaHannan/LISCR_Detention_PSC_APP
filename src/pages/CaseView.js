@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
-import { VESSELS, TASKS, DOC_TYPES } from "../data/masterData";
+import { DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { checkRateLimit } from "../lib/rateLimiter";
@@ -143,6 +143,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [dbTasks, setDbTasks] = useState([]);
   const [dbDocs, setDbDocs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedVessels, setSelectedVessels] = useState([]);
   const [viewMode, setViewMode] = useState("active");
@@ -175,7 +176,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadAll(selectImo, selectDate) {
     setLoading(true);
+    setLoadError(null);
     const [v, t] = await Promise.all([getVessels(), getTasks()]);
+    if (v.length === 0) {
+      // Genuinely suspicious — either the fleet is truly empty (unlikely once real data exists)
+      // or the fetch silently failed. Surface this clearly instead of showing an empty case list
+      // with no explanation.
+      setLoadError("No vessels loaded from the database. This usually means a temporary connection issue — try refreshing the page. If it persists, check the browser console for errors.");
+    }
     setDbVessels(v);
     // Auto-select vessel if navigated from Detention Cases
     if (selectImo && v.length > 0) {
@@ -209,11 +217,15 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setDbVessels(v);
   }
 
-  // Supabase vessels win over masterData
+  // Real database vessels only — the old mock-data merge (masterData VESSELS) was a leftover
+  // fallback from before real Supabase data existed. It was never removed, so it permanently
+  // injected 6 fictional demo vessels (OCEAN GALAXY, CAPE MIRON, etc.) into every real case list,
+  // and if the real fetch ever failed silently, those fake vessels were all that showed — with no
+  // indication anything was wrong. importedVessels (a genuine feature, e.g. bulk import preview)
+  // is kept.
   const allVessels = [
     ...dbVessels,
-    ...VESSELS.filter(v => !dbVessels.find(s => s.imo === v.imo && s.detentionDate === v.detentionDate)),
-    ...importedVessels.filter(v => !dbVessels.find(s => s.imo === v.imo && s.detentionDate === v.detentionDate) && !VESSELS.find(s => s.imo === v.imo && s.detentionDate === v.detentionDate)),
+    ...importedVessels.filter(v => !dbVessels.find(s => s.imo === v.imo && s.detentionDate === v.detentionDate)),
   ];
 
   const filtered = allVessels.filter(v => {
@@ -455,7 +467,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     URL.revokeObjectURL(a.href);
   }
 
-  const allTasks = [...TASKS, ...dbTasks];
+  const allTasks = dbTasks;
   const vesselTasks = sel ? allTasks.filter(t => t.imo === sel.imo) : [];
   const docsByType = {};
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
@@ -474,6 +486,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   return (
     <div style={{padding:"16px"}}>
+      {loadError && (
+        <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"12px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"12px"}}>
+          <div style={{color:"var(--red2)",fontSize:"13px"}}>⚠ {loadError}</div>
+          <button onClick={()=>loadAll()} style={{background:"var(--red2)",color:"#fff",border:"none",borderRadius:"6px",padding:"6px 14px",fontSize:"12px",fontWeight:600,cursor:"pointer",flexShrink:0}}>Retry</button>
+        </div>
+      )}
       {/* Stats dashboard */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
         {[
