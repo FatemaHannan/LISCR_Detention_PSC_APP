@@ -502,7 +502,15 @@ export default function WeeklyData({ currentUser }) {
     Promise.allSettled(tables.map(t => supabase.from(t).select('*', {count:'exact', head:true}))).then(results => {
       const c = {};
       results.forEach((res, idx) => {
-        c[tables[idx]] = res.status==="fulfilled" ? (res.value?.count||0) : 0;
+        if (res.status==="fulfilled" && !res.value?.error) {
+          c[tables[idx]] = res.value?.count ?? 0;
+        } else {
+          // Genuine failure (network issue, RLS block, etc.) — mark distinctly instead of showing a
+          // misleading "0 rows in DB", which looks identical to a real empty table.
+          const errMsg = res.status==="fulfilled" ? res.value?.error?.message : res.reason?.message;
+          console.error("[WeeklyData] row count fetch failed for", tables[idx], ":", errMsg||res.reason||"unknown error");
+          c[tables[idx]] = null; // null = "couldn't check", distinct from 0 = "genuinely empty"
+        }
       });
       setCounts(c);
     });
@@ -728,7 +736,9 @@ export default function WeeklyData({ currentUser }) {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:"10px",flexShrink:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                    <span style={{fontSize:"10px",color:counts[cfg.table]>0?"var(--text3)":"var(--text3)",fontFamily:"var(--mono)"}}>{counts[cfg.table]!=null?counts[cfg.table].toLocaleString()+" rows in DB":"..."}</span>
+                    <span style={{fontSize:"10px",color:counts[cfg.table]===null?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)"}}>
+                      {counts[cfg.table]===undefined ? "Loading…" : counts[cfg.table]===null ? "⚠ Couldn't verify — check connection" : counts[cfg.table].toLocaleString()+" rows in DB"}
+                    </span>
                     {(()=>{
                       const saved = localStorage.getItem("liscr_upload_"+cfg.key);
                       const uploadTime = st?.time||saved;
