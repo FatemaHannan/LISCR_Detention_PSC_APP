@@ -110,10 +110,13 @@ export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fleetVessels, setFleetVessels] = useState(VESSELS);
   const [fleetTasks, setFleetTasks] = useState(TASKS);
+  const [fleetDataLoaded, setFleetDataLoaded] = useState(false);
 
   React.useEffect(() => {
-    getVessels().then(v => setFleetVessels(v||[]));
-    getTasks().then(t => setFleetTasks(t||[]));
+    Promise.all([
+      getVessels().then(v => setFleetVessels(v||[])),
+      getTasks().then(t => setFleetTasks(t||[])),
+    ]).then(() => setFleetDataLoaded(true));
   }, []);
   const [processing, setProcessing] = useState(false);
   const messagesEndRef = useRef(null);
@@ -134,6 +137,10 @@ export default function App() {
   async function sendChat(text) {
     const q = text || chatInput;
     if (!q.trim() || chatLoading) return;
+    if (!fleetDataLoaded) {
+      setChatMessages(prev => [...prev, {role:"user", text:q}, {role:"ai", text:"Fleet data is still loading from the database — please wait a moment and try again. (This prevents answering with incomplete data.)"}]);
+      return;
+    }
     setChatInput("");
     setChatMessages(prev => [...prev, {role:"user", text:q}]);
     setChatLoading(true);
