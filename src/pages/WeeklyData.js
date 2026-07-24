@@ -167,7 +167,7 @@ const UPLOADS = [
   },
   {
     key: "mlc_complaints",
-    onConflictKey: "imo,reported_date",
+    onConflictKey: "imo,reported_date,inspection_type",
     label: "MLC Complaints",
     desc: "MLC compliance issues — unresolved complaints, inspector, risk level",
     icon: "ti-alert-circle", color: "var(--red2)", bg: "var(--red-bg)",
