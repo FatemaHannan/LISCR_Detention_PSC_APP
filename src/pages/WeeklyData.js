@@ -270,7 +270,7 @@ const UPLOADS = [
   },
   {
     key: "dpp_case_files",
-    onConflictKey: "imo,inspection_date,port",
+    onConflictKey: "imo,detention_date",
     label: "DPP Case File PSC Detention Count",
     desc: "Weekly PSC inspection/detention export — vessel, port, MoU, deficiency count, detained flag, CAR & case action status",
     icon: "ti-radar", color: "var(--amber2)", bg: "var(--amber-bg)",
@@ -286,6 +286,7 @@ const UPLOADS = [
       vessel: s(r["Vessel Name"]||r["vessel"]),
       imo: imo(r["IMO Number"]||r["imo"]),
       inspection_date: d(r["Inspection Date"]||r["inspection_date"]),
+      detention_date: d(r["Inspection Date"]||r["inspection_date"]),
       port: s(r["Port"]||r["port"]),
       mou: s(r["MOU"]||r["mou"]),
       num_deficiencies: i(r["Number Of Deficiencies"]||r["num_deficiencies"]),
