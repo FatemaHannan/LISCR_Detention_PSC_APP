@@ -592,7 +592,12 @@ export default function WeeklyData({ currentUser }) {
 
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
-        await supabase.from(cfg.table).delete().neq("id", 0);
+        const { error: delErr } = await supabase.from(cfg.table).delete().not("id", "is", null);
+        if (delErr) {
+          console.error("[WeeklyData] Full Replace delete failed for", cfg.table, ":", delErr.message, delErr.details, delErr.hint);
+          setStatus(p => ({...p, [cfg.key]: {state:"error", msg:"⚠️ Couldn't clear old data before replace: "+delErr.message+" — upload stopped, nothing was changed."}}));
+          return;
+        }
       }
 
       // Send in parallel groups of 5 batches of 500 rows each
@@ -673,7 +678,7 @@ export default function WeeklyData({ currentUser }) {
         ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote
         : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote;
       const finalState = saved===0&&skipped>0?"error":"done";
-      const finalMsg = saved===0&&skipped>0 ? msg+" ⚠️ All rows failed — table may not exist in Supabase. Run the CREATE TABLE SQL first." : msg;
+      const finalMsg = saved===0&&skipped>0 ? msg+" ⚠️ All rows failed — check the browser console (F12) for the exact error message from Supabase." : msg;
       localStorage.setItem("liscr_upload_"+cfg.key, uploadTime);
       setStatus(p => ({...p, [cfg.key]: {state:finalState, msg:finalMsg, count:saved, time:uploadTime}}));
       setCounts(p => ({...p, [cfg.table]: saved}));
