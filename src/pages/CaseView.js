@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 import CaseImport from "./CaseImport";
 import EditModal from "../components/EditModal";
 
-const MONTHS = ["All","Jul 2026","Jun 2026","May 2026","Apr 2026","Mar 2026","Feb 2026","Jan 2026"];
+const MONTH_NAMES = ["All","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const FLAG_COLOR = {"WHISTLEBLOWER":"var(--purple)","FRAUDULENT RECORD":"var(--red)","HRS":"var(--red)","RO SURVEY GAP":"var(--amber)","MARPOL VIOLATION":"var(--red)","VIP REJECTION":"var(--blue)","REPEAT DETAINEE":"var(--red)","POST DRY DOCK":"var(--amber)"};
 const FLAG_BG = {"WHISTLEBLOWER":"var(--purple-bg)","FRAUDULENT RECORD":"var(--red-bg)","HRS":"var(--red-bg)","RO SURVEY GAP":"var(--amber-bg)","MARPOL VIOLATION":"var(--red-bg)","VIP REJECTION":"var(--blue-bg)","REPEAT DETAINEE":"var(--red-bg)","POST DRY DOCK":"var(--amber-bg)"};
 
@@ -76,6 +76,20 @@ function getMonth(d) {
   }
   return "";
 }
+function getMonthName(d) {
+  if (!d) return "";
+  const p = d.split("-");
+  if (p.length >= 2) {
+    const months = {"1":"Jan","2":"Feb","3":"Mar","4":"Apr","5":"May","6":"Jun","7":"Jul","8":"Aug","9":"Sep","10":"Oct","11":"Nov","12":"Dec"};
+    return months[String(parseInt(p[1]))]||"";
+  }
+  return "";
+}
+function getYear(d) {
+  if (!d) return "";
+  const p = d.split("-");
+  return p.length >= 1 ? p[0] : "";
+}
 
 function VesselCard({v, onOpen, isChecked, onCheck}) {
   const isDet = v.detained;
@@ -119,7 +133,8 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
 
 
 export default function CaseView({canEdit, canDelete, canDownload, currentUser, importedVessels=[], preSelectImo, preSelectDate, onClearPreSelect}) {
-  const [month, setMonth] = useState("All");
+  const [year, setYear] = useState("All");
+  const [monthName, setMonthName] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -228,9 +243,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     ...importedVessels.filter(v => !dbVessels.find(s => s.imo === v.imo && s.detentionDate === v.detentionDate)),
   ];
 
+  const YEARS = ["All", ...Array.from(new Set(allVessels.map(v=>getYear(v.detentionDate)).filter(Boolean))).sort((a,b)=>b.localeCompare(a))];
+
   const filtered = allVessels.filter(v => {
-    const vMonth = getMonth(v.detentionDate);
-    if (month !== "All" && vMonth !== month) return false;
+    if (year !== "All" && getYear(v.detentionDate) !== year) return false;
+    if (monthName !== "All" && getMonthName(v.detentionDate) !== monthName) return false;
     if (statusFilter === "Detained" && !v.detained) return false;
     if (statusFilter === "Active" && v.detained) return false;
     if (fromDate && v.detentionDate && v.detentionDate < fromDate) return false;
@@ -499,7 +516,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           {l:"Detained",v:detained.length,c:"var(--red2)"},
           {l:"Active/Released",v:active.length,c:"var(--green2)"},
           {l:"With Flags",v:filtered.filter(v=>v.flags?.length>0).length,c:"var(--amber2)"},
-          {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===("Jul 2026")).length,c:"var(--blue)"},
+          {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===getMonth(new Date().toISOString().slice(0,10))).length,c:"var(--blue)"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
@@ -518,8 +535,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         <button onClick={()=>{setSelectMode(s=>!s);setSelectedVessels([]);}} style={{padding:"7px 14px",border:"1px solid "+(selectMode?"var(--amber)":"var(--border)"),borderRadius:"6px",background:selectMode?"var(--amber-bg)":"var(--bg3)",color:selectMode?"var(--amber2)":"var(--text3)",cursor:"pointer",fontSize:"13px"}}>
           {selectMode?"✓ Selecting":"Select"}
         </button>
-        <select value={month} onChange={e=>{setMonth(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
-          {MONTHS.map(m=><option key={m}>{m}</option>)}
+        <select value={year} onChange={e=>{setYear(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
+          {YEARS.map(y=><option key={y}>{y}</option>)}
+        </select>
+        <select value={monthName} onChange={e=>{setMonthName(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
+          {MONTH_NAMES.map(m=><option key={m}>{m}</option>)}
         </select>
         <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {["All","Detained","Active"].map(s=><option key={s}>{s}</option>)}
@@ -527,7 +547,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel or IMO..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",width:"180px"}} />
         <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
         <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
-        {(search||fromDate||toDate||month!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setMonth("All");setStatusFilter("All");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        {(search||fromDate||toDate||year!=="All"||monthName!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setYear("All");setMonthName("All");setStatusFilter("All");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
         <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} vessels{detained.length>0&&<span style={{color:"var(--red2)"}}> · {detained.length} detained</span>}{loading&&" · Loading..."}{saving&&" · Saving..."}</span>
       </div>
 
