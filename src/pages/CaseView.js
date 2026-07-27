@@ -810,6 +810,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const previousPscDates = [...new Set(pscFromTable.map(f=>f.insp_date).filter(d=>d&&!currentPscDates.has(d)))].sort((a,b)=>b.localeCompare(a));
             const previousPscGroups = previousPscDates.map(d=>({date:d, findings:pscFromTable.filter(f=>f.insp_date===d)}));
 
+            // Previous Flag inspections — other Flag finding dates (not the most recent one), grouped, same pattern as Previous PSC Detentions
+            const previousFlagDates = [...new Set(flagFromTable.map(f=>f.insp_date).filter(d=>d&&d!==lastFlagDate))].sort((a,b)=>b.localeCompare(a));
+            const previousFlagGroups = previousFlagDates.map(d=>({date:d, findings:flagFromTable.filter(f=>f.insp_date===d)}));
+
 
 
             return (
@@ -829,7 +833,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* View tabs */}
                 <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
-                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length+previousPscGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length)+")"},{id:"match",l:"Match Analysis"},{id:"cqa",l:"CAR Quality"}].map(t=>(
+                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length+previousPscGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length+previousFlagGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"match",l:"Match Analysis"},{id:"cqa",l:"CAR Quality"}].map(t=>(
                     <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:defView===t.id?600:400}}>
                       {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
                     </button>
@@ -913,6 +917,27 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       })}</tbody>
                     </table>
                     {lastFlagFindings.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No Flag findings found. Upload Flag & PSC Findings report.</div>}
+
+                    {/* Previous Flag Inspections */}
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginTop:"20px",marginBottom:"8px",borderTop:"1px solid var(--border)",paddingTop:"16px"}}>Previous Flag Inspections ({previousFlagGroups.length})</div>
+                    {previousFlagGroups.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"10px 0"}}>No other Flag inspection findings on record for this vessel.</div>}
+                    {previousFlagGroups.map((grp,gi)=>(
+                      <div key={gi} style={{marginBottom:"14px"}}>
+                        <div style={{display:"flex",gap:"10px",alignItems:"center",marginBottom:"6px"}}>
+                          <span style={{fontSize:"13px",fontWeight:600,color:"var(--text2)",fontFamily:"var(--mono)"}}>{fmtDate(grp.date)}</span>
+                          <span style={{fontSize:"13px",color:"var(--text3)"}}>{grp.findings.length} findings</span>
+                        </div>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                          <tbody>{grp.findings.map((d,i)=>(
+                            <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                              <td style={{padding:"6px 10px",fontFamily:"var(--mono)",color:"var(--text2)",whiteSpace:"nowrap",width:"90px"}}>{d.defect_code}</td>
+                              <td style={{padding:"6px 10px",color:"var(--amber2)",fontSize:"13px",fontWeight:500,whiteSpace:"nowrap"}}>{d.main_defect_text}</td>
+                              <td style={{padding:"6px 10px",color:"var(--text2)",lineHeight:1.4}}>{d.full_description}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    ))}
                   </div>
                 )}
 

@@ -120,6 +120,26 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
   const [monthlyPscLoading, setMonthlyPscLoading] = useState(true);
   const [fleetCounts, setFleetCounts] = useState({ vetting:{}, casualty:{}, mlc:{} }); // { vetting: {"2024":n,...}, casualty:{...}, mlc:{...} }
   const [fleetCountsLoading, setFleetCountsLoading] = useState(true);
+  const [worldwideBenchmark, setWorldwideBenchmark] = useState([]);
+  const [benchmarkMeta, setBenchmarkMeta] = useState(null); // { year, sources: [{name,url}] }
+
+  // ---- Worldwide industry benchmark, for "Industry Benchmark Comparison" card. Not hardcoded —
+  // reads from industry_benchmarks table so it can be updated (manually or via future AI-suggest
+  // pipeline) without a code deploy. ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("industry_benchmarks")
+        .select("*").eq("mou", "Worldwide").eq("status", "approved").order("report_year", {ascending:false});
+      if (cancelled || error || !data) return;
+      const latestYear = data.length ? Math.max(...data.map(r=>r.report_year)) : null;
+      const rows = data.filter(r=>r.report_year === latestYear);
+      setWorldwideBenchmark(rows);
+      const sources = [...new Map(rows.filter(r=>r.source_name).map(r=>[r.source_name, {name:r.source_name, url:r.source_url}])).values()];
+      setBenchmarkMeta(latestYear ? { year: latestYear, sources } : null);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -261,6 +281,23 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
     }));
     return DEF_CATEGORY_ORDER.filter(c=>counts[c]>0).map(cat=>({cat, count:counts[cat]}));
   }, [detained]);
+
+  // ---- Industry Benchmark Comparison — LISCR's own category % vs the Worldwide benchmark from Supabase ----
+  const industryComparison = useMemo(() => {
+    const total = deficiencyCategoryBreakdown.reduce((s,c)=>s+c.count, 0);
+    if (!total || !worldwideBenchmark.length) return [];
+    const benchByCat = {};
+    worldwideBenchmark.forEach(r => { benchByCat[r.category] = r.pct; });
+    const cats = new Set([...deficiencyCategoryBreakdown.map(c=>c.cat), ...Object.keys(benchByCat)]);
+    return DEF_CATEGORY_ORDER.filter(c=>cats.has(c)).map(cat => {
+      const liscrCount = deficiencyCategoryBreakdown.find(c=>c.cat===cat)?.count || 0;
+      return {
+        cat,
+        liscrPct: Math.round((liscrCount/total)*1000)/10,
+        industryPct: benchByCat[cat] != null ? Math.round(benchByCat[cat]*10)/10 : null,
+      };
+    }).filter(r => r.industryPct != null); // only show categories with a published benchmark
+  }, [deficiencyCategoryBreakdown, worldwideBenchmark]);
 
   // ---- Top Recurring Deficiency Codes — fleet-wide, grounds-for-detention highlighted ----
   const topDeficiencyCodes = useMemo(() => {
@@ -812,6 +849,29 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
             </Bar>
           </BarChart>
         </ResponsiveContainer>}
+      </Card>
+
+      <Card title="Industry Benchmark Comparison" subtitle={"LISCR fleet % vs worldwide PSC benchmark" + (benchmarkMeta ? " ("+benchmarkMeta.year+" data)" : "")} style={{marginBottom:"20px"}}>
+        {industryComparison.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No benchmark data loaded yet — run migration_industry_benchmarks.sql to populate this.</div>:<>
+        <ResponsiveContainer width="100%" height={Math.max(200, industryComparison.length*44)}>
+          <BarChart data={industryComparison} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
+            <YAxis type="category" dataKey="cat" width={140} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} formatter={(v)=>v+"%"} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            <Bar dataKey="liscrPct" name="LISCR fleet %" fill="#3b82f6" radius={[0,3,3,0]}>
+              <LabelList dataKey="liscrPct" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} formatter={(v)=>v+"%"} />
+            </Bar>
+            <Bar dataKey="industryPct" name="Worldwide benchmark %" fill="#94a3b8" radius={[0,3,3,0]}>
+              <LabelList dataKey="industryPct" position="right" style={{fontSize:10,fill:"var(--text3)"}} formatter={(v)=>v+"%"} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        {benchmarkMeta?.sources?.length>0 && <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>
+          Sources: {benchmarkMeta.sources.map((s,i)=>(<span key={i}>{i>0?", ":""}{s.url?<a href={s.url} target="_blank" rel="noreferrer" style={{color:"var(--text3)"}}>{s.name}</a>:s.name}</span>))}
+        </div>}
+        </>}
       </Card>
 
       <Card title="Top Recurring Deficiency Codes" subtitle="Fleet-wide, ranked by frequency — codes marked as grounds for detention are highlighted" style={{marginBottom:"20px"}}>

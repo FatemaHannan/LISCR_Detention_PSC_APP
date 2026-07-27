@@ -94,6 +94,34 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [findingsMap, setFindingsMap] = useState({});
   const [findingsLoading, setFindingsLoading] = useState(true);
   const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+
+  // ---- Per-MoU industry benchmark data. Not hardcoded — reads from industry_benchmarks table.
+  // MoUs without their own published benchmark (e.g. AMSA, China MSA — both Tokyo MoU-region
+  // authorities that don't publish a separate category breakdown) fall back to the Tokyo MOU row. ----
+  const MOU_BENCHMARK_ALIAS = { "AMSA":"Tokyo MOU", "China MSA":"Tokyo MOU", "CHINA MSA":"Tokyo MOU" };
+  const [benchmarksByMou, setBenchmarksByMou] = useState({}); // { "Paris MOU": [{category,pct,rank,...}], ... }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("industry_benchmarks").select("*").eq("status","approved");
+      if (cancelled || error || !data) return;
+      const byMou = {};
+      data.forEach(r => {
+        if (!byMou[r.mou]) byMou[r.mou] = [];
+        byMou[r.mou].push(r);
+      });
+      // keep only the latest report_year per mou+category
+      Object.keys(byMou).forEach(mou => {
+        const latestYear = Math.max(...byMou[mou].map(r=>r.report_year));
+        byMou[mou] = byMou[mou].filter(r=>r.report_year===latestYear);
+      });
+      setBenchmarksByMou(byMou);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  function getBenchmarkForMou(mou) {
+    return benchmarksByMou[mou] || benchmarksByMou[MOU_BENCHMARK_ALIAS[mou]] || null;
+  }
   useEffect(() => {
     let cancelled = false;
     const missingImos = [...new Set(detained.filter(v=>v.imo && (!v.deficiencies||v.deficiencies.length===0)).map(v=>normImo(v.imo)))];
@@ -632,17 +660,27 @@ export default function MouDetentionReport({ vessels = [] }) {
                         ))}</tbody>
                       </table>}
                     </Card>
-                    <Card title="Major Causes">
+                    <Card title="Major Causes" subtitle={(() => { const b=getBenchmarkForMou(m.mou); if(!b) return undefined; const isAlias = !benchmarksByMou[m.mou]; return "vs "+(isAlias?MOU_BENCHMARK_ALIAS[m.mou]:m.mou)+" published benchmark"+(isAlias?" (no separate report for "+m.mou+")":""); })()}>
                       {findingsLoading?<div style={{fontSize:"11px",color:"var(--text3)"}}>Loading findings…</div>:
                       (dd.causes||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No deficiency category data.</div>:
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
-                        <tbody>{dd.causes.map(c=>(
+                        {getBenchmarkForMou(m.mou) && <thead><tr>
+                          <th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Cause</th>
+                          <th style={{textAlign:"right",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Count</th>
+                          <th style={{textAlign:"right",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Industry %</th>
+                        </tr></thead>}
+                        <tbody>{dd.causes.map(c=>{
+                          const bench = getBenchmarkForMou(m.mou);
+                          const benchRow = bench?.find(b=>b.category===c.cause);
+                          return (
                           <tr key={c.cause} style={{borderBottom:"1px solid var(--border)"}}>
                             <td style={{padding:"5px 8px",color:"var(--text2)"}}>{c.cause}</td>
                             <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,textAlign:"right"}}>{c.count}</td>
+                            {bench && <td style={{padding:"5px 8px",color:"var(--text3)",textAlign:"right"}}>{benchRow ? (benchRow.pct!=null ? benchRow.pct+"%" : "rank #"+benchRow.rank) : "—"}</td>}
                           </tr>
-                        ))}</tbody>
+                        );})}</tbody>
                       </table>}
+                      {getBenchmarkForMou(m.mou)?.[0]?.source_url && <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"6px"}}>Source: <a href={getBenchmarkForMou(m.mou)[0].source_url} target="_blank" rel="noreferrer" style={{color:"var(--text3)"}}>{getBenchmarkForMou(m.mou)[0].source_name}</a></div>}
                     </Card>
                   </div>
 
