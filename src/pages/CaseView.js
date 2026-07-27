@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
+import * as XLSX from "xlsx";
 import { DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
@@ -144,6 +145,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [evpQ, setEvpQ] = useState(0);
   const [editModal, setEditModal] = useState(null);
   const [defView, setDefView] = useState("psc");
+  const [fleetMatches, setFleetMatches] = useState({ loading:false, data:null, forImo:null });
   const [expandedNote, setExpandedNote] = useState(null);
 
   // Auto-load intel when switching to deficiencies tab
@@ -814,6 +816,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const previousFlagDates = [...new Set(flagFromTable.map(f=>f.insp_date).filter(d=>d&&d!==lastFlagDate))].sort((a,b)=>b.localeCompare(a));
             const previousFlagGroups = previousFlagDates.map(d=>({date:d, findings:flagFromTable.filter(f=>f.insp_date===d)}));
 
+            // All unique defect codes this vessel has ever had, across all PSC + Flag inspections — used for Fleet Matches
+            const allVesselCodes = [...new Set([...pscFromTable, ...flagFromTable].map(f=>f.defect_code).filter(Boolean))];
 
 
             return (
@@ -833,7 +837,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                 {/* View tabs */}
                 <div style={{display:"flex",gap:"2px",borderBottom:"1px solid var(--border)",marginBottom:"12px"}}>
-                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length+previousPscGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length+previousFlagGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"match",l:"Match Analysis"},{id:"cqa",l:"CAR Quality"}].map(t=>(
+                  {[{id:"psc",l:"PSC Findings ("+(pscToShow.length+previousPscGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"flag",l:"Flag Findings ("+(lastFlagFindings.length+previousFlagGroups.reduce((s,g)=>s+g.findings.length,0))+")"},{id:"match",l:"Match Analysis"},{id:"fleet",l:"Fleet Matches"+(fleetMatches.forImo===v.imo&&fleetMatches.data?" ("+fleetMatches.data.length+")":"")},{id:"cqa",l:"CAR Quality"}].map(t=>(
                     <button key={t.id} onClick={()=>setDefView(t.id)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(defView===t.id?"var(--blue)":"transparent"),background:"transparent",color:defView===t.id?"var(--blue)":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:defView===t.id?600:400}}>
                       {t.l}{t.id==="match"&&matchedCodes.length>0?<span style={{marginLeft:"5px",fontSize:"13px",padding:"1px 5px",borderRadius:"3px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{matchedCodes.length}</span>:null}
                     </button>
@@ -1008,6 +1012,62 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
                     {matchedCodes.length===0&&pscOnlyCodes.length===0&&flagOnlyCodes.length===0&&(
                       <div style={{textAlign:"center",color:"var(--text3)",fontSize:"13px",padding:"30px"}}>Upload Flag & PSC Findings report to enable match analysis.</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Fleet Matches — find other vessels in our records with the same deficiency code(s) as this vessel */}
+                {defView==="fleet"&&(
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
+                      <div style={{fontSize:"13px",color:"var(--text2)"}}>Searches every other vessel's Flag & PSC findings for the {allVesselCodes.length} deficiency code{allVesselCodes.length===1?"":"s"} on record for this vessel.</div>
+                      <div style={{display:"flex",gap:"8px"}}>
+                        <button onClick={async ()=>{
+                          if (allVesselCodes.length===0) return;
+                          setFleetMatches({loading:true, data:null, forImo:v.imo});
+                          const CHUNK=30, thisImo=String(v.imo).replace(/\.0$/,"").trim();
+                          const chunks=[]; for (let i=0;i<allVesselCodes.length;i+=CHUNK) chunks.push(allVesselCodes.slice(i,i+CHUNK));
+                          let all=[];
+                          for (const chunk of chunks) {
+                            const {data,error} = await supabase.from("flag_psc_findings").select("*").in("defect_code",chunk).neq("imo",thisImo);
+                            if (!error && data) all = all.concat(data);
+                          }
+                          all.sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
+                          setFleetMatches({loading:false, data:all, forImo:v.imo});
+                        }} disabled={fleetMatches.loading||allVesselCodes.length===0} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue)",color:"#fff",cursor:"pointer",fontSize:"13px",fontWeight:500}}>{fleetMatches.loading?"Searching…":"Search Fleet Matches"}</button>
+                        {fleetMatches.forImo===v.imo&&fleetMatches.data?.length>0&&<button onClick={()=>{
+                          const rows = fleetMatches.data.map(r=>({Vessel:r.vessel||"—",IMO:r.imo,Type:r.flag_psc,"Inspection Date":fmtDate(r.insp_date),"Defect Code":r.defect_code,"Main Defect Text":r.main_defect_text||"","Full Description":r.full_description||""}));
+                          const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Fleet Matches");
+                          XLSX.writeFile(wb, "Fleet_Matches_"+v.name+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+                        }} style={{padding:"7px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px"}}>↓ Export Excel</button>}
+                      </div>
+                    </div>
+
+                    {allVesselCodes.length===0&&<div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No deficiency codes on record for this vessel to search with.</div>}
+
+                    {fleetMatches.forImo===v.imo&&fleetMatches.data&&(
+                      fleetMatches.data.length===0?
+                      <div style={{color:"var(--text3)",fontSize:"13px",padding:"20px",textAlign:"center"}}>No other vessels in our records share any of this vessel's deficiency codes.</div>:
+                      <>
+                      <div style={{fontSize:"13px",color:"var(--text2)",marginBottom:"10px"}}><b style={{color:"var(--text)"}}>{fleetMatches.data.length}</b> matching finding{fleetMatches.data.length===1?"":"s"} across <b style={{color:"var(--text)"}}>{new Set(fleetMatches.data.map(r=>r.imo)).size}</b> other vessel{new Set(fleetMatches.data.map(r=>r.imo)).size===1?"":"s"}</div>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                        <thead><tr>{["Vessel","IMO","Type","Inspection Date","Code","Description","Case"].map(h=><th key={h} style={{fontSize:"11px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 10px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                        <tbody>{fleetMatches.data.map((r,i)=>{
+                          const matchedVessel = allVessels.find(av=>String(av.imo).replace(/\.0$/,"")===String(r.imo).replace(/\.0$/,""));
+                          return (
+                            <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                              <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:500}}>{r.vessel||"—"}</td>
+                              <td style={{padding:"7px 10px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{r.imo}</td>
+                              <td style={{padding:"7px 10px"}}><span style={{fontSize:"11px",padding:"2px 6px",borderRadius:"3px",background:r.flag_psc==="PSC"?"rgba(59,130,246,0.1)":"rgba(245,158,11,0.1)",color:r.flag_psc==="PSC"?"var(--blue)":"var(--amber2)"}}>{r.flag_psc}</span></td>
+                              <td style={{padding:"7px 10px",color:"var(--text2)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{fmtDate(r.insp_date)}</td>
+                              <td style={{padding:"7px 10px",color:"var(--text2)",fontFamily:"var(--mono)"}}>{r.defect_code}</td>
+                              <td style={{padding:"7px 10px",color:"var(--text2)",maxWidth:"300px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.main_defect_text||r.full_description||"—"}</td>
+                              <td style={{padding:"7px 10px"}}>{matchedVessel?<span onClick={()=>openModal(matchedVessel)} style={{color:"var(--blue)",cursor:"pointer"}}>Open →</span>:<span style={{color:"var(--text3)"}}>—</span>}</td>
+                            </tr>
+                          );
+                        })}</tbody>
+                      </table>
+                      </>
                     )}
                   </div>
                 )}

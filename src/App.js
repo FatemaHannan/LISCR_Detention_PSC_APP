@@ -8,6 +8,7 @@ import InspectorNetwork from "./pages/InspectorNetwork";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import TrendAnalysisHub from "./pages/TrendAnalysisHub";
+import DeficiencyCodeSearch from "./pages/DeficiencyCodeSearch";
 import MeetingBriefingQueue from "./pages/MeetingBriefingQueue";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
 import VesselManager from "./pages/VesselManager";
@@ -34,6 +35,7 @@ const NAV = [
   ]},
   { section:"INTELLIGENCE", items:[
     { id:"trends", label:"Trend Analysis", icon:"ti-chart-line", badge:null },
+    { id:"defcodesearch", label:"Deficiency Code Search", icon:"ti-search", badge:null },
     { id:"inspector", label:"Inspector network", icon:"ti-users", badge:null },
     { id:"meeting", label:"Meeting minutes", icon:"ti-notes", badge:null },
     { id:"initiatives", label:"PDAIP & Tasks", icon:"ti-chart-dots", badge:null },
@@ -870,6 +872,7 @@ export default function App() {
           {page === "meeting" && <MeetingMinutes />}
           {page === "initiatives" && <InitiativeTracker vessels={fleetVessels} tasks={fleetTasks} />}
           {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} setPage={setPage} />}
+          {page === "defcodesearch" && <DeficiencyCodeSearch vessels={fleetVessels||[]} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
