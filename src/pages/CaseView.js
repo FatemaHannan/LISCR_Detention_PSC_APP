@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
+import { generateCaseBriefDocx } from "../lib/caseBriefDocx";
 import { checkRateLimit } from "../lib/rateLimiter";
 import { logAudit, AUDIT_ACTIONS } from "../lib/auditLog";
 import { supabase } from "../lib/supabase";
@@ -2217,15 +2218,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     // fallback in case onload doesn't fire (some browsers with document.write)
                     setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
                   };
-                  const downloadWordBrief = ()=>{
-                    const html = "<html><head><meta charset='utf-8'><title>Case Brief - "+v.name+"</title></head><body style='font-family:Calibri,\"Segoe UI\",Arial,sans-serif;font-size:11pt;color:#111;'>"
-                      +buildBriefBodyHtml()
-                      +"</body></html>";
-                    const blob = new Blob(['\ufeff', html], {type:"application/msword"});
+                  const downloadWordBrief = async ()=>{
+                    const blob = await generateCaseBriefDocx({
+                      v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
+                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
+                      flagInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes,
+                      daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
+                    });
                     const a = document.createElement("a");
                     a.href = URL.createObjectURL(blob);
-                    a.download = "CaseBrief_"+v.name.replace(/\s+/g,"_")+"_"+v.imo+"_"+(v.detentionDate||"").replace(/-/g,"")+".doc";
+                    a.download = "CaseBrief_"+v.name.replace(/\s+/g,"_")+"_"+v.imo+"_"+(v.detentionDate||"").replace(/-/g,"")+".docx";
                     a.click();
+                    URL.revokeObjectURL(a.href);
                   };
                   return (
                     <div id="case-brief-print-area">
