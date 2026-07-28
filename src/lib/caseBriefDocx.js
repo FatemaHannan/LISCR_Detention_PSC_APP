@@ -4,7 +4,8 @@
 // CaseView.js exactly, same order, same data, same "alert" red-flagging logic.
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  WidthType, ShadingType, BorderStyle, VerticalAlign,
+  WidthType, ShadingType, BorderStyle, VerticalAlign, HeadingLevel,
+  Header, Footer, PageNumber, TableOfContents, AlignmentType, TabStopType, TabStopPosition,
 } from "docx";
 
 const PAGE_WIDTH_DXA = 10080; // US Letter, 0.75in margins each side (12240 - 1080*2)
@@ -36,6 +37,7 @@ function valueCell(text, widthDxa, alert) {
 }
 function boxHeadRow(title, colorHex) {
   return new TableRow({
+    cantSplit: true,
     children: [new TableCell({
       columnSpan: 4,
       width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
@@ -48,7 +50,7 @@ function boxHeadRow(title, colorHex) {
 // 2-column "rows()" equivalent: label (32%) | value (68%)
 function singleRow(label, value, alert) {
   const labelW = Math.round(PAGE_WIDTH_DXA * 0.32), valW = PAGE_WIDTH_DXA - labelW;
-  return new TableRow({ children: [labelCell(label, labelW), valueCell(value, valW, alert)] });
+  return new TableRow({ cantSplit: true, children: [labelCell(label, labelW), valueCell(value, valW, alert)] });
 }
 // 4-column "pair()" equivalent: label1 (32%) | val1 (18%) | label2 (32%) | val2 (18%)
 function pairRow(l1, v1, l2, v2, a1, a2) {
@@ -57,13 +59,17 @@ function pairRow(l1, v1, l2, v2, a1, a2) {
   if (l2 != null) cells.push(labelCell(l2, lW), valueCell(v2, vW, a2));
   else cells.push(new TableCell({ width:{size:lW,type:WidthType.DXA}, borders:CELL_BORDERS, children:[new Paragraph("")] }),
                    new TableCell({ width:{size:vW,type:WidthType.DXA}, borders:CELL_BORDERS, children:[new Paragraph("")] }));
-  return new TableRow({ children: cells });
+  return new TableRow({ cantSplit: true, children: cells });
 }
 function table(rows) {
   return new Table({ width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, columnWidths: [PAGE_WIDTH_DXA], rows });
 }
+// Real Word heading (Heading 2) so Word's Table of Contents field can find and list every
+// section automatically — while keeping our own color/border styling on the run itself,
+// which takes precedence over the built-in Heading 2 look.
 function sectionTitle(title, colorHex) {
   return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
     spacing: { before: 200, after: 100 },
     border: { left: { style: BorderStyle.SINGLE, size: 24, color: colorHex || "333333", space: 6 } },
     children: [new TextRun({ text: title, bold: true, size: 25, color: colorHex || "333333" })],
@@ -107,6 +113,15 @@ export async function generateCaseBriefDocx(ctx) {
     })]})],
   }));
   children.push(new Paragraph({ text: "", spacing: { after: 150 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: "Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}), size: 16, italics: true, color: "888888" })] }));
+
+  // Table of Contents — Word computes this from the Heading 2 sections below when the
+  // document is opened (right-click → Update Field, or Word does it automatically on open
+  // in most versions). Static tools like LibreOffice conversion may show it as a field
+  // placeholder rather than filled-in text — that's expected, not a bug.
+  children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Table of Contents", bold: true, size: 26, color: "1E293B" })] }));
+  children.push(new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "2-2" }));
+  children.push(new Paragraph({ children: [], pageBreakBefore: true }));
 
   // KPI row
   const kpis = [
@@ -133,7 +148,7 @@ export async function generateCaseBriefDocx(ctx) {
   // Notes
   children.push(sectionTitle("Notes", SEC_COLORS.flags));
   if (briefAlerts.length) {
-    children.push(table(briefAlerts.map(a => new TableRow({ children: [new TableCell({
+    children.push(table(briefAlerts.map(a => new TableRow({ cantSplit: true, children: [new TableCell({
       width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, borders: CELL_BORDERS,
       children: [new Paragraph({ children: [new TextRun({ text: a.msg, bold: true, size: 20, color: a.sev==="red"?"A30000":"8A5A00" })] })],
     })] }))));
@@ -271,7 +286,7 @@ export async function generateCaseBriefDocx(ctx) {
   // Case Flags
   children.push(sectionTitle("Case Flags", SEC_COLORS.flags));
   if ((v.flags||[]).length) {
-    children.push(table(v.flags.map(f => new TableRow({ children: [new TableCell({
+    children.push(table(v.flags.map(f => new TableRow({ cantSplit: true, children: [new TableCell({
       width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, borders: CELL_BORDERS,
       children: [new Paragraph({ children: [new TextRun({ text: f, bold: true, size: 20, color: "A30000" })] })],
     })] }))));
@@ -281,9 +296,47 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(sectionTitle("Final Recommendations", SEC_COLORS.rec));
   children.push(plainPara(v.finalRecommendations || "None recorded"));
 
+  // Sign-off block
+  children.push(new Paragraph({ text: "", spacing: { before: 400 } }));
+  children.push(new Paragraph({
+    border: { top: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC", space: 8 } },
+    spacing: { before: 100 },
+    children: [new TextRun({ text: "APPROVAL", size: 16, color: "888888", bold: true })],
+  }));
+  const sigW = Math.round(PAGE_WIDTH_DXA/2);
+  children.push(new Table({
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
+    rows: [new TableRow({ children: [
+      new TableCell({ width:{size:sigW,type:WidthType.DXA}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}, children:[
+        new Paragraph({ spacing:{before:600}, border:{top:{style:BorderStyle.SINGLE,size:4,color:"999999"}}, children:[new TextRun({text:"Case Owner Signature / Date",size:18,color:"666666"})] }),
+      ]}),
+      new TableCell({ width:{size:sigW,type:WidthType.DXA}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}, children:[
+        new Paragraph({ spacing:{before:600}, border:{top:{style:BorderStyle.SINGLE,size:4,color:"999999"}}, children:[new TextRun({text:"EVP Approval / Date",size:18,color:"666666"})] }),
+      ]}),
+    ]})],
+  }));
+
   const doc = new Document({
     sections: [{
       properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } },
+      headers: {
+        default: new Header({ children: [new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [new TextRun({ text: "INTERNAL USE ONLY — CONFIDENTIAL", size: 14, color: "AAAAAA", bold: true })],
+        })] }),
+      },
+      footers: {
+        default: new Footer({ children: [new Paragraph({
+          tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+          children: [
+            new TextRun({ text: v.name+" · IMO "+v.imo, size: 16, color: "999999" }),
+            new TextRun({ text: "\tPage ", size: 16, color: "999999" }),
+            new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "999999" }),
+            new TextRun({ text: " of ", size: 16, color: "999999" }),
+            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: "999999" }),
+          ],
+        })] }),
+      },
       children,
     }],
     styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
