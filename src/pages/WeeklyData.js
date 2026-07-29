@@ -589,7 +589,7 @@ export default function WeeklyData({ currentUser }) {
 
       const conflictKey = cfg.onConflictKey || "id";
       let saved = 0, skipped = 0;
-      const BATCH_SIZE = cfg.key==="vessel_inspection_performance" ? 1 : 500;
+      const BATCH_SIZE = 500; // all tables use 500 rows per batch
 
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
@@ -603,14 +603,14 @@ export default function WeeklyData({ currentUser }) {
 
       // Send in parallel groups of 5 batches of 500 rows each
       const BATCH = BATCH_SIZE||500;
-      const PARALLEL = 5;
+      const PARALLEL = 10;
 
       async function sendBatch(batch) {
         let bData, bErr;
         if (mode === "replace") {
-          ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch).select("id"));
+          ({data: bData, error: bErr} = await supabase.from(cfg.table).insert(batch));
         } else {
-          ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}).select("id"));
+          ({data: bData, error: bErr} = await supabase.from(cfg.table).upsert(batch, {onConflict: conflictKey, ignoreDuplicates: false}));
         }
         if (bErr) {
           console.error("Batch error for", cfg.table, ":", bErr.message, bErr.details, bErr.hint);
@@ -781,7 +781,17 @@ export default function WeeklyData({ currentUser }) {
                   </div>
                 </div>
               </div>
-              {st&&<div style={{padding:"8px 12px",borderRadius:"6px",fontSize:"11px",background:st.state==="done"?"var(--green-bg)":st.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(st.state==="done"?"var(--green)":st.state==="error"?"var(--red)":"var(--border)"),color:st.state==="done"?"var(--green2)":st.state==="error"?"var(--red2)":"var(--text3)"}}>{st.state==="done"?"✓ ":st.state==="error"?"✗ ":"⟳ "}{st.msg}</div>}
+              {st&&(
+                <div style={{padding:"8px 12px",borderRadius:"6px",fontSize:"11px",background:st.state==="done"?"var(--green-bg)":st.state==="error"?"var(--red-bg)":"var(--bg3)",border:"1px solid "+(st.state==="done"?"var(--green)":st.state==="error"?"var(--red)":"var(--border)"),color:st.state==="done"?"var(--green2)":st.state==="error"?"var(--red2)":"var(--text3)"}}>
+                  <div>{st.state==="done"?"✓ ":st.state==="error"?"✗ ":"⟳ "}{st.msg}</div>
+                  {st.state==="uploading"&&(
+                    <div style={{background:"rgba(255,255,255,0.1)",borderRadius:"3px",height:"4px",marginTop:"6px",overflow:"hidden"}}>
+                      <div style={{height:"100%",background:"var(--blue)",borderRadius:"3px",transition:"width .3s ease",
+                        width:(st.msg&&st.msg.includes("%")?st.msg.match(/\d+%/)?.[0]:"15%")||"15%"}}></div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
