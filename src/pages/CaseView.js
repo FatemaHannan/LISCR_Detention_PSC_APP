@@ -227,7 +227,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("flag_psc_findings").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
       supabase.from("car_status_report").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
     ]);
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRes?.data?.[0]||null, findings:fpRes?.data||[], cars:carRes?.data||[], loading:false});
+    const vipRow = vipRes?.data?.[0]||null;
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], loading:false});
+
+    // Auto-backfill vessel facts from VIP if fields are empty
+    if (vipRow && sel) {
+      const updates = {};
+      if ((!sel.company || sel.company === "—" || sel.company === "") && vipRow.ism_client) updates.company = vipRow.ism_client;
+      if ((!sel.ro || sel.ro === "—" || sel.ro === "") && vipRow.ro) updates.ro = vipRow.ro;
+      if (Object.keys(updates).length > 0) {
+        await saveVesselEdit(updates);
+      }
+    }
   }
 
   async function refreshVessels() {
@@ -677,7 +688,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
