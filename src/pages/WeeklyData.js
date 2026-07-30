@@ -770,7 +770,7 @@ export default function WeeklyData({ currentUser }) {
                     {counts[cfg.table]>0&&<button onClick={()=>handleExport(cfg)} style={{padding:"5px 10px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"10px"}}>↓ Export</button>}
                     <div style={{display:"flex",alignItems:"center",gap:"4px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"6px",padding:"2px"}}>
                       {["upsert","replace"].map(m=>(
-                        <button key={m} onClick={()=>setUploadMode(p=>({...p,[cfg.key]:m}))} style={{padding:"4px 10px",borderRadius:"4px",border:"none",cursor:"pointer",fontSize:"10px",fontWeight:500,background:(uploadMode[cfg.key]||"upsert")===m?"var(--bg)":"transparent",color:(uploadMode[cfg.key]||"upsert")===m?"var(--text)":"var(--text3)",boxShadow:(uploadMode[cfg.key]||"upsert")===m?"0 1px 3px rgba(0,0,0,0.15)":"none"}}>
+                        <button key={m} onClick={()=>setUploadMode(p=>({...p,[cfg.key]:m}))} style={{padding:"4px 10px",borderRadius:"4px",border:"none",cursor:"pointer",fontSize:"10px",fontWeight:500,background:(uploadMode[cfg.key]||(cfg.defaultMode||"upsert"))===m?"var(--bg)":"transparent",color:(uploadMode[cfg.key]||(cfg.defaultMode||"upsert"))===m?"var(--text)":"var(--text3)",boxShadow:(uploadMode[cfg.key]||(cfg.defaultMode||"upsert"))===m?"0 1px 3px rgba(0,0,0,0.15)":"none"}}>
                           {m==="upsert"?"+ Weekly Delta":"↺ Full Replace"}
                         </button>
                       ))}
