@@ -385,7 +385,7 @@ const UPLOADS = [
         psc_followup_rcm: ns(r["PSC Follow-Up RCM"]),
       };
     },
-  },,
+  },
   {
     key: "flag_psc_findings",
     onConflictKey: "imo,flag_psc,insp_date,defect_code",
@@ -416,10 +416,10 @@ const UPLOADS = [
         full_description: String(r["Full Description"]||r["full_description"]||"").trim().slice(0,500)||null,
       };
     },
-  },,
+  },
   {
     key: "car_status_report",
-    onConflictKey: "imo,insp_date",
+    onConflictKey: "car_link",
     color: "#F59E0B",
     bg: "rgba(245,158,11,0.1)",
     label: "CAR Status Report",
