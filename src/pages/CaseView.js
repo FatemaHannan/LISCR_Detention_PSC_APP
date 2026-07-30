@@ -214,7 +214,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setLoading(false);
   }
 
-  async function loadIntelligence(imo, company) {
+  async function loadIntelligence(imo, company, vesselOverride) {
     setIntel(p => ({...p, loading:true}));
     const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
@@ -231,12 +231,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], loading:false});
 
     // Auto-backfill vessel facts from VIP if fields are empty
-    if (vipRow && sel) {
+    const backfillTarget = vesselOverride || sel;
+    if (vipRow && backfillTarget) {
       const updates = {};
-      if ((!sel.company || sel.company === "—" || sel.company === "") && vipRow.ism_client) updates.company = vipRow.ism_client;
-      if ((!sel.ro || sel.ro === "—" || sel.ro === "") && vipRow.ro) updates.ro = vipRow.ro;
+      if ((!backfillTarget.company || backfillTarget.company === "—" || backfillTarget.company === "") && vipRow.ism_client) updates.company = vipRow.ism_client;
+      if ((!backfillTarget.ro || backfillTarget.ro === "—" || backfillTarget.ro === "") && vipRow.ro) updates.ro = vipRow.ro;
       if (Object.keys(updates).length > 0) {
-        await saveVesselEdit(updates);
+        setSel(p => ({...p, ...updates}));
+        if (backfillTarget.id) await supabase.from("vessels").update(updates).eq("id", backfillTarget.id);
       }
     }
   }
@@ -510,7 +512,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setModalVessel(vessel);
     setModalFull(false);
     setDbDocs([]);
-    loadIntelligence(vessel.imo, vessel.company);
+    loadIntelligence(vessel.imo, vessel.company, vessel);
     const docs = await getDocuments(vessel.imo, vessel.detentionDate);
     setDbDocs(docs);
   }
