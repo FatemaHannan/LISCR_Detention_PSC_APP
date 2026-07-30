@@ -236,9 +236,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       const updates = {};
       if ((!backfillTarget.company || backfillTarget.company === "—" || backfillTarget.company === "") && vipRow.ism_client) updates.company = vipRow.ism_client;
       if ((!backfillTarget.ro || backfillTarget.ro === "—" || backfillTarget.ro === "") && vipRow.ro) updates.ro = vipRow.ro;
+      if ((!backfillTarget.fsiCaseOwner || backfillTarget.fsiCaseOwner === "—" || backfillTarget.fsiCaseOwner === "") && vipRow.flag_followup_rcm) updates.fsiCaseOwner = vipRow.flag_followup_rcm;
+      if ((!backfillTarget.pscOwner || backfillTarget.pscOwner === "—" || backfillTarget.pscOwner === "") && vipRow.psc_followup_rcm) updates.pscOwner = vipRow.psc_followup_rcm;
       if (Object.keys(updates).length > 0) {
-        setSel(p => ({...p, ...updates}));
-        if (backfillTarget.id) await supabase.from("vessels").update(updates).eq("id", backfillTarget.id);
+        if (backfillTarget.id) {
+          await supabase.from("vessels").update(updates).eq("id", backfillTarget.id);
+          setSel(p => p ? {...p, ...updates} : p);
+          setModalVessel(p => p ? {...p, ...updates} : p);
+        }
       }
     }
   }
