@@ -419,6 +419,7 @@ const UPLOADS = [
   },
   {
     key: "car_status_report",
+    defaultMode: "replace",
     onConflictKey: "car_link",
     color: "#F59E0B",
     bg: "rgba(245,158,11,0.1)",
@@ -552,7 +553,7 @@ export default function WeeklyData({ currentUser }) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-    const mode = uploadMode[cfg.key] || "upsert";
+    const mode = uploadMode[cfg.key] || cfg.defaultMode || "upsert";
     setUploading(p => ({...p, [cfg.key]: true}));
     setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`Reading file (${(file.size/1024/1024).toFixed(1)} MB)...`}}));
 
