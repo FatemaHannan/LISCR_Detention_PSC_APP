@@ -425,7 +425,7 @@ const UPLOADS = [
     label: "CAR Status Report",
     icon: "ti-clipboard-check",
     table: "car_status_report",
-    filter: (r) => (r["IMO"]||r["imo"]) && (r["Vessel"]||r["vessel"]),
+    filter: (r) => (r["IMO"]||r["imo"]) && (r["Vessel"]||r["vessel"]) && (r["CAR Link"]||r["car_link"]),
     map: (r) => {
       const rawImo = r["IMO"]||r["imo"]||"";
       const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
