@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
+import * as XLSX from "xlsx";
+import { generateMcPiCaseBriefDocx } from "../lib/mcPiCaseBriefDocx";
 
 const SEVERITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e", Unknown: "#64748b" };
 const STATUS_COLORS = { Open: "#f59e0b", Closed: "#22c55e", Unknown: "#64748b" };
@@ -107,6 +109,8 @@ function briefIncidentType(row) {
 
 const WORKFLOW_STATUS_OPTIONS = ["To Do", "In Progress", "Completed"];
 const WORKFLOW_STATUS_COLORS = { "To Do": "var(--text3)", "In Progress": "var(--amber2)", "Completed": "var(--green2)" };
+const KNOWN_TEAM = ["Fatema Hannan", "Reynaldo", "Giorgio", "Ankita", "Roderick", "Chris", "Cedric", "Frank"];
+
 
 function pagerBtnStyle(disabled) {
   return { padding: "4px 10px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: disabled ? "var(--text3)" : "var(--text2)", fontSize: "11px", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 };
@@ -246,7 +250,9 @@ function SearchOverview({ query, mcMatches, piMatches }) {
 
 function CaseDetailExpand({ row, sourceTable }) {
   const [status, setStatus] = useState(row.workflow_status || "To Do");
+  const [owner, setOwner] = useState(row.case_owner || "");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function updateStatus(value) {
     setStatus(value);
@@ -254,6 +260,24 @@ function CaseDetailExpand({ row, sourceTable }) {
     const { error } = await supabase.from(sourceTable).update({ workflow_status: value }).eq("id", row.id);
     setSaving(false);
     if (error) console.error("[CaseDetailExpand] status update error:", error.message);
+  }
+
+  async function saveOwner() {
+    setSaving(true);
+    const { error } = await supabase.from(sourceTable).update({ case_owner: owner }).eq("id", row.id);
+    setSaving(false);
+    if (error) console.error("[CaseDetailExpand] owner update error:", error.message);
+  }
+
+  async function exportBrief() {
+    setExporting(true);
+    const { data: docs } = await supabase.from("case_documents").select("*").eq("source_table", sourceTable).eq("record_id", String(row.id));
+    const blob = await generateMcPiCaseBriefDocx({ ...row, workflow_status: status, case_owner: owner }, sourceTable, docs || []);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (sourceTable==="vessel_casualty"?"MC_":"PI_") + (row.vessel||"vessel").replace(/\s+/g,"_") + "_" + (row.incident_date||"").replace(/-/g,"") + ".docx";
+    a.click();
+    setExporting(false);
   }
 
   const rowStyle = { display: "flex", gap: "8px", fontSize: "11px", padding: "3px 0" };
@@ -280,11 +304,24 @@ function CaseDetailExpand({ row, sourceTable }) {
 
   return (
     <div style={{ background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: "6px", padding: "10px 12px", marginTop: "4px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px", flexWrap: "wrap", gap: "6px" }}>
         <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text)" }}>Case Details</div>
-        <select value={status} onChange={e=>updateStatus(e.target.value)} disabled={saving} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:WORKFLOW_STATUS_COLORS[status],fontSize:"10px",fontWeight:600,padding:"3px 7px",cursor:"pointer"}}>
-          {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
-        </select>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <input
+            list={`known-team-list-${row.id}`} value={owner} placeholder="Case owner"
+            onChange={e=>setOwner(e.target.value)} onBlur={saveOwner}
+            style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"10px",padding:"3px 7px",width:"120px"}}
+          />
+          <datalist id={`known-team-list-${row.id}`}>
+            {KNOWN_TEAM.map(n=><option key={n} value={n} />)}
+          </datalist>
+          <select value={status} onChange={e=>updateStatus(e.target.value)} disabled={saving} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:WORKFLOW_STATUS_COLORS[status],fontSize:"10px",fontWeight:600,padding:"3px 7px",cursor:"pointer"}}>
+            {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+          <button onClick={exportBrief} disabled={exporting} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"10px",padding:"3px 8px",cursor:exporting?"default":"pointer"}}>
+            {exporting?"Exporting…":"📄 Export Brief"}
+          </button>
+        </div>
       </div>
       {fields.map(([k,v]) => v ? (
         <div key={k} style={rowStyle}><span style={kStyle}>{k}</span><span style={vStyle}>{v}</span></div>
@@ -300,14 +337,21 @@ function CaseDetailExpand({ row, sourceTable }) {
 function CaseTrackingList({ rows, sourceTable, dateField }) {
   const [page, setPage] = useState(0);
   const [statusOverrides, setStatusOverrides] = useState({});
+  const [ownerOverrides, setOwnerOverrides] = useState({});
   const [expandedId, setExpandedId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkStatus, setBulkStatus] = useState("In Progress");
+  const [applying, setApplying] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const PAGE_SIZE = 25;
 
-  useEffect(() => { setPage(0); }, [rows]);
+  useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [rows, statusFilter]);
 
   const sorted = useMemo(() => [...rows].sort((a,b) => new Date(b[dateField]||0) - new Date(a[dateField]||0)), [rows, dateField]);
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const pageRows = sorted.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
+  const statusFiltered = useMemo(() => statusFilter==="All" ? sorted : sorted.filter(r => (statusOverrides[r.id]||r.workflow_status||"To Do")===statusFilter), [sorted, statusFilter, statusOverrides]);
+  const totalPages = Math.max(1, Math.ceil(statusFiltered.length / PAGE_SIZE));
+  const pageRows = statusFiltered.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
 
   async function updateStatus(row, value) {
     setStatusOverrides(o => ({ ...o, [row.id]: value }));
@@ -315,30 +359,122 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
     if (error) console.error("[CaseTrackingList] status update error:", error.message);
   }
 
+  async function updateOwner(row, value) {
+    setOwnerOverrides(o => ({ ...o, [row.id]: value }));
+    const { error } = await supabase.from(sourceTable).update({ case_owner: value }).eq("id", row.id);
+    if (error) console.error("[CaseTrackingList] owner update error:", error.message);
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function toggleSelectAllOnPage() {
+    setSelectedIds(s => {
+      const allSelected = pageRows.every(r => s.has(r.id));
+      const n = new Set(s);
+      pageRows.forEach(r => allSelected ? n.delete(r.id) : n.add(r.id));
+      return n;
+    });
+  }
+
+  async function applyBulkStatus() {
+    if (selectedIds.size===0) return;
+    setApplying(true);
+    const ids = [...selectedIds];
+    const { error } = await supabase.from(sourceTable).update({ workflow_status: bulkStatus }).in("id", ids);
+    if (!error) {
+      setStatusOverrides(o => { const n = { ...o }; ids.forEach(id => { n[id] = bulkStatus; }); return n; });
+      setSelectedIds(new Set());
+    } else {
+      console.error("[CaseTrackingList] bulk status update error:", error.message);
+    }
+    setApplying(false);
+  }
+
+  async function exportExcel() {
+    setExporting(true);
+    const ids = statusFiltered.map(r => r.id);
+    let docCounts = {};
+    if (ids.length > 0) {
+      const { data } = await supabase.from("case_documents").select("record_id").eq("source_table", sourceTable).in("record_id", ids.map(String));
+      (data||[]).forEach(d => { docCounts[d.record_id] = (docCounts[d.record_id]||0)+1; });
+    }
+    const exportRows = statusFiltered.map(r => ({
+      Vessel: r.vessel, IMO: r.imo, Date: r[dateField],
+      Type: r.casualty_type||r.incident_type||"", Company: r.managing_company||"",
+      Status: statusOverrides[r.id]||r.workflow_status||"To Do",
+      Owner: ownerOverrides[r.id]!=null?ownerOverrides[r.id]:(r.case_owner||""),
+      CaseStatus: r.case_status||"", Documents: docCounts[r.id]||0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sourceTable==="vessel_casualty"?"MC Cases":"PI Cases");
+    XLSX.writeFile(wb, (sourceTable==="vessel_casualty"?"MC_Vessel_List_":"PI_Vessel_List_") + new Date().toISOString().slice(0,10) + ".xlsx");
+    setExporting(false);
+  }
+
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}}>
-        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📁 Vessel Case List — {sorted.length} record{sorted.length!==1?"s":""}</div>
-        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📁 Vessel Case List — {statusFiltered.length} record{statusFiltered.length!==1?"s":""}</div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+          <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",color:"var(--text2)",fontSize:"11px",padding:"5px 9px",cursor:"pointer"}}>
+            <option value="All">All Statuses</option>
+            {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+          <button onClick={exportExcel} disabled={exporting} style={{background:"var(--green2)",border:"1px solid var(--green2)",borderRadius:"6px",color:"#fff",fontSize:"11px",fontWeight:600,padding:"5px 10px",cursor:exporting?"default":"pointer"}}>
+            {exporting?"Exporting…":"⬇ Export to Excel"}
+          </button>
           <button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} style={pagerBtnStyle(page===0)}>‹ Prev</button>
           <span style={{fontSize:"11px",color:"var(--text3)"}}>Page {page+1} of {totalPages}</span>
           <button onClick={()=>setPage(p=>Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1} style={pagerBtnStyle(page>=totalPages-1)}>Next ›</button>
         </div>
       </div>
-      {sorted.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No records in the current view.</div> : (
+
+      {selectedIds.size > 0 && (
+        <div style={{display:"flex",alignItems:"center",gap:"8px",background:"rgba(59,130,246,0.1)",border:"1px solid var(--blue)",borderRadius:"6px",padding:"8px 12px",marginBottom:"10px",flexWrap:"wrap"}}>
+          <span style={{fontSize:"11px",color:"var(--blue)",fontWeight:700}}>{selectedIds.size} selected</span>
+          <span style={{fontSize:"11px",color:"var(--text3)"}}>Set status to:</span>
+          <select value={bulkStatus} onChange={e=>setBulkStatus(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
+            {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+          <button onClick={applyBulkStatus} disabled={applying} style={{background:"var(--blue)",border:"1px solid var(--blue)",borderRadius:"5px",color:"#fff",fontSize:"11px",fontWeight:600,padding:"4px 10px",cursor:applying?"default":"pointer"}}>
+            {applying?"Applying…":"Apply"}
+          </button>
+          <button onClick={()=>setSelectedIds(new Set())} style={{background:"none",border:"none",color:"var(--text3)",fontSize:"11px",cursor:"pointer"}}>Clear</button>
+        </div>
+      )}
+
+      {statusFiltered.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No records in the current view.</div> : (
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-        <thead><tr>{["Vessel","IMO","Date","Type","Status","Documents"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}</tr></thead>
+        <thead><tr>
+          <th style={{padding:"6px 8px",borderBottom:"1px solid var(--border)"}}>
+            <input type="checkbox" checked={pageRows.length>0 && pageRows.every(r=>selectedIds.has(r.id))} onChange={toggleSelectAllOnPage} />
+          </th>
+          {["Vessel","IMO","Date","Type","Owner","Status","Details"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}
+        </tr></thead>
         <tbody>
           {pageRows.map(row => {
             const status = statusOverrides[row.id] || row.workflow_status || "To Do";
+            const owner = ownerOverrides[row.id]!=null ? ownerOverrides[row.id] : (row.case_owner || "");
             const isExpanded = expandedId === row.id;
             return (
               <React.Fragment key={row.id}>
                 <tr style={{borderBottom:"1px solid var(--border)"}}>
+                  <td style={{padding:"6px 8px"}}>
+                    <input type="checkbox" checked={selectedIds.has(row.id)} onChange={()=>toggleSelect(row.id)} />
+                  </td>
                   <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{row.vessel}</td>
                   <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.imo}</td>
                   <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row[dateField]}</td>
                   <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.casualty_type||row.incident_type||"—"}</td>
+                  <td style={{padding:"6px 8px"}}>
+                    <input
+                      list="known-team-list-tracking" defaultValue={owner} placeholder="—"
+                      onBlur={e=>{ if(e.target.value!==owner) updateOwner(row, e.target.value); }}
+                      style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 7px",width:"100px"}}
+                    />
+                  </td>
                   <td style={{padding:"6px 8px"}}>
                     <select value={status} onChange={e=>updateStatus(row, e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:WORKFLOW_STATUS_COLORS[status],fontSize:"11px",fontWeight:600,padding:"4px 8px",cursor:"pointer"}}>
                       {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
@@ -346,14 +482,14 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
                   </td>
                   <td style={{padding:"6px 8px"}}>
                     <button onClick={()=>setExpandedId(isExpanded?null:row.id)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
-                      {isExpanded?"Hide":"📎 Docs"}
+                      {isExpanded?"Hide":"View"}
                     </button>
                   </td>
                 </tr>
                 {isExpanded && (
                   <tr>
-                    <td colSpan={6} style={{padding:"10px",background:"var(--bg3)"}}>
-                      <CaseDocuments sourceTable={sourceTable} recordId={row.id} />
+                    <td colSpan={7} style={{padding:"10px",background:"var(--bg3)"}}>
+                      <CaseDetailExpand row={row} sourceTable={sourceTable} />
                     </td>
                   </tr>
                 )}
@@ -363,12 +499,71 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
         </tbody>
       </table>
       )}
+      <datalist id="known-team-list-tracking">
+        {KNOWN_TEAM.map(n=><option key={n} value={n} />)}
+      </datalist>
+    </div>
+  );
+}
+
+
+function CompanyDetailModal({ company, rows, companyField, dateField, sourceTable, onClose }) {
+  const [expandedId, setExpandedId] = useState(null);
+  const matches = useMemo(() => {
+    return rows
+      .filter(r => (r[companyField]||"").trim() === company)
+      .sort((a,b) => new Date(b[dateField]||0) - new Date(a[dateField]||0));
+  }, [rows, companyField, company, dateField]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,22,40,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "20px" }} onClick={onClose}>
+      <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "10px", width: "100%", maxWidth: "720px", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>🏢 {company} — {matches.length} record{matches.length!==1?"s":""}</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+          {matches.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No records found.</div> : (
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+              <thead><tr>{["Vessel","IMO","Date","Type","Status",""].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {matches.map(row => {
+                  const isExpanded = expandedId === row.id;
+                  return (
+                    <React.Fragment key={row.id}>
+                      <tr style={{borderBottom:"1px solid var(--border)"}}>
+                        <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{row.vessel}</td>
+                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.imo}</td>
+                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row[dateField]}</td>
+                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.casualty_type||row.incident_type||"—"}</td>
+                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.case_status||"—"}</td>
+                        <td style={{padding:"6px 8px"}}>
+                          {sourceTable ? (
+                            <button onClick={()=>setExpandedId(isExpanded?null:row.id)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
+                              {isExpanded?"Hide":"View"}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                      {isExpanded && sourceTable && (
+                        <tr><td colSpan={6} style={{padding:"10px",background:"var(--bg3)"}}><CaseDetailExpand row={row} sourceTable={sourceTable} /></td></tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 
 function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle, topTypeByYear, sourceTable }) {
+  const [selectedCompany, setSelectedCompany] = useState(null);
+
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -726,7 +921,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
               <tbody>{topCompaniesByYear[yr].map(c=>(
                 <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{c.company}</td>
+                  <td onClick={()=>setSelectedCompany(c.company)} style={{padding:"5px 8px",color:"var(--blue)",cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
                   <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{c.count}</td>
                 </tr>
               ))}</tbody>
@@ -736,13 +931,13 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
       </div>
 
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 Companies (Selected Period)</div>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 Companies (Selected Period) — click a company to view its cases</div>
         {byCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No company data available.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Company","Total","High","Medium","Low"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
           <tbody>{byCompany.map(c=>(
             <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-              <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:600}}>{c.company}</td>
+              <td onClick={()=>setSelectedCompany(c.company)} style={{padding:"7px 10px",color:"var(--blue)",fontWeight:600,cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
               <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:700}}>{c.total}</td>
               <td style={{padding:"7px 10px",color:"var(--red2)"}}>{c.High||0}</td>
               <td style={{padding:"7px 10px",color:"var(--amber2)"}}>{c.Medium||0}</td>
@@ -751,6 +946,13 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
           ))}</tbody>
         </table>}
       </div>
+
+      {selectedCompany && (
+        <CompanyDetailModal
+          company={selectedCompany} rows={rows} companyField={companyField} dateField={dateField}
+          sourceTable={sourceTable} onClose={()=>setSelectedCompany(null)}
+        />
+      )}
     </div>
   );
 }
@@ -760,7 +962,7 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
     vessel: "", imo: "", incident_date: "", casualty_type: "Marine incident",
     vessel_type: "", managing_company: "", marine_casualties: "",
     details_summary: "", location: "", case_status: "Open",
-    documents_received: "In-complete", investigated: "No", near_miss: "No",
+    documents_received: "In-complete", investigated: "No", near_miss: "No", case_owner: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -794,6 +996,12 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
       .slice(0, 8);
   }, [form.vessel, form.imo, rows]);
 
+  // ---- Duplicate-entry warning: same vessel + same exact date already on file ----
+  const possibleDuplicates = useMemo(() => {
+    if (!form.incident_date) return [];
+    return vesselHistory.filter(h => h.incident_date === form.incident_date);
+  }, [vesselHistory, form.incident_date]);
+
   function selectVessel(name) {
     const match = rows.filter(r => r.vessel === name).sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))[0];
     set("vessel", name);
@@ -824,6 +1032,7 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
       documents_received: form.documents_received,
       investigated: form.investigated,
       near_miss: form.near_miss,
+      case_owner: form.case_owner.trim(),
     }]);
     setSaving(false);
     if (insErr) { setError(insErr.message); return; }
@@ -955,6 +1164,20 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
             </div>
           </div>
 
+          <div>
+            <div style={labelStyle}>Case Owner</div>
+            <input style={inputStyle} list="known-team-list-mc" value={form.case_owner} onChange={e => set("case_owner", e.target.value)} placeholder="e.g. Fatema Hannan" />
+            <datalist id="known-team-list-mc">
+              {KNOWN_TEAM.map(n=><option key={n} value={n} />)}
+            </datalist>
+          </div>
+
+          {possibleDuplicates.length > 0 && (
+            <div style={{ fontSize: "12px", color: "var(--amber2)", background: "rgba(245,158,11,0.1)", border: "1px solid var(--amber2)", borderRadius: "6px", padding: "10px 12px" }}>
+              ⚠️ Possible duplicate: {possibleDuplicates.length} existing record{possibleDuplicates.length>1?"s":""} for this vessel on {form.incident_date} already on file ({possibleDuplicates.map(d=>d.casualty_type||"Unspecified").join(", ")}). Double-check before saving if this isn't a separate incident.
+            </div>
+          )}
+
           {error && <div style={{ fontSize: "12px", color: "var(--red2)", background: "var(--red-bg)", border: "1px solid var(--red2)", borderRadius: "6px", padding: "8px 12px" }}>{error}</div>}
         </div>
 
@@ -976,6 +1199,7 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
     managing_company: "", ilo_6_1: "", ilo_6_2: "", incident_type: "Injury",
     details: "", victim: "Seafarer", investigated: "NO", casualty_type: "Marine Incident",
     documents_received: "Pending", imo_reported: "Not Qualify to Report", category: "Accident/Incident onboard",
+    case_owner: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1008,6 +1232,12 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
       .sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))
       .slice(0, 8);
   }, [form.vessel, form.imo, rows]);
+
+  // ---- Duplicate-entry warning: same vessel + same exact date already on file ----
+  const possibleDuplicates = useMemo(() => {
+    if (!form.incident_date) return [];
+    return vesselHistory.filter(h => h.incident_date === form.incident_date);
+  }, [vesselHistory, form.incident_date]);
 
   function selectVessel(name) {
     const match = rows.filter(r => r.vessel === name).sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))[0];
@@ -1043,6 +1273,7 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
       documents_received: form.documents_received,
       imo_reported: form.imo_reported,
       category: form.category,
+      case_owner: form.case_owner.trim(),
     }]);
     setSaving(false);
     if (insErr) { setError(insErr.message); return; }
@@ -1194,6 +1425,20 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
               </select>
             </div>
           </div>
+
+          <div>
+            <div style={labelStyle}>Case Owner</div>
+            <input style={inputStyle} list="known-team-list-pi" value={form.case_owner} onChange={e => set("case_owner", e.target.value)} placeholder="e.g. Fatema Hannan" />
+            <datalist id="known-team-list-pi">
+              {KNOWN_TEAM.map(n=><option key={n} value={n} />)}
+            </datalist>
+          </div>
+
+          {possibleDuplicates.length > 0 && (
+            <div style={{ fontSize: "12px", color: "var(--amber2)", background: "rgba(245,158,11,0.1)", border: "1px solid var(--amber2)", borderRadius: "6px", padding: "10px 12px" }}>
+              ⚠️ Possible duplicate: {possibleDuplicates.length} existing record{possibleDuplicates.length>1?"s":""} for this vessel on {form.incident_date} already on file ({possibleDuplicates.map(d=>d.incident_type||"Unspecified").join(", ")}). Double-check before saving if this isn't a separate incident/victim.
+            </div>
+          )}
 
           {error && <div style={{ fontSize: "12px", color: "var(--red2)", background: "var(--red-bg)", border: "1px solid var(--red2)", borderRadius: "6px", padding: "8px 12px" }}>{error}</div>}
         </div>
@@ -1357,7 +1602,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               rows={filteredMarineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
               getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
-              showCasualtyTypeChart={true}
+              showCasualtyTypeChart={true} sourceTable="vessel_casualty"
             />
           )}
           {activeTab==="casualty-list" && (
@@ -1373,7 +1618,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
               showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
-              topTypeByYear={true}
+              topTypeByYear={true} sourceTable="personal_incident"
             />
           )}
           {activeTab==="personal-list" && (
