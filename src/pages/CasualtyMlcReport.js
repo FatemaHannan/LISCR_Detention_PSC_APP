@@ -511,16 +511,31 @@ export default function CasualtyMlcReport({ scope = "all" }) {
   const [selectedYear, setSelectedYear] = useState("All");
   const [showAddMc, setShowAddMc] = useState(false);
 
+  // Supabase caps an unbounded .select("*") at 1000 rows by default. This table has
+  // 1000+ rows across all years, so a single request silently truncates — page through
+  // in chunks of 1000 until a page comes back short, to guarantee every row is fetched.
+  async function fetchAllRows(table) {
+    const PAGE = 1000;
+    let allRows = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase.from(table).select("*").range(from, from + PAGE - 1);
+      if (error) { console.error(`[CasualtyMlcReport] ${table} fetch error:`, error.message); break; }
+      allRows = allRows.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    return allRows;
+  }
+
   const fetchData = React.useCallback(async () => {
     setLoading(true);
-    const [casRes, mlcRes] = await Promise.all([
-      supabase.from("vessel_casualty").select("*"),
-      supabase.from("mlc_complaints").select("*"),
+    const [casData, mlcData] = await Promise.all([
+      fetchAllRows("vessel_casualty"),
+      fetchAllRows("mlc_complaints"),
     ]);
-    if (casRes.error) console.error("[CasualtyMlcReport] casualty fetch error:", casRes.error.message);
-    if (mlcRes.error) console.error("[CasualtyMlcReport] mlc fetch error:", mlcRes.error.message);
-    setCasualtyRaw(casRes.data||[]);
-    setMlcRaw(mlcRes.data||[]);
+    setCasualtyRaw(casData);
+    setMlcRaw(mlcData);
     setLoading(false);
   }, []);
 
