@@ -541,25 +541,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     if (!v?.company || v.company==="—") return null;
     const now = new Date();
     const cutoff36 = new Date(); cutoff36.setMonth(cutoff36.getMonth()-36);
-    const cutoff72 = new Date(); cutoff72.setMonth(cutoff72.getMonth()-72);
     const companyVessels = dbVessels.filter(x => x.company === v.company);
-    const fleetSize = new Set(companyVessels.map(x=>x.imo)).size;
+    const uniqueCompanyVessels = [...new Map(companyVessels.map(x=>[x.imo,x])).values()];
+    const fleetSize = uniqueCompanyVessels.length;
     const det36 = companyVessels.filter(x => x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff36 && new Date(x.detentionDate) <= now);
-    const detPrior36 = companyVessels.filter(x => x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff72 && new Date(x.detentionDate) < cutoff36);
     const detRate = fleetSize ? (det36.length/fleetSize*100) : null;
-    const byCompany = {};
-    dbVessels.forEach(x => {
-      if (!x.company || x.company==="—") return;
-      if (x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff36 && new Date(x.detentionDate) <= now) {
-        byCompany[x.company] = (byCompany[x.company]||0)+1;
-      }
-    });
-    const ranked = Object.entries(byCompany).sort((a,b)=>b[1]-a[1]);
-    const rankIdx = ranked.findIndex(([c])=>c===v.company);
+    const typeOf = (x) => typeMap[x.imo] || (x.type && x.type!=="—" ? x.type : null) || "Unknown";
+    const fleetByType = {};
+    uniqueCompanyVessels.forEach(x => { const t=typeOf(x); fleetByType[t]=(fleetByType[t]||0)+1; });
+    const detainedByType = {};
+    det36.forEach(x => { const t=typeOf(x); detainedByType[t]=(detainedByType[t]||0)+1; });
     return {
-      fleetSize, det36: det36.length, detPrior36: detPrior36.length,
-      detRate, rank: rankIdx>=0?rankIdx+1:null, totalCompanies: ranked.length,
-      pctDiff: detPrior36.length>0 ? ((det36.length-detPrior36.length)/detPrior36.length*100) : null,
+      fleetSize, det36: det36.length, detRate,
+      fleetByType: Object.entries(fleetByType).sort((a,b)=>b[1]-a[1]),
+      detainedByType: Object.entries(detainedByType).sort((a,b)=>b[1]-a[1]),
     };
   }, [v, dbVessels]);
 
@@ -774,7 +769,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {companyStats && (
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginTop:"10px"}}>
                     <div style={{fontSize:"13px",fontWeight:600,marginBottom:"9px",color:"var(--text)"}}>Company Snapshot — {v.company}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"}}>
                       <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
                         <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Fleet Size</div>
                         <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.fleetSize}</div>
@@ -787,10 +782,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Detention Rate</div>
                         <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.detRate!=null?companyStats.detRate.toFixed(1)+"%":"—"}</div>
                       </div>
-                      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
-                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Rank</div>
-                        <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.rank?"#"+companyStats.rank+" / "+companyStats.totalCompanies:"—"}</div>
-                      </div>
+                    </div>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"6px"}}>Fleet by Type</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"10px"}}>
+                      {companyStats.fleetByType.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No type data available.</div>:
+                      companyStats.fleetByType.map(([type,count])=>(
+                        <span key={type} style={{fontSize:"12px",padding:"4px 10px",borderRadius:"14px",background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)"}}>{type}: <b style={{color:"var(--text)"}}>{count}</b></span>
+                      ))}
+                    </div>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"6px"}}>Detained by Type (36mo)</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {companyStats.detainedByType.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No detentions in the last 36 months.</div>:
+                      companyStats.detainedByType.map(([type,count])=>(
+                        <span key={type} style={{fontSize:"12px",padding:"4px 10px",borderRadius:"14px",background:"var(--red-bg)",border:"1px solid #3D1A1A",color:"var(--red2)"}}>{type}: <b>{count}</b></span>
+                      ))}
                     </div>
                   </div>
                 )}
