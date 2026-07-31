@@ -158,6 +158,92 @@ function CaseDocuments({ sourceTable, recordId }) {
   );
 }
 
+// Cross-tab search overview — when the person searches, this groups every matching MC
+// and PI record by vessel (keyed by IMO, falling back to name) so one search shows the
+// full picture for that vessel/company/incident across both datasets at once.
+function SearchOverview({ query, mcMatches, piMatches }) {
+  const [expandedKey, setExpandedKey] = useState(null);
+
+  const grouped = useMemo(() => {
+    const groups = {};
+    const addRow = (row, source) => {
+      const key = (row.imo && String(row.imo).trim()) || (row.vessel && row.vessel.trim()) || "Unknown";
+      groups[key] = groups[key] || { vessel: row.vessel||"Unknown", imo: row.imo||"—", mc: [], pi: [] };
+      if (row.vessel && !groups[key].vessel) groups[key].vessel = row.vessel;
+      if (row.imo && (!groups[key].imo || groups[key].imo === "—")) groups[key].imo = row.imo;
+      groups[key][source].push(row);
+    };
+    mcMatches.forEach(r => addRow(r, "mc"));
+    piMatches.forEach(r => addRow(r, "pi"));
+    return Object.entries(groups).map(([key, g]) => {
+      const all = [...g.mc.map(r=>({...r,_source:"MC",_date:r.incident_date,_type:r.casualty_type})), ...g.pi.map(r=>({...r,_source:"PI",_date:r.incident_date,_type:r.incident_type}))];
+      all.sort((a,b) => new Date(b._date||0) - new Date(a._date||0));
+      const closed = all.filter(r => statusBucket(r.case_status)==="Closed").length;
+      const open = all.filter(r => statusBucket(r.case_status)==="Open").length;
+      return { key, vessel: g.vessel, imo: g.imo, mcCount: g.mc.length, piCount: g.pi.length, latest: all[0]?._date||null, closed, open, records: all };
+    }).sort((a,b) => (b.mcCount+b.piCount) - (a.mcCount+a.piCount));
+  }, [mcMatches, piMatches]);
+
+  if (!query) return null;
+
+  return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--blue)",borderRadius:"8px",padding:"14px",marginBottom:"18px"}}>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}>🔍 Search Overview — "{query}"</div>
+      <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>
+        {grouped.length} vessel{grouped.length!==1?"s":""} matched · {mcMatches.length} MC record{mcMatches.length!==1?"s":""} · {piMatches.length} PI record{piMatches.length!==1?"s":""}
+      </div>
+      {grouped.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No matches across MC or PI.</div> : (
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>{["Vessel","IMO","MC","PI","Open","Closed","Latest","Details"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}</tr></thead>
+          <tbody>
+            {grouped.map(g => {
+              const isExpanded = expandedKey === g.key;
+              return (
+                <React.Fragment key={g.key}>
+                  <tr style={{borderBottom:"1px solid var(--border)"}}>
+                    <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{g.vessel}</td>
+                    <td style={{padding:"6px 8px",color:"var(--text2)"}}>{g.imo}</td>
+                    <td style={{padding:"6px 8px",color:"var(--blue)",fontWeight:700}}>{g.mcCount}</td>
+                    <td style={{padding:"6px 8px",color:"var(--amber2)",fontWeight:700}}>{g.piCount}</td>
+                    <td style={{padding:"6px 8px",color:"var(--amber2)"}}>{g.open}</td>
+                    <td style={{padding:"6px 8px",color:"var(--green2)"}}>{g.closed}</td>
+                    <td style={{padding:"6px 8px",color:"var(--text2)"}}>{g.latest||"—"}</td>
+                    <td style={{padding:"6px 8px"}}>
+                      <button onClick={()=>setExpandedKey(isExpanded?null:g.key)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
+                        {isExpanded?"Hide":"View all"}
+                      </button>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={8} style={{padding:"10px",background:"var(--bg3)"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                          <thead><tr>{["Source","Date","Type","Status"].map(h=><th key={h} style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {g.records.map((r,i) => (
+                              <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                                <td style={{padding:"4px 8px",color:r._source==="MC"?"var(--blue)":"var(--amber2)",fontWeight:700}}>{r._source}</td>
+                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{r._date||"—"}</td>
+                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{r._type||"Unspecified"}</td>
+                                <td style={{padding:"4px 8px",color: statusBucket(r.case_status)==="Closed" ? "var(--green2)" : "var(--amber2)"}}>{statusBucket(r.case_status)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+
 function CaseTrackingList({ rows, sourceTable, dateField }) {
   const [page, setPage] = useState(0);
   const [statusOverrides, setStatusOverrides] = useState({});
@@ -349,9 +435,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     if (yrsSorted.length >= 2) {
       const latest = yrsSorted[yrsSorted.length-1];
       const prev = yrsSorted[yrsSorted.length-2];
-      const latestCount = yearlyTotals[latest], prevCount = yearlyTotals[prev];
+      const today = new Date();
+      const isLatestYearInProgress = latest === today.getFullYear();
+      let latestCount, prevCount, ytdLabel = "";
+      if (isLatestYearInProgress) {
+        // Compare like-for-like: only count records through today's month/day in both years,
+        // so a partial current year isn't compared against a full prior year.
+        const cutoffMonth = today.getMonth(), cutoffDate = today.getDate();
+        const isOnOrBeforeCutoff = (dateStr) => {
+          const d = new Date(dateStr);
+          if (isNaN(d)) return false;
+          return (d.getMonth() < cutoffMonth) || (d.getMonth() === cutoffMonth && d.getDate() <= cutoffDate);
+        };
+        latestCount = rows.filter(r => yearOf(r[dateField]) === latest && isOnOrBeforeCutoff(r[dateField])).length;
+        prevCount = rows.filter(r => yearOf(r[dateField]) === prev && isOnOrBeforeCutoff(r[dateField])).length;
+        ytdLabel = " (YTD)";
+      } else {
+        latestCount = yearlyTotals[latest];
+        prevCount = yearlyTotals[prev];
+      }
       const pct = prevCount>0 ? Math.round(((latestCount-prevCount)/prevCount)*100) : null;
-      trend = { latest, prev, latestCount, prevCount, pct };
+      trend = { latest, prev, latestCount, prevCount, pct, ytdLabel };
     }
     const topVessel = recurringVessels[0] || null;
     const topCompany = recurringCompanies[0] || null;
@@ -419,7 +523,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
                   {insights.trend.pct==null ? `${insights.trend.latestCount} records in ${insights.trend.latest}` :
                     `${Math.abs(insights.trend.pct)}% ${insights.trend.pct>0?"increase":insights.trend.pct<0?"decrease":"no change"}`}
                 </b>
-                {" "}in {insights.trend.latest} vs {insights.trend.prev} ({insights.trend.latestCount} vs {insights.trend.prevCount} records).
+                {" "}in {insights.trend.latest}{insights.trend.ytdLabel} vs {insights.trend.prev}{insights.trend.ytdLabel} ({insights.trend.latestCount} vs {insights.trend.prevCount} records).
               </span>
             </div>
           )}
@@ -1171,6 +1275,10 @@ export default function CasualtyMlcReport({ scope = "all" }) {
           </div>
         )}
       </div>
+
+      {searchQuery && (scope==="investigation" || scope==="all") && (
+        <SearchOverview query={searchQuery} mcMatches={filteredMarineCasualtyRows} piMatches={filteredPersonalIncidentRows} />
+      )}
 
       {loading ? <div style={{fontSize:"13px",color:"var(--text3)",padding:"20px"}}>Loading report data…</div> : (
         <>
