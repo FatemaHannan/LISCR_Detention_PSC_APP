@@ -14,8 +14,6 @@ import CasualtyMlcReport from "./CasualtyMlcReport";
 const SUB_TABS = [
   { id: "focus", label: "🎯 Prevention Focus" },
   { id: "dashboard", label: "Dashboard" },
-  { id: "investigation", label: "🔍 Investigation" },
-  { id: "mlc", label: "📋 MLC" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
   { id: "highrisk", label: "High-Risk Areas" },
@@ -24,6 +22,8 @@ const SUB_TABS = [
   { id: "patterns", label: "Pattern Detection" },
   { id: "ais", label: "AIS Monitor" },
   { id: "vip", label: "VIP Protocol" },
+  { id: "investigation", label: "🔍 Investigation" },
+  { id: "mlc", label: "📋 MLC" },
 ];
 
 export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) {
