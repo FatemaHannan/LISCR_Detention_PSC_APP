@@ -49,23 +49,13 @@ function yearOf(dateStr) {
   return isNaN(y) ? null : y;
 }
 
-// Smart search: matches the query against the row's identifying fields (vessel, IMO,
-// company, type, category, location, etc.) case-insensitively — but skips long free-text
-// narrative fields (details_summary, details). Those often mention other, unrelated
-// vessels within the story of a different incident (e.g. "X dragged anchor and hit Y"),
-// which would otherwise pull totally unrelated companies into the results.
-const SEARCH_EXCLUDED_FIELDS = new Set(["details_summary", "details"]);
+// Smart search: matches the query against every field on the row (vessel, IMO, company,
+// type, category, details, location, etc.) case-insensitively, so one search box works
+// across all the different field names MC/PI/MLC use.
 function rowMatchesSearch(row, query) {
   if (!query) return true;
   const q = query.toLowerCase();
-  return Object.entries(row).some(([k, v]) => !SEARCH_EXCLUDED_FIELDS.has(k) && v != null && String(v).toLowerCase().includes(q));
-}
-
-// Normalizes a company name for grouping purposes only (never mutates stored data) —
-// strips trailing periods/whitespace so "Company S.R.L" and "Company S.R.L." group as one.
-function normalizeCompany(name) {
-  if (!name) return "";
-  return name.trim().replace(/\.+$/, "").replace(/\s+/g, " ").trim();
+  return Object.values(row).some(v => v != null && String(v).toLowerCase().includes(q));
 }
 
 function DonutChart({ data, colors, title }) {
@@ -440,7 +430,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
       const counts = {};
       rows.forEach(r => {
         if (yearOf(r[dateField]) !== yr) return;
-        const c = normalizeCompany(r[companyField]) || "Unknown";
+        const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
         counts[c] = (counts[c]||0)+1;
       });
       result[yr] = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([company,count])=>({company,count}));
@@ -451,7 +441,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   const byCompany = useMemo(() => {
     const counts = {};
     enriched.forEach(r => {
-      const c = normalizeCompany(r[companyField]) || "Unknown";
+      const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
       counts[c] = counts[c] || { company:c, total:0, High:0, Medium:0, Low:0, Unknown:0 };
       counts[c].total++;
       if (counts[c][r.severity]!=null) counts[c][r.severity]++;
@@ -464,11 +454,11 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     enriched.forEach(r => {
       const key = r.imo || r.vessel;
       if (!key) return;
-      counts[key] = counts[key] || { name: r.vessel||"Unknown", imo: r.imo||"—", company: normalizeCompany(r[companyField])||"—", count:0, types:[] };
+      counts[key] = counts[key] || { name: r.vessel||"Unknown", imo: r.imo||"—", company: r[companyField]||"—", count:0, types:[] };
       counts[key].count++;
       counts[key].types.push(r.typeLabel);
       // keep the most recently seen non-empty company in case it varies across records
-      if (normalizeCompany(r[companyField])) counts[key].company = normalizeCompany(r[companyField]);
+      if (r[companyField] && r[companyField].trim()) counts[key].company = r[companyField].trim();
     });
     return Object.values(counts).filter(v=>v.count>1).sort((a,b)=>b.count-a.count);
   }, [enriched, companyField]);
@@ -476,7 +466,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   const recurringCompanies = useMemo(() => {
     const withTypes = {};
     enriched.forEach(r => {
-      const c = normalizeCompany(r[companyField]) || "Unknown";
+      const c = r[companyField] && r[companyField].trim() ? r[companyField].trim() : "Unknown";
       withTypes[c] = withTypes[c] || [];
       withTypes[c].push(r.typeLabel);
     });
