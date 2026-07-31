@@ -350,6 +350,11 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
 
   const sorted = useMemo(() => [...rows].sort((a,b) => new Date(b[dateField]||0) - new Date(a[dateField]||0)), [rows, dateField]);
   const statusFiltered = useMemo(() => statusFilter==="All" ? sorted : sorted.filter(r => (statusOverrides[r.id]||r.workflow_status||"To Do")===statusFilter), [sorted, statusFilter, statusOverrides]);
+  const uniqueVesselCount = useMemo(() => {
+    const keys = new Set();
+    statusFiltered.forEach(r => keys.add((r.imo && String(r.imo).trim()) || (r.vessel && r.vessel.trim()) || "unknown"));
+    return keys.size;
+  }, [statusFiltered]);
   const totalPages = Math.max(1, Math.ceil(statusFiltered.length / PAGE_SIZE));
   const pageRows = statusFiltered.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
 
@@ -416,7 +421,7 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}}>
-        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📁 Vessel Case List — {statusFiltered.length} record{statusFiltered.length!==1?"s":""}</div>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📁 Vessel Case List — {uniqueVesselCount} vessel{uniqueVesselCount!==1?"s":""} · {statusFiltered.length} record{statusFiltered.length!==1?"s":""}</div>
         <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
           <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",color:"var(--text2)",fontSize:"11px",padding:"5px 9px",cursor:"pointer"}}>
             <option value="All">All Statuses</option>
