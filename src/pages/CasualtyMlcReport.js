@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
 
 const SEVERITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e", Unknown: "#64748b" };
@@ -90,7 +90,7 @@ function briefIncidentType(row) {
   return "Other";
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType }) {
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart }) {
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -201,6 +201,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([type,count])=>({type,count}));
   }, [enriched]);
 
+  // ---- By Type of Casualty x Year (clustered bar) — full dataset, all years on file,
+  // independent of the Year selector, matching the reference Power BI report ----
+  const casualtyTypeAllYears = useMemo(() => {
+    const years = new Set();
+    rows.forEach(r => { const y = yearOf(r[dateField]); if (y && y>=EARLIEST_YEAR) years.add(y); });
+    return [...years].sort();
+  }, [rows, dateField]);
+
+  const casualtyTypeChartData = useMemo(() => {
+    if (!showCasualtyTypeChart) return [];
+    const grid = {};
+    rows.forEach(r => {
+      const y = yearOf(r[dateField]);
+      if (!y || y < EARLIEST_YEAR) return;
+      const t = (r.casualty_type||"Unspecified").trim() || "Unspecified";
+      grid[t] = grid[t] || { type: t };
+      grid[t][y] = (grid[t][y]||0) + 1;
+    });
+    return Object.values(grid).sort((a,b)=>a.type.localeCompare(b.type));
+  }, [rows, dateField, showCasualtyTypeChart]);
+
   return (
     <div style={{marginBottom:"28px"}}>
       <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>{title}</div>
@@ -231,6 +252,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
           </LineChart>
         </ResponsiveContainer>}
       </div>
+
+      {showCasualtyTypeChart && (
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>By Type of Casualty — All Years on File</div>
+        {casualtyTypeAllYears.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No dated records available.</div>:
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={casualtyTypeChartData} margin={{top:20,right:10,left:0,bottom:0}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="type" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <Tooltip contentStyle={{background:"#1a1f2e",border:"1px solid var(--border)",fontSize:12,color:"#fff"}} itemStyle={{color:"#fff"}} labelStyle={{color:"#fff"}} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            {casualtyTypeAllYears.map((yr,i)=>(
+              <Bar key={yr} dataKey={yr} name={String(yr)} fill={yearColors[i%yearColors.length]}>
+                <LabelList dataKey={yr} position="top" style={{fontSize:11,fill:"var(--text2)"}} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>}
+      </div>
+      )}
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
@@ -556,6 +598,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               rows={marineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
               getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
+              showCasualtyTypeChart={true}
             />
           )}
           {activeTab==="personal" && (
