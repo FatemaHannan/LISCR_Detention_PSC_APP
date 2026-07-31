@@ -136,7 +136,7 @@ const UPLOADS = [
       days_since_last:"Days", last_onboard:"Last Onboard", auditor:"Auditor",
       ism_client:"ISM Client", risk_level:"Risk Level", target_vessel:"Target Vsl",
       ism_points:"ISM Points", psc_det_history:"PSC Det History",
-      tonnage_client:"Tonnage Client", vessel_type:"Vessel Type", age:"Age",
+      tonnage_client:"Tonnage Client", vessel_type:"Vessel Type", age:"Age", reg_date:"Reg Date",
     },
     filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
@@ -163,6 +163,7 @@ const UPLOADS = [
       tonnage_client: s(r["Tonnage Client"]||r["tonnage_client"]),
       vessel_type: s(r["Vessel Type"]||r["vessel_type"]),
       age: n(r["Age"]||r["age"]),
+      reg_date: d(r["Reg Date"]||r["Registration Date"]||r["reg_date"]),
     }),
   },
   {
