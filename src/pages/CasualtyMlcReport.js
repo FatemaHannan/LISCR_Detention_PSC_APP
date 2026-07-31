@@ -554,8 +554,6 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
         </div>
       </div>
 
-      {sourceTable && <CaseTrackingList rows={scoped} sourceTable={sourceTable} dateField={dateField} />}
-
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
           <DonutChart data={severityData} colors={SEVERITY_COLORS} title="By Severity" />
@@ -1203,8 +1201,10 @@ export default function CasualtyMlcReport({ scope = "all" }) {
   }, [casualtyRaw, mlcRaw, personalRaw]);
 
   const ALL_TABS = [
-    { id: "casualty", label: "⚓ MC" },
-    { id: "personal", label: "🩹 PI" },
+    { id: "casualty", label: "⚓ MC Report" },
+    { id: "casualty-list", label: "📁 MC Vessel List" },
+    { id: "personal", label: "🩹 PI Report" },
+    { id: "personal-list", label: "📁 PI Vessel List" },
     { id: "mlc", label: "📋 MLC Complaints" },
   ];
   const TABS = scope === "investigation"
@@ -1237,10 +1237,10 @@ export default function CasualtyMlcReport({ scope = "all" }) {
             <option value="All">All Years</option>
             {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
           </select>
-          {activeTab==="casualty" && (
+          {(activeTab==="casualty"||activeTab==="casualty-list") && (
             <button onClick={()=>setShowAddMc(true)} style={{background:"var(--blue)",border:"1px solid var(--blue)",borderRadius:"6px",color:"#fff",fontSize:"12px",fontWeight:600,padding:"6px 12px",cursor:"pointer"}}>+ Add MC Record</button>
           )}
-          {activeTab==="personal" && (
+          {(activeTab==="personal"||activeTab==="personal-list") && (
             <button onClick={()=>setShowAddPi(true)} style={{background:"var(--amber2)",border:"1px solid var(--amber2)",borderRadius:"6px",color:"#fff",fontSize:"12px",fontWeight:600,padding:"6px 12px",cursor:"pointer"}}>+ Add PI Record</button>
           )}
         </div>
@@ -1269,8 +1269,8 @@ export default function CasualtyMlcReport({ scope = "all" }) {
         )}
         {searchQuery && (
           <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"6px"}}>
-            {activeTab==="casualty" && `${filteredMarineCasualtyRows.length} of ${marineCasualtyRows.length} MC records match`}
-            {activeTab==="personal" && `${filteredPersonalIncidentRows.length} of ${personalIncidentRows.length} PI records match`}
+            {(activeTab==="casualty"||activeTab==="casualty-list") && `${filteredMarineCasualtyRows.length} of ${marineCasualtyRows.length} MC records match`}
+            {(activeTab==="personal"||activeTab==="personal-list") && `${filteredPersonalIncidentRows.length} of ${personalIncidentRows.length} PI records match`}
             {activeTab==="mlc" && `${filteredMlcRows.length} of ${mlcRaw.length} MLC records match`}
           </div>
         )}
@@ -1288,7 +1288,13 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               rows={filteredMarineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
               getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
-              showCasualtyTypeChart={true} sourceTable="vessel_casualty"
+              showCasualtyTypeChart={true}
+            />
+          )}
+          {activeTab==="casualty-list" && (
+            <CaseTrackingList
+              rows={filteredMarineCasualtyRows.filter(r => { const y=yearOf(r.incident_date); return y && y>=EARLIEST_YEAR && (selectedYear==="All" || y===Number(selectedYear)); })}
+              sourceTable="vessel_casualty" dateField="incident_date"
             />
           )}
           {activeTab==="personal" && (
@@ -1298,7 +1304,13 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
               showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
-              topTypeByYear={true} sourceTable="personal_incident"
+              topTypeByYear={true}
+            />
+          )}
+          {activeTab==="personal-list" && (
+            <CaseTrackingList
+              rows={filteredPersonalIncidentRows.filter(r => { const y=yearOf(r.incident_date); return y && y>=EARLIEST_YEAR && (selectedYear==="All" || y===Number(selectedYear)); })}
+              sourceTable="personal_incident" dateField="incident_date"
             />
           )}
           {activeTab==="mlc" && (
