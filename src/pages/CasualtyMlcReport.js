@@ -15,6 +15,13 @@ const MARINE_CASUALTIES_OPTIONS = [
   "Bunker Oil Spill", "Hijacking", "Equipment Damage",
 ];
 
+const PI_INCIDENT_TYPE_OPTIONS = ["Injury", "Death", "illness", "Missing", "Recover"];
+const PI_VICTIM_OPTIONS = ["Seafarer", "Non Seafarer"];
+const PI_CASUALTY_TYPE_OPTIONS = ["Marine Incident", "Marine casualty", "Not related to operation", "Very serious marine casualty", "Deliberate act"];
+const PI_DOCS_OPTIONS = ["Yes", "Pending", "No"];
+const PI_IMO_REPORTED_OPTIONS = ["Not Qualify to Report", "Pending", "Yes", "No"];
+const PI_CATEGORY_OPTIONS = ["Accident/Incident onboard", "Natural", "Illness", "Missing Person", "Suicide", "Unknown", "Accident Ashore", "Homicide"];
+
 function casualtySeverity(type) {
   const t = String(type||"").toLowerCase();
   if (t.includes("very serious")) return "High";
@@ -24,11 +31,10 @@ function casualtySeverity(type) {
   return "Unknown";
 }
 function personalIncidentSeverity(row) {
-  const nearMiss = String(row.near_miss||"").toLowerCase();
-  if (nearMiss.includes("yes")||nearMiss==="y") return "Low";
-  const text = (String(row.marine_casualties||"")+" "+String(row.details_summary||"")).toLowerCase();
-  if (text.includes("fatal")||text.includes("death")||text.includes("died")) return "High";
-  if (text.includes("injur")||text.includes("hospital")) return "Medium";
+  const t = String(row.incident_type||"").toLowerCase().trim();
+  if (t.includes("death") || t.includes("missing")) return "High";
+  if (t.includes("injur")) return "Medium";
+  if (t.includes("ill") || t.includes("recover")) return "Low";
   return "Unknown";
 }
 function statusBucket(status) {
@@ -503,13 +509,184 @@ function AddMcRecordModal({ onClose, onSaved }) {
 }
 
 
+function AddPiRecordModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({
+    vessel: "", imo: "", incident_date: "", case_status: "Open", vessel_type: "",
+    managing_company: "", ilo_6_1: "", ilo_6_2: "", incident_type: "Injury",
+    details: "", victim: "Seafarer", investigated: "NO", casualty_type: "Marine Incident",
+    documents_received: "Pending", imo_reported: "Not Qualify to Report", category: "Accident/Incident onboard",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: "9px", color: "var(--text3)", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: "5px" };
+
+  async function handleSave() {
+    setError("");
+    if (!form.vessel.trim() || !form.imo.trim() || !form.incident_date) {
+      setError("Vessel name, IMO, and Date of Incident are required.");
+      return;
+    }
+    setSaving(true);
+    const { error: insErr } = await supabase.from("personal_incident").insert([{
+      vessel: form.vessel.trim(),
+      imo: Number(form.imo) || form.imo,
+      incident_date: form.incident_date,
+      case_status: form.case_status,
+      vessel_type: form.vessel_type.trim(),
+      managing_company: form.managing_company.trim(),
+      ilo_6_1: form.ilo_6_1.trim(),
+      ilo_6_2: form.ilo_6_2.trim(),
+      incident_type: form.incident_type,
+      details: form.details.trim(),
+      victim: form.victim,
+      investigated: form.investigated,
+      casualty_type: form.casualty_type,
+      documents_received: form.documents_received,
+      imo_reported: form.imo_reported,
+      category: form.category,
+    }]);
+    setSaving(false);
+    if (insErr) { setError(insErr.message); return; }
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,22,40,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "20px" }}>
+      <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "10px", width: "100%", maxWidth: "640px", maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>🩹 Add Personal Incident Record</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Vessel *</div>
+              <input style={inputStyle} value={form.vessel} onChange={e => set("vessel", e.target.value)} placeholder="e.g. HONEY BADGER" />
+            </div>
+            <div>
+              <div style={labelStyle}>IMO *</div>
+              <input style={inputStyle} value={form.imo} onChange={e => set("imo", e.target.value)} placeholder="e.g. 9711315" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Date of Incident *</div>
+              <input type="date" style={inputStyle} value={form.incident_date} onChange={e => set("incident_date", e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Type (Vessel Type)</div>
+              <input style={inputStyle} value={form.vessel_type} onChange={e => set("vessel_type", e.target.value)} placeholder="e.g. BULK CARRIER" />
+            </div>
+          </div>
+
+          <div>
+            <div style={labelStyle}>Managing Company</div>
+            <input style={inputStyle} value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. STAR BULK (HELLAS) INC." />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>ILO Report 6.1</div>
+              <input style={inputStyle} value={form.ilo_6_1} onChange={e => set("ilo_6_1", e.target.value)} placeholder="e.g. 1302 Securing cargo" />
+            </div>
+            <div>
+              <div style={labelStyle}>ILO Report 6.2</div>
+              <input style={inputStyle} value={form.ilo_6_2} onChange={e => set("ilo_6_2", e.target.value)} placeholder="e.g. 2204 Caught in or between objects" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>INCIDENT</div>
+              <select style={inputStyle} value={form.incident_type} onChange={e => set("incident_type", e.target.value)}>
+                {PI_INCIDENT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Victim</div>
+              <select style={inputStyle} value={form.victim} onChange={e => set("victim", e.target.value)}>
+                {PI_VICTIM_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div style={labelStyle}>Details</div>
+            <textarea style={{ ...inputStyle, minHeight: "80px", resize: "vertical", fontFamily: "inherit" }} value={form.details} onChange={e => set("details", e.target.value)} placeholder="What happened…" />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Type of Casualty</div>
+              <select style={inputStyle} value={form.casualty_type} onChange={e => set("casualty_type", e.target.value)}>
+                {PI_CASUALTY_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Category</div>
+              <select style={inputStyle} value={form.category} onChange={e => set("category", e.target.value)}>
+                {PI_CATEGORY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Case Status</div>
+              <select style={inputStyle} value={form.case_status} onChange={e => set("case_status", e.target.value)}>
+                <option>Open</option><option>Close</option>
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Investigated</div>
+              <select style={inputStyle} value={form.investigated} onChange={e => set("investigated", e.target.value)}>
+                <option>NO</option><option>Yes</option>
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Docs Received</div>
+              <select style={inputStyle} value={form.documents_received} onChange={e => set("documents_received", e.target.value)}>
+                {PI_DOCS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>IMO Reported</div>
+              <select style={inputStyle} value={form.imo_reported} onChange={e => set("imo_reported", e.target.value)}>
+                {PI_IMO_REPORTED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {error && <div style={{ fontSize: "12px", color: "var(--red2)", background: "var(--red-bg)", border: "1px solid var(--red2)", borderRadius: "6px", padding: "8px 12px" }}>{error}</div>}
+        </div>
+
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+          <button onClick={onClose} style={{ padding: "7px 16px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text3)", cursor: "pointer", fontSize: "12px" }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: "7px 16px", border: "1px solid var(--amber2)", borderRadius: "6px", background: "var(--amber2)", color: "#fff", cursor: saving ? "default" : "pointer", fontSize: "12px", fontWeight: 500, opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Saving…" : "Save Record"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function CasualtyMlcReport({ scope = "all" }) {
   const [casualtyRaw, setCasualtyRaw] = useState([]);
   const [mlcRaw, setMlcRaw] = useState([]);
+  const [personalRaw, setPersonalRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(scope === "mlc" ? "mlc" : "casualty");
   const [selectedYear, setSelectedYear] = useState("All");
   const [showAddMc, setShowAddMc] = useState(false);
+  const [showAddPi, setShowAddPi] = useState(false);
 
   // Supabase caps an unbounded .select("*") at 1000 rows by default. This table has
   // 1000+ rows across all years, so a single request silently truncates — page through
@@ -530,12 +707,14 @@ export default function CasualtyMlcReport({ scope = "all" }) {
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
-    const [casData, mlcData] = await Promise.all([
+    const [casData, mlcData, piData] = await Promise.all([
       fetchAllRows("vessel_casualty"),
       fetchAllRows("mlc_complaints"),
+      fetchAllRows("personal_incident"),
     ]);
     setCasualtyRaw(casData);
     setMlcRaw(mlcData);
+    setPersonalRaw(piData);
     setLoading(false);
   }, []);
 
@@ -543,20 +722,19 @@ export default function CasualtyMlcReport({ scope = "all" }) {
     fetchData();
   }, [fetchData]);
 
-  // All vessel_casualty records are Marine Casualty — "Marine incident" is a severity tier within MC,
-  // not a separate Personal Incident category. Personal Incident has no data source yet (a separate
-  // file will be uploaded for this in future) — kept empty on purpose, not pulled from vessel_casualty.
+  // vessel_casualty holds Marine Casualty records; personal_incident holds Personal Incident
+  // records (crew/personnel injury, illness, death) — separate tables, separate tabs.
   const marineCasualtyRows = casualtyRaw;
-  const personalIncidentRows = [];
+  const personalIncidentRows = personalRaw;
 
   const availableYears = useMemo(() => {
     const years = new Set();
-    [...casualtyRaw, ...mlcRaw].forEach(r => {
+    [...casualtyRaw, ...mlcRaw, ...personalRaw].forEach(r => {
       const y = yearOf(r.incident_date || r.reported_date);
       if (y && y>=EARLIEST_YEAR) years.add(y);
     });
     return [...years].sort((a,b)=>b-a);
-  }, [casualtyRaw, mlcRaw]);
+  }, [casualtyRaw, mlcRaw, personalRaw]);
 
   const ALL_TABS = [
     { id: "casualty", label: "⚓ MC" },
@@ -592,10 +770,14 @@ export default function CasualtyMlcReport({ scope = "all" }) {
           {activeTab==="casualty" && (
             <button onClick={()=>setShowAddMc(true)} style={{background:"var(--blue)",border:"1px solid var(--blue)",borderRadius:"6px",color:"#fff",fontSize:"12px",fontWeight:600,padding:"6px 12px",cursor:"pointer"}}>+ Add MC Record</button>
           )}
+          {activeTab==="personal" && (
+            <button onClick={()=>setShowAddPi(true)} style={{background:"var(--amber2)",border:"1px solid var(--amber2)",borderRadius:"6px",color:"#fff",fontSize:"12px",fontWeight:600,padding:"6px 12px",cursor:"pointer"}}>+ Add PI Record</button>
+          )}
         </div>
       </div>
 
       {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} />}
+      {showAddPi && <AddPiRecordModal onClose={()=>setShowAddPi(false)} onSaved={fetchData} />}
 
       {TABS.length > 1 && (
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
@@ -617,17 +799,13 @@ export default function CasualtyMlcReport({ scope = "all" }) {
             />
           )}
           {activeTab==="personal" && (
-            <>
-              <div style={{fontSize:"12px",color:"var(--text3)",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"20px",marginBottom:"14px",textAlign:"center"}}>
-                No Personal Incident data has been uploaded yet — this will be a separate report once that data source is available. Currently, all records in the casualty file (including "Marine incident" type) are treated as Marine Casualty.
-              </div>
-              <CategorySection
-                title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel — pending a dedicated data source"
-                rows={personalIncidentRows} dateField="incident_date"
-                getSeverity={personalIncidentSeverity} companyField="managing_company"
-                getTypeLabel={(r)=>r.marine_casualties||r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
-              />
-            </>
+            <CategorySection
+              title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel"
+              rows={personalIncidentRows} dateField="incident_date"
+              getSeverity={personalIncidentSeverity} companyField="managing_company"
+              getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
+              showCasualtyTypeChart={true}
+            />
           )}
           {activeTab==="mlc" && (
             <CategorySection
