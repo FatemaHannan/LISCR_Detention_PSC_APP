@@ -748,7 +748,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Age",ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
@@ -791,11 +791,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Rank</div>
                         <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.rank?"#"+companyStats.rank+" / "+companyStats.totalCompanies:"—"}</div>
                       </div>
-                    </div>
-                    <div style={{fontSize:"13px",color:"var(--text3)"}}>
-                      vs prior 36mo: {companyStats.pctDiff==null
-                        ? (companyStats.det36>0 ? "New — no detentions in the prior 36-month period" : "No detentions in either period")
-                        : <span style={{color:companyStats.pctDiff>0?"var(--red2)":companyStats.pctDiff<0?"var(--green2)":"var(--text3)",fontWeight:600}}>{companyStats.pctDiff>0?"+":""}{companyStats.pctDiff.toFixed(0)}%</span>}
                     </div>
                   </div>
                 )}
