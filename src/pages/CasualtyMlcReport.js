@@ -401,7 +401,7 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
     }
     const exportRows = statusFiltered.map(r => ({
       Vessel: r.vessel, IMO: r.imo, Date: r[dateField],
-      Type: r.casualty_type||r.incident_type||"", Company: r.managing_company||"",
+      Type: r.incident_type||r.casualty_type||"", Company: r.managing_company||"",
       Status: statusOverrides[r.id]||r.workflow_status||"To Do",
       Owner: ownerOverrides[r.id]!=null?ownerOverrides[r.id]:(r.case_owner||""),
       CaseStatus: r.case_status||"", Documents: docCounts[r.id]||0,
@@ -467,7 +467,7 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
                   <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{row.vessel}</td>
                   <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.imo}</td>
                   <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row[dateField]}</td>
-                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.casualty_type||row.incident_type||"—"}</td>
+                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.incident_type||row.casualty_type||"—"}</td>
                   <td style={{padding:"6px 8px"}}>
                     <input
                       list="known-team-list-tracking" defaultValue={owner} placeholder="—"
@@ -535,7 +535,7 @@ function CompanyDetailModal({ company, rows, companyField, dateField, sourceTabl
                         <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{row.vessel}</td>
                         <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.imo}</td>
                         <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row[dateField]}</td>
-                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.casualty_type||row.incident_type||"—"}</td>
+                        <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.incident_type||row.casualty_type||"—"}</td>
                         <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.case_status||"—"}</td>
                         <td style={{padding:"6px 8px"}}>
                           {sourceTable ? (
