@@ -49,6 +49,15 @@ function yearOf(dateStr) {
   return isNaN(y) ? null : y;
 }
 
+// Smart search: matches the query against every field on the row (vessel, IMO, company,
+// type, category, details, location, etc.) case-insensitively, so one search box works
+// across all the different field names MC/PI/MLC use.
+function rowMatchesSearch(row, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return Object.values(row).some(v => v != null && String(v).toLowerCase().includes(q));
+}
+
 function DonutChart({ data, colors, title }) {
   const total = data.reduce((a,d)=>a+d.value,0);
   if (total===0) return <div style={{fontSize:"12px",color:"var(--text3)",textAlign:"center",padding:"30px 0"}}>No data</div>;
@@ -207,7 +216,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([type,count])=>({type,count}));
   }, [enriched]);
 
-  // ---- Top 25 by Type x Year — full dataset, all years on file, independent of Year selector ----
+  // ---- Insights & Highlights — YoY trend, top problem areas, and a positive metric ----
+  const insights = useMemo(() => {
+    const yearlyTotals = {};
+    rows.forEach(r => { const y = yearOf(r[dateField]); if (y && y>=EARLIEST_YEAR) yearlyTotals[y] = (yearlyTotals[y]||0)+1; });
+    const yrsSorted = Object.keys(yearlyTotals).map(Number).sort((a,b)=>a-b);
+    let trend = null;
+    if (yrsSorted.length >= 2) {
+      const latest = yrsSorted[yrsSorted.length-1];
+      const prev = yrsSorted[yrsSorted.length-2];
+      const latestCount = yearlyTotals[latest], prevCount = yearlyTotals[prev];
+      const pct = prevCount>0 ? Math.round(((latestCount-prevCount)/prevCount)*100) : null;
+      trend = { latest, prev, latestCount, prevCount, pct };
+    }
+    const topVessel = recurringVessels[0] || null;
+    const topCompany = recurringCompanies[0] || null;
+    const closedCount = enriched.filter(r=>r.status==="Closed").length;
+    const closedPct = enriched.length>0 ? Math.round((closedCount/enriched.length)*100) : null;
+    return { trend, topVessel, topCompany, closedPct, totalScoped: enriched.length };
+  }, [rows, dateField, recurringVessels, recurringCompanies, enriched]);
+
+
   const byTypeYearAllYears = useMemo(() => {
     const years = new Set();
     rows.forEach(r => { const y = yearOf(r[dateField]); if (y && y>=EARLIEST_YEAR) years.add(y); });
@@ -254,6 +283,48 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     <div style={{marginBottom:"28px"}}>
       <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>{title}</div>
       <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>{subtitle} · {scoped.length} total on file ({EARLIEST_YEAR}+, {selectedYear==="All"?"all years":selectedYear})</div>
+
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>📌 Focus & Highlights</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+          {insights.trend && (
+            <div style={{display:"flex",gap:"8px",alignItems:"flex-start",fontSize:"12px",color:"var(--text2)"}}>
+              <span>{insights.trend.pct==null ? "📊" : insights.trend.pct>0 ? "📈" : insights.trend.pct<0 ? "📉" : "➡️"}</span>
+              <span>
+                <b style={{color: insights.trend.pct>0 ? "var(--red2)" : insights.trend.pct<0 ? "var(--green2)" : "var(--text)"}}>
+                  {insights.trend.pct==null ? `${insights.trend.latestCount} records in ${insights.trend.latest}` :
+                    `${Math.abs(insights.trend.pct)}% ${insights.trend.pct>0?"increase":insights.trend.pct<0?"decrease":"no change"}`}
+                </b>
+                {" "}in {insights.trend.latest} vs {insights.trend.prev} ({insights.trend.latestCount} vs {insights.trend.prevCount} records).
+              </span>
+            </div>
+          )}
+          {insights.topVessel && (
+            <div style={{display:"flex",gap:"8px",alignItems:"flex-start",fontSize:"12px",color:"var(--text2)"}}>
+              <span>⚠️</span>
+              <span><b style={{color:"var(--red2)"}}>{insights.topVessel.name}</b> has the most repeat records — {insights.topVessel.count}x, most often "{mostCommon(insights.topVessel.types)}". Worth a closer look.</span>
+            </div>
+          )}
+          {insights.topCompany && (
+            <div style={{display:"flex",gap:"8px",alignItems:"flex-start",fontSize:"12px",color:"var(--text2)"}}>
+              <span>🏢</span>
+              <span><b style={{color:"var(--amber2)"}}>{insights.topCompany.company}</b> has the largest concentration in this period — {insights.topCompany.total} records{insights.topCompany.High?`, ${insights.topCompany.High} High severity`:""}.</span>
+            </div>
+          )}
+          {insights.closedPct!=null && (
+            <div style={{display:"flex",gap:"8px",alignItems:"flex-start",fontSize:"12px",color:"var(--text2)"}}>
+              <span>{insights.closedPct>=75?"✅":insights.closedPct>=50?"🟡":"🔴"}</span>
+              <span>
+                <b style={{color: insights.closedPct>=75 ? "var(--green2)" : insights.closedPct>=50 ? "var(--amber2)" : "var(--red2)"}}>{insights.closedPct}% closed</b>
+                {" "}({insights.totalScoped} records in the current view) — {insights.closedPct>=75 ? "resolution rate is strong here." : insights.closedPct>=50 ? "a meaningful share is still open." : "most records here are still open — may need attention."}
+              </span>
+            </div>
+          )}
+          {!insights.trend && !insights.topVessel && !insights.topCompany && insights.closedPct==null && (
+            <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough data in the current view to generate highlights.</div>
+          )}
+        </div>
+      </div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
@@ -403,7 +474,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   );
 }
 
-function AddMcRecordModal({ onClose, onSaved }) {
+function AddMcRecordModal({ onClose, onSaved, existingRows }) {
   const [form, setForm] = useState({
     vessel: "", imo: "", incident_date: "", casualty_type: "Marine incident",
     vessel_type: "", managing_company: "", marine_casualties: "",
@@ -412,10 +483,43 @@ function AddMcRecordModal({ onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
   const labelStyle = { fontSize: "9px", color: "var(--text3)", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: "5px" };
+
+  // ---- Vessel autocomplete + prior-record lookup ----
+  const rows = existingRows || [];
+  const vesselSuggestions = useMemo(() => {
+    const q = form.vessel.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const seen = new Set();
+    const list = [];
+    rows.forEach(r => {
+      if (r.vessel && r.vessel.toLowerCase().includes(q) && !seen.has(r.vessel)) { seen.add(r.vessel); list.push(r.vessel); }
+    });
+    return list.slice(0, 6);
+  }, [form.vessel, rows]);
+
+  const vesselHistory = useMemo(() => {
+    const vq = form.vessel.trim().toLowerCase();
+    const iq = form.imo.trim();
+    if (!vq && !iq) return [];
+    return rows
+      .filter(r => (vq && r.vessel && r.vessel.toLowerCase() === vq) || (iq && String(r.imo) === iq))
+      .sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))
+      .slice(0, 8);
+  }, [form.vessel, form.imo, rows]);
+
+  function selectVessel(name) {
+    const match = rows.filter(r => r.vessel === name).sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))[0];
+    set("vessel", name);
+    setShowSuggestions(false);
+    if (match) {
+      setForm(f => ({ ...f, vessel: name, imo: String(match.imo||f.imo), vessel_type: match.vessel_type||f.vessel_type, managing_company: match.managing_company||f.managing_company }));
+    }
+  }
 
   async function handleSave() {
     setError("");
@@ -455,15 +559,43 @@ function AddMcRecordModal({ onClose, onSaved }) {
 
         <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div>
+            <div style={{ position: "relative" }}>
               <div style={labelStyle}>Name of the Vessel *</div>
-              <input style={inputStyle} value={form.vessel} onChange={e => set("vessel", e.target.value)} placeholder="e.g. MSC ELSA 3" />
+              <input
+                style={inputStyle} value={form.vessel}
+                onChange={e => { set("vessel", e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="e.g. MSC ELSA 3" autoComplete="off"
+              />
+              {showSuggestions && vesselSuggestions.length > 0 && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "4px", background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "6px", zIndex: 10, maxHeight: "160px", overflowY: "auto" }}>
+                  {vesselSuggestions.map(name => (
+                    <div key={name} onMouseDown={() => selectVessel(name)} style={{ padding: "7px 11px", fontSize: "12px", color: "var(--text2)", cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <div style={labelStyle}>IMO *</div>
               <input style={inputStyle} value={form.imo} onChange={e => set("imo", e.target.value)} placeholder="e.g. 9123221" />
             </div>
           </div>
+
+          {vesselHistory.length > 0 && (
+            <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid var(--blue)", borderRadius: "6px", padding: "10px 12px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--blue)", marginBottom: "6px" }}>⚓ {vesselHistory.length} prior MC record{vesselHistory.length>1?"s":""} found for this vessel</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {vesselHistory.map((h,i) => (
+                  <div key={i} style={{ fontSize: "11px", color: "var(--text2)" }}>
+                    <b>{h.incident_date}</b> — {h.casualty_type||"Unspecified"}{h.marine_casualties?` (${h.marine_casualties})`:""}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
@@ -549,7 +681,7 @@ function AddMcRecordModal({ onClose, onSaved }) {
 }
 
 
-function AddPiRecordModal({ onClose, onSaved }) {
+function AddPiRecordModal({ onClose, onSaved, existingRows }) {
   const [form, setForm] = useState({
     vessel: "", imo: "", incident_date: "", case_status: "Open", vessel_type: "",
     managing_company: "", ilo_6_1: "", ilo_6_2: "", incident_type: "Injury",
@@ -558,10 +690,44 @@ function AddPiRecordModal({ onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
   const labelStyle = { fontSize: "9px", color: "var(--text3)", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: "5px" };
+
+  // ---- Vessel autocomplete + prior-record lookup ----
+  const rows = existingRows || [];
+  const vesselSuggestions = useMemo(() => {
+    const q = form.vessel.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const seen = new Set();
+    const list = [];
+    rows.forEach(r => {
+      if (r.vessel && r.vessel.toLowerCase().includes(q) && !seen.has(r.vessel)) { seen.add(r.vessel); list.push(r.vessel); }
+    });
+    return list.slice(0, 6);
+  }, [form.vessel, rows]);
+
+  const vesselHistory = useMemo(() => {
+    const vq = form.vessel.trim().toLowerCase();
+    const iq = form.imo.trim();
+    if (!vq && !iq) return [];
+    return rows
+      .filter(r => (vq && r.vessel && r.vessel.toLowerCase() === vq) || (iq && String(r.imo) === iq))
+      .sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))
+      .slice(0, 8);
+  }, [form.vessel, form.imo, rows]);
+
+  function selectVessel(name) {
+    const match = rows.filter(r => r.vessel === name).sort((a,b) => new Date(b.incident_date||0) - new Date(a.incident_date||0))[0];
+    setShowSuggestions(false);
+    if (match) {
+      setForm(f => ({ ...f, vessel: name, imo: String(match.imo||f.imo), vessel_type: match.vessel_type||f.vessel_type, managing_company: match.managing_company||f.managing_company }));
+    } else {
+      set("vessel", name);
+    }
+  }
 
   async function handleSave() {
     setError("");
@@ -604,15 +770,44 @@ function AddPiRecordModal({ onClose, onSaved }) {
 
         <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div>
+            <div style={{ position: "relative" }}>
               <div style={labelStyle}>Vessel *</div>
-              <input style={inputStyle} value={form.vessel} onChange={e => set("vessel", e.target.value)} placeholder="e.g. HONEY BADGER" />
+              <input
+                style={inputStyle} value={form.vessel}
+                onChange={e => { set("vessel", e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="e.g. HONEY BADGER" autoComplete="off"
+              />
+              {showSuggestions && vesselSuggestions.length > 0 && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "4px", background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "6px", zIndex: 10, maxHeight: "160px", overflowY: "auto" }}>
+                  {vesselSuggestions.map(name => (
+                    <div key={name} onMouseDown={() => selectVessel(name)} style={{ padding: "7px 11px", fontSize: "12px", color: "var(--text2)", cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <div style={labelStyle}>IMO *</div>
               <input style={inputStyle} value={form.imo} onChange={e => set("imo", e.target.value)} placeholder="e.g. 9711315" />
             </div>
           </div>
+
+          {vesselHistory.length > 0 && (
+            <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid var(--amber2)", borderRadius: "6px", padding: "10px 12px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--amber2)", marginBottom: "6px" }}>🩹 {vesselHistory.length} prior PI record{vesselHistory.length>1?"s":""} found for this vessel</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {vesselHistory.map((h,i) => (
+                  <div key={i} style={{ fontSize: "11px", color: "var(--text2)" }}>
+                    <b>{h.incident_date}</b> — {h.incident_type||"Unspecified"}{h.victim?` (${h.victim})`:""}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
@@ -727,6 +922,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
   const [selectedYear, setSelectedYear] = useState("All");
   const [showAddMc, setShowAddMc] = useState(false);
   const [showAddPi, setShowAddPi] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Supabase caps an unbounded .select("*") at 1000 rows by default. This table has
   // 1000+ rows across all years, so a single request silently truncates — page through
@@ -787,6 +983,10 @@ export default function CasualtyMlcReport({ scope = "all" }) {
     ? ALL_TABS.filter(t => t.id === "mlc")
     : ALL_TABS;
 
+  const filteredMarineCasualtyRows = useMemo(() => marineCasualtyRows.filter(r => rowMatchesSearch(r, searchQuery)), [marineCasualtyRows, searchQuery]);
+  const filteredPersonalIncidentRows = useMemo(() => personalIncidentRows.filter(r => rowMatchesSearch(r, searchQuery)), [personalIncidentRows, searchQuery]);
+  const filteredMlcRows = useMemo(() => mlcRaw.filter(r => rowMatchesSearch(r, searchQuery)), [mlcRaw, searchQuery]);
+
   const headerTitle = scope === "investigation" ? "Investigation" : scope === "mlc" ? "MLC Report" : "MLC & Casualty Report";
   const headerSubtitle = scope === "investigation"
     ? `Marine Casualty and Personal Incident — severity, status, trend, and company breakdown (${EARLIEST_YEAR} onward)`
@@ -816,8 +1016,8 @@ export default function CasualtyMlcReport({ scope = "all" }) {
         </div>
       </div>
 
-      {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} />}
-      {showAddPi && <AddPiRecordModal onClose={()=>setShowAddPi(false)} onSaved={fetchData} />}
+      {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} existingRows={casualtyRaw} />}
+      {showAddPi && <AddPiRecordModal onClose={()=>setShowAddPi(false)} onSaved={fetchData} existingRows={personalRaw} />}
 
       {TABS.length > 1 && (
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
@@ -827,12 +1027,31 @@ export default function CasualtyMlcReport({ scope = "all" }) {
       </div>
       )}
 
+      <div style={{position:"relative",marginBottom:"18px"}}>
+        <input
+          value={searchQuery}
+          onChange={e=>setSearchQuery(e.target.value)}
+          placeholder="🔍 Search by vessel, IMO, company, incident type, category, location…"
+          style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border2)",borderRadius:"8px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",boxSizing:"border-box"}}
+        />
+        {searchQuery && (
+          <button onClick={()=>setSearchQuery("")} style={{position:"absolute",right:"10px",top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:"16px"}}>×</button>
+        )}
+        {searchQuery && (
+          <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"6px"}}>
+            {activeTab==="casualty" && `${filteredMarineCasualtyRows.length} of ${marineCasualtyRows.length} MC records match`}
+            {activeTab==="personal" && `${filteredPersonalIncidentRows.length} of ${personalIncidentRows.length} PI records match`}
+            {activeTab==="mlc" && `${filteredMlcRows.length} of ${mlcRaw.length} MLC records match`}
+          </div>
+        )}
+      </div>
+
       {loading ? <div style={{fontSize:"13px",color:"var(--text3)",padding:"20px"}}>Loading report data…</div> : (
         <>
           {activeTab==="casualty" && (
             <CategorySection
               title="Marine Casualty" subtitle="Vessel-affecting events — grounding, collision, fire, machinery failure, etc."
-              rows={marineCasualtyRows} dateField="incident_date"
+              rows={filteredMarineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
               getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
               showCasualtyTypeChart={true}
@@ -841,7 +1060,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
           {activeTab==="personal" && (
             <CategorySection
               title="Personal Incident" subtitle="Injury, illness, or death involving crew or personnel"
-              rows={personalIncidentRows} dateField="incident_date"
+              rows={filteredPersonalIncidentRows} dateField="incident_date"
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
               showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
@@ -851,7 +1070,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
           {activeTab==="mlc" && (
             <CategorySection
               title="MLC Complaints" subtitle="Maritime Labour Convention compliance issues"
-              rows={mlcRaw} dateField="reported_date"
+              rows={filteredMlcRows} dateField="reported_date"
               getSeverity={(r)=>{
                 const rl = String(r.risk_level||"");
                 return ["High","Highest"].includes(rl)?"High":rl==="Medium"?"Medium":rl==="Low"?"Low":"Unknown";
