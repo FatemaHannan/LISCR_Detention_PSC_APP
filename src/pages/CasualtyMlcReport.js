@@ -7,6 +7,14 @@ const STATUS_COLORS = { Open: "#f59e0b", Closed: "#22c55e", Unknown: "#64748b" }
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const EARLIEST_YEAR = 2023; // exclude 2022 and earlier
 
+const CASUALTY_TYPE_OPTIONS = ["Marine incident", "Marine casualty", "Very serious marine casualty", "Deliberate act"];
+const MARINE_CASUALTIES_OPTIONS = [
+  "Machinery/Equipment Failure", "Loss/ Damaged", "Allision", "Minor Oil Spill/less than 50 mt",
+  "Grounding/Beaching", "Collision", "Fire/ Explosion", "Contacted", "MARPOL VIOLATION",
+  "Heavy Weather Damaged", "Drone Attack / Security Incident", "Foundering", "Cargo Hold Oil Spill",
+  "Bunker Oil Spill", "Hijacking", "Equipment Damage",
+];
+
 function casualtySeverity(type) {
   const t = String(type||"").toLowerCase();
   if (t.includes("very serious")) return "High";
@@ -307,30 +315,176 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   );
 }
 
+function AddMcRecordModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({
+    vessel: "", imo: "", incident_date: "", casualty_type: "Marine incident",
+    vessel_type: "", managing_company: "", marine_casualties: "",
+    details_summary: "", location: "", case_status: "Open",
+    documents_received: "In-complete", investigated: "No", near_miss: "No",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: "9px", color: "var(--text3)", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: "5px" };
+
+  async function handleSave() {
+    setError("");
+    if (!form.vessel.trim() || !form.imo.trim() || !form.incident_date) {
+      setError("Vessel name, IMO, and Date of Incident are required.");
+      return;
+    }
+    setSaving(true);
+    const { error: insErr } = await supabase.from("vessel_casualty").insert([{
+      vessel: form.vessel.trim(),
+      imo: Number(form.imo) || form.imo,
+      incident_date: form.incident_date,
+      casualty_type: form.casualty_type,
+      vessel_type: form.vessel_type.trim(),
+      managing_company: form.managing_company.trim(),
+      marine_casualties: form.marine_casualties.trim(),
+      details_summary: form.details_summary.trim(),
+      location: form.location.trim(),
+      case_status: form.case_status,
+      documents_received: form.documents_received,
+      investigated: form.investigated,
+      near_miss: form.near_miss,
+    }]);
+    setSaving(false);
+    if (insErr) { setError(insErr.message); return; }
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,22,40,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "20px" }}>
+      <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "10px", width: "100%", maxWidth: "640px", maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>⚓ Add Marine Casualty Record</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Name of the Vessel *</div>
+              <input style={inputStyle} value={form.vessel} onChange={e => set("vessel", e.target.value)} placeholder="e.g. MSC ELSA 3" />
+            </div>
+            <div>
+              <div style={labelStyle}>IMO *</div>
+              <input style={inputStyle} value={form.imo} onChange={e => set("imo", e.target.value)} placeholder="e.g. 9123221" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Date of Incident *</div>
+              <input type="date" style={inputStyle} value={form.incident_date} onChange={e => set("incident_date", e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Type of the Vessel</div>
+              <input style={inputStyle} value={form.vessel_type} onChange={e => set("vessel_type", e.target.value)} placeholder="e.g. CONTAINER" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Type of Casualty</div>
+              <select style={inputStyle} value={form.casualty_type} onChange={e => set("casualty_type", e.target.value)}>
+                {CASUALTY_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Marine Casualties (category)</div>
+              <input style={inputStyle} list="mc-category-list" value={form.marine_casualties} onChange={e => set("marine_casualties", e.target.value)} placeholder="e.g. Collision" />
+              <datalist id="mc-category-list">
+                {MARINE_CASUALTIES_OPTIONS.map(o => <option key={o} value={o} />)}
+              </datalist>
+            </div>
+          </div>
+
+          <div>
+            <div style={labelStyle}>Managing Company</div>
+            <input style={inputStyle} value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. MSC Shipmanagement Limited" />
+          </div>
+
+          <div>
+            <div style={labelStyle}>Location/Position</div>
+            <input style={inputStyle} value={form.location} onChange={e => set("location", e.target.value)} placeholder="e.g. At Cochin" />
+          </div>
+
+          <div>
+            <div style={labelStyle}>Details Summary</div>
+            <textarea style={{ ...inputStyle, minHeight: "80px", resize: "vertical", fontFamily: "inherit" }} value={form.details_summary} onChange={e => set("details_summary", e.target.value)} placeholder="What happened…" />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px" }}>
+            <div>
+              <div style={labelStyle}>Case Status</div>
+              <select style={inputStyle} value={form.case_status} onChange={e => set("case_status", e.target.value)}>
+                <option>Open</option><option>Closed</option>
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Documents</div>
+              <select style={inputStyle} value={form.documents_received} onChange={e => set("documents_received", e.target.value)}>
+                <option>Complete</option><option>In-complete</option>
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Investigated</div>
+              <select style={inputStyle} value={form.investigated} onChange={e => set("investigated", e.target.value)}>
+                <option>No</option><option>Yes</option>
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Near Miss</div>
+              <select style={inputStyle} value={form.near_miss} onChange={e => set("near_miss", e.target.value)}>
+                <option>No</option><option>Yes</option>
+              </select>
+            </div>
+          </div>
+
+          {error && <div style={{ fontSize: "12px", color: "var(--red2)", background: "var(--red-bg)", border: "1px solid var(--red2)", borderRadius: "6px", padding: "8px 12px" }}>{error}</div>}
+        </div>
+
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+          <button onClick={onClose} style={{ padding: "7px 16px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text3)", cursor: "pointer", fontSize: "12px" }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: "7px 16px", border: "1px solid var(--blue)", borderRadius: "6px", background: "var(--blue)", color: "#fff", cursor: saving ? "default" : "pointer", fontSize: "12px", fontWeight: 500, opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Saving…" : "Save Record"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function CasualtyMlcReport({ scope = "all" }) {
   const [casualtyRaw, setCasualtyRaw] = useState([]);
   const [mlcRaw, setMlcRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(scope === "mlc" ? "mlc" : "casualty");
   const [selectedYear, setSelectedYear] = useState("All");
+  const [showAddMc, setShowAddMc] = useState(false);
+
+  const fetchData = React.useCallback(async () => {
+    setLoading(true);
+    const [casRes, mlcRes] = await Promise.all([
+      supabase.from("vessel_casualty").select("*"),
+      supabase.from("mlc_complaints").select("*"),
+    ]);
+    if (casRes.error) console.error("[CasualtyMlcReport] casualty fetch error:", casRes.error.message);
+    if (mlcRes.error) console.error("[CasualtyMlcReport] mlc fetch error:", mlcRes.error.message);
+    setCasualtyRaw(casRes.data||[]);
+    setMlcRaw(mlcRes.data||[]);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const [casRes, mlcRes] = await Promise.all([
-        supabase.from("vessel_casualty").select("*"),
-        supabase.from("mlc_complaints").select("*"),
-      ]);
-      if (cancelled) return;
-      if (casRes.error) console.error("[CasualtyMlcReport] casualty fetch error:", casRes.error.message);
-      if (mlcRes.error) console.error("[CasualtyMlcReport] mlc fetch error:", mlcRes.error.message);
-      setCasualtyRaw(casRes.data||[]);
-      setMlcRaw(mlcRes.data||[]);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   // All vessel_casualty records are Marine Casualty — "Marine incident" is a severity tier within MC,
   // not a separate Personal Incident category. Personal Incident has no data source yet (a separate
@@ -378,8 +532,13 @@ export default function CasualtyMlcReport({ scope = "all" }) {
             <option value="All">All Years</option>
             {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
           </select>
+          {activeTab==="casualty" && (
+            <button onClick={()=>setShowAddMc(true)} style={{background:"var(--blue)",border:"1px solid var(--blue)",borderRadius:"6px",color:"#fff",fontSize:"12px",fontWeight:600,padding:"6px 12px",cursor:"pointer"}}>+ Add MC Record</button>
+          )}
         </div>
       </div>
+
+      {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} />}
 
       {TABS.length > 1 && (
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>

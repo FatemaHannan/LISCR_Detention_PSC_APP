@@ -202,7 +202,7 @@ const UPLOADS = [
   },
   {
     key: "vessel_casualty",
-    onConflictKey: "imo,incident_date,casualty_type",
+    onConflictKey: "imo,incident_date,casualty_type,marine_casualties",
     label: "Vessel Casualty",
     desc: "Marine casualties & incidents — managing company, type, status",
     icon: "ti-anchor", color: "var(--red2)", bg: "var(--red-bg)",
