@@ -105,7 +105,131 @@ function briefIncidentType(row) {
   return "Other";
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle, topTypeByYear }) {
+const WORKFLOW_STATUS_OPTIONS = ["To Do", "In Progress", "Completed"];
+const WORKFLOW_STATUS_COLORS = { "To Do": "var(--text3)", "In Progress": "var(--amber2)", "Completed": "var(--green2)" };
+
+function pagerBtnStyle(disabled) {
+  return { padding: "4px 10px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: disabled ? "var(--text3)" : "var(--text2)", fontSize: "11px", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 };
+}
+
+function CaseDocuments({ sourceTable, recordId }) {
+  const [docs, setDocs] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadDocs() {
+    const { data, error: err } = await supabase.from("case_documents").select("*").eq("source_table", sourceTable).eq("record_id", String(recordId)).order("uploaded_at", { ascending: false });
+    setDocs(err ? [] : (data || []));
+  }
+
+  useEffect(() => { loadDocs(); }, [sourceTable, recordId]);
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    const path = `${sourceTable}/${recordId}/${Date.now()}_${file.name}`;
+    const { error: upErr } = await supabase.storage.from("case-documents").upload(path, file);
+    if (upErr) { setError(upErr.message); setUploading(false); return; }
+    const { data: urlData } = supabase.storage.from("case-documents").getPublicUrl(path);
+    const { error: insErr } = await supabase.from("case_documents").insert([{ source_table: sourceTable, record_id: String(recordId), file_name: file.name, file_url: urlData.publicUrl }]);
+    setUploading(false);
+    if (insErr) { setError(insErr.message); return; }
+    await loadDocs();
+  }
+
+  return (
+    <div>
+      {docs === null ? <div style={{ fontSize: "11px", color: "var(--text3)" }}>Loading documents…</div> :
+        docs.length === 0 ? <div style={{ fontSize: "11px", color: "var(--text3)", marginBottom: "8px" }}>No documents uploaded yet.</div> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "8px" }}>
+          {docs.map(d => (
+            <a key={d.id} href={d.file_url} target="_blank" rel="noreferrer" style={{ fontSize: "11px", color: "var(--blue)" }}>📄 {d.file_name}</a>
+          ))}
+        </div>
+      )}
+      {error && <div style={{ fontSize: "11px", color: "var(--red2)", marginBottom: "6px" }}>{error}</div>}
+      <label style={{ fontSize: "11px", color: "var(--text2)", cursor: uploading ? "default" : "pointer", display: "inline-block", padding: "5px 10px", border: "1px dashed var(--border2)", borderRadius: "5px" }}>
+        {uploading ? "Uploading…" : "+ Upload document"}
+        <input type="file" onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
+      </label>
+    </div>
+  );
+}
+
+function CaseTrackingList({ rows, sourceTable, dateField }) {
+  const [page, setPage] = useState(0);
+  const [statusOverrides, setStatusOverrides] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const PAGE_SIZE = 25;
+
+  useEffect(() => { setPage(0); }, [rows]);
+
+  const sorted = useMemo(() => [...rows].sort((a,b) => new Date(b[dateField]||0) - new Date(a[dateField]||0)), [rows, dateField]);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageRows = sorted.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
+
+  async function updateStatus(row, value) {
+    setStatusOverrides(o => ({ ...o, [row.id]: value }));
+    const { error } = await supabase.from(sourceTable).update({ workflow_status: value }).eq("id", row.id);
+    if (error) console.error("[CaseTrackingList] status update error:", error.message);
+  }
+
+  return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>📁 Vessel Case List — {sorted.length} record{sorted.length!==1?"s":""}</div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          <button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} style={pagerBtnStyle(page===0)}>‹ Prev</button>
+          <span style={{fontSize:"11px",color:"var(--text3)"}}>Page {page+1} of {totalPages}</span>
+          <button onClick={()=>setPage(p=>Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1} style={pagerBtnStyle(page>=totalPages-1)}>Next ›</button>
+        </div>
+      </div>
+      {sorted.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No records in the current view.</div> : (
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+        <thead><tr>{["Vessel","IMO","Date","Type","Status","Documents"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}</tr></thead>
+        <tbody>
+          {pageRows.map(row => {
+            const status = statusOverrides[row.id] || row.workflow_status || "To Do";
+            const isExpanded = expandedId === row.id;
+            return (
+              <React.Fragment key={row.id}>
+                <tr style={{borderBottom:"1px solid var(--border)"}}>
+                  <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:600}}>{row.vessel}</td>
+                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.imo}</td>
+                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row[dateField]}</td>
+                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{row.casualty_type||row.incident_type||"—"}</td>
+                  <td style={{padding:"6px 8px"}}>
+                    <select value={status} onChange={e=>updateStatus(row, e.target.value)} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:WORKFLOW_STATUS_COLORS[status],fontSize:"11px",fontWeight:600,padding:"4px 8px",cursor:"pointer"}}>
+                      {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </td>
+                  <td style={{padding:"6px 8px"}}>
+                    <button onClick={()=>setExpandedId(isExpanded?null:row.id)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
+                      {isExpanded?"Hide":"📎 Docs"}
+                    </button>
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <tr>
+                    <td colSpan={6} style={{padding:"10px",background:"var(--bg3)"}}>
+                      <CaseDocuments sourceTable={sourceTable} recordId={row.id} />
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      )}
+    </div>
+  );
+}
+
+
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle, topTypeByYear, sourceTable }) {
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -325,6 +449,8 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
           )}
         </div>
       </div>
+
+      {sourceTable && <CaseTrackingList rows={scoped} sourceTable={sourceTable} dateField={dateField} />}
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
@@ -1054,7 +1180,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               rows={filteredMarineCasualtyRows} dateField="incident_date"
               getSeverity={(r)=>casualtySeverity(r.casualty_type)} companyField="managing_company"
               getTypeLabel={(r)=>r.casualty_type||"Unspecified"} useBriefType={true} selectedYear={selectedYear}
-              showCasualtyTypeChart={true}
+              showCasualtyTypeChart={true} sourceTable="vessel_casualty"
             />
           )}
           {activeTab==="personal" && (
@@ -1064,7 +1190,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
               showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
-              topTypeByYear={true}
+              topTypeByYear={true} sourceTable="personal_incident"
             />
           )}
           {activeTab==="mlc" && (
