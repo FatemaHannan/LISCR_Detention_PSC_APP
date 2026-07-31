@@ -96,7 +96,7 @@ function briefIncidentType(row) {
   return "Other";
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart }) {
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle }) {
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -217,16 +217,17 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
 
   const casualtyTypeChartData = useMemo(() => {
     if (!showCasualtyTypeChart) return [];
+    const field = casualtyChartField || "casualty_type";
     const grid = {};
     rows.forEach(r => {
       const y = yearOf(r[dateField]);
       if (!y || y < EARLIEST_YEAR) return;
-      const t = (r.casualty_type||"Unspecified").trim() || "Unspecified";
+      const t = (r[field]||"Unspecified").trim() || "Unspecified";
       grid[t] = grid[t] || { type: t };
       grid[t][y] = (grid[t][y]||0) + 1;
     });
     return Object.values(grid).sort((a,b)=>a.type.localeCompare(b.type));
-  }, [rows, dateField, showCasualtyTypeChart]);
+  }, [rows, dateField, showCasualtyTypeChart, casualtyChartField]);
 
   return (
     <div style={{marginBottom:"28px"}}>
@@ -261,12 +262,12 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
 
       {showCasualtyTypeChart && (
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
-        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>By Type of Casualty — All Years on File</div>
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>{casualtyChartTitle || "By Type of Casualty — All Years on File"}</div>
         {casualtyTypeAllYears.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No dated records available.</div>:
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={casualtyTypeChartData} margin={{top:20,right:10,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="type" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <XAxis dataKey="type" tick={{fontSize:12,fontWeight:700,fill:"var(--text)"}} />
             <YAxis tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
             <Tooltip contentStyle={{background:"#1a1f2e",border:"1px solid var(--border)",fontSize:12,color:"#fff"}} itemStyle={{color:"#fff"}} labelStyle={{color:"#fff"}} />
             <Legend wrapperStyle={{fontSize:11}} />
@@ -804,7 +805,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               rows={personalIncidentRows} dateField="incident_date"
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
-              showCasualtyTypeChart={true}
+              showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
             />
           )}
           {activeTab==="mlc" && (
