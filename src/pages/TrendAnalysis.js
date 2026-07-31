@@ -1069,9 +1069,14 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
         <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)"}}>5. Casualty & MLC Reports<ScopeBadge filtered={false} /></div>
         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
           {onNavigateSubTab && (
-            <button onClick={()=>onNavigateSubTab("casualtymlc")} style={{background:"transparent",border:"1px solid var(--blue)",color:"var(--blue)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
-              📊 Full MLC & Casualty Report →
-            </button>
+            <>
+              <button onClick={()=>onNavigateSubTab("investigation")} style={{background:"transparent",border:"1px solid var(--blue)",color:"var(--blue)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
+                ⚓ Full MC & PI Report →
+              </button>
+              <button onClick={()=>onNavigateSubTab("mlc")} style={{background:"transparent",border:"1px solid var(--blue)",color:"var(--blue)",borderRadius:"6px",padding:"6px 12px",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
+                📋 Full MLC Report →
+              </button>
+            </>
           )}
         </div>
       </div>

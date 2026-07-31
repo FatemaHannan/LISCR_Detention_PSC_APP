@@ -14,7 +14,8 @@ import CasualtyMlcReport from "./CasualtyMlcReport";
 const SUB_TABS = [
   { id: "focus", label: "🎯 Prevention Focus" },
   { id: "dashboard", label: "Dashboard" },
-  { id: "casualtymlc", label: "⚓ MLC & Casualty" },
+  { id: "investigation", label: "⚓ MC & PI" },
+  { id: "mlc", label: "📋 MLC" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
   { id: "highrisk", label: "High-Risk Areas" },
@@ -56,7 +57,8 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) 
       <div style={{ margin: "-16px", padding: "0" }}>
         {subTab === "focus" && <PreventionFocus vessels={vessels} />}
         {subTab === "dashboard" && <TrendAnalysisDashboard vessels={vessels} tasks={tasks} setPage={setPage} onNavigateSubTab={setSubTab} />}
-        {subTab === "casualtymlc" && <CasualtyMlcReport />}
+        {subTab === "investigation" && <CasualtyMlcReport scope="investigation" />}
+        {subTab === "mlc" && <CasualtyMlcReport scope="mlc" />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
         {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}

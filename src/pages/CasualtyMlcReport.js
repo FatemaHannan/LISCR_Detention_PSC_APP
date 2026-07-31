@@ -307,11 +307,11 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   );
 }
 
-export default function CasualtyMlcReport() {
+export default function CasualtyMlcReport({ scope = "all" }) {
   const [casualtyRaw, setCasualtyRaw] = useState([]);
   const [mlcRaw, setMlcRaw] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("casualty");
+  const [activeTab, setActiveTab] = useState(scope === "mlc" ? "mlc" : "casualty");
   const [selectedYear, setSelectedYear] = useState("All");
 
   useEffect(() => {
@@ -347,18 +347,30 @@ export default function CasualtyMlcReport() {
     return [...years].sort((a,b)=>b-a);
   }, [casualtyRaw, mlcRaw]);
 
-  const TABS = [
+  const ALL_TABS = [
     { id: "casualty", label: "⚓ Marine Casualty" },
     { id: "personal", label: "🩹 Personal Incident" },
     { id: "mlc", label: "📋 MLC Complaints" },
   ];
+  const TABS = scope === "investigation"
+    ? ALL_TABS.filter(t => t.id !== "mlc")
+    : scope === "mlc"
+    ? ALL_TABS.filter(t => t.id === "mlc")
+    : ALL_TABS;
+
+  const headerTitle = scope === "investigation" ? "Casualty Investigation" : scope === "mlc" ? "MLC Report" : "MLC & Casualty Report";
+  const headerSubtitle = scope === "investigation"
+    ? `Marine Casualty and Personal Incident — severity, status, trend, and company breakdown (${EARLIEST_YEAR} onward)`
+    : scope === "mlc"
+    ? `Maritime Labour Convention complaints — severity, status, trend, and company breakdown (${EARLIEST_YEAR} onward)`
+    : `Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown (${EARLIEST_YEAR} onward)`;
 
   return (
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
         <div>
-          <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>MLC & Casualty Report</div>
-          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Marine Casualty, Personal Incident, and MLC Complaints — severity, status, trend, and company breakdown ({EARLIEST_YEAR} onward)</div>
+          <div style={{fontSize:"20px",fontWeight:700,color:"var(--text)"}}>{headerTitle}</div>
+          <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>{headerSubtitle}</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
           <span style={{fontSize:"12px",color:"var(--text3)"}}>Year:</span>
@@ -369,11 +381,13 @@ export default function CasualtyMlcReport() {
         </div>
       </div>
 
+      {TABS.length > 1 && (
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{fontSize:"13px",fontWeight:600,padding:"8px 16px",borderRadius:"8px",border:"1px solid "+(activeTab===t.id?"var(--blue)":"var(--border)"),background:activeTab===t.id?"rgba(59,130,246,0.1)":"transparent",color:activeTab===t.id?"var(--blue)":"var(--text2)",cursor:"pointer"}}>{t.label}</button>
         ))}
       </div>
+      )}
 
       {loading ? <div style={{fontSize:"13px",color:"var(--text3)",padding:"20px"}}>Loading report data…</div> : (
         <>
