@@ -158,6 +158,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   const [showNewCase, setShowNewCase] = useState(false);
   const [newCase, setNewCase] = useState({name:"",imo:"",company:"",ro:"Korean Register",mou:"Tokyo MOU",port:"",detentionDate:"",defs:"0",detainable:"0",caseOwner:"Case Owner A"});
   const [dbVessels, setDbVessels] = useState([]);
+  const [ageMap, setAgeMap] = useState({});
   const [dbTasks, setDbTasks] = useState([]);
   const [dbDocs, setDbDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -189,6 +190,25 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       if (found) { openModal(found); if(onClearPreSelect) onClearPreSelect(); }
     }
   }, [preSelectImo, preSelectDate, dbVessels]); // eslint-disable-line
+
+  // ---- Vessel age lookup — Consolidated Inspection History, for the Average Fleet Age stat ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(dbVessels.filter(v=>v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const result = {};
+      const CHUNK = 100;
+      for (let i=0; i<imos.length; i+=CHUNK) {
+        const chunk = imos.slice(i, i+CHUNK);
+        const { data, error } = await supabase.from("inspection_history").select("imo,age").in("imo", chunk).not("age","is",null);
+        if (error) { console.error("[CaseView] age fetch error:", error.message); continue; }
+        (data||[]).forEach(d => { if (result[d.imo]==null) result[d.imo] = d.age; });
+      }
+      if (!cancelled) setAgeMap(result);
+    })();
+    return () => { cancelled = true; };
+  }, [dbVessels]);
 
 
 
@@ -531,13 +551,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         </div>
       )}
       {/* Stats dashboard */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"8px",marginBottom:"14px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px",marginBottom:"14px"}}>
         {[
           {l:"Total Cases",v:filtered.length,c:"var(--text)"},
           {l:"Detained",v:detained.length,c:"var(--red2)"},
           {l:"Active/Released",v:active.length,c:"var(--green2)"},
           {l:"With Flags",v:filtered.filter(v=>v.flags?.length>0).length,c:"var(--amber2)"},
           {l:"This Month",v:filtered.filter(v=>getMonth(v.detentionDate)===getMonth(new Date().toISOString().slice(0,10))).length,c:"var(--blue)"},
+          {l:"Avg Fleet Age",v:(()=>{ const ages=filtered.map(v=>ageMap[v.imo]).filter(a=>a!=null); return ages.length?(ages.reduce((a,b)=>a+b,0)/ages.length).toFixed(1)+" yrs":"—"; })(),c:"var(--text)"},
         ].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"3px"}}>{s.l}</div>
