@@ -96,7 +96,7 @@ function briefIncidentType(row) {
   return "Other";
 }
 
-function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle }) {
+function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle, topTypeByYear }) {
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
     const y = yearOf(r[dateField]);
@@ -207,6 +207,27 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([type,count])=>({type,count}));
   }, [enriched]);
 
+  // ---- Top 25 by Type x Year — full dataset, all years on file, independent of Year selector ----
+  const byTypeYearAllYears = useMemo(() => {
+    const years = new Set();
+    rows.forEach(r => { const y = yearOf(r[dateField]); if (y && y>=EARLIEST_YEAR) years.add(y); });
+    return [...years].sort();
+  }, [rows, dateField]);
+
+  const byTypeByYear = useMemo(() => {
+    if (!topTypeByYear) return [];
+    const grid = {};
+    rows.forEach(r => {
+      const y = yearOf(r[dateField]);
+      if (!y || y < EARLIEST_YEAR) return;
+      const t = useBriefType ? briefIncidentType(r) : ((getTypeLabel ? getTypeLabel(r) : "Unspecified") || "Unspecified");
+      grid[t] = grid[t] || { type: t, total: 0 };
+      grid[t][y] = (grid[t][y]||0) + 1;
+      grid[t].total += 1;
+    });
+    return Object.values(grid).sort((a,b)=>b.total-a.total).slice(0,25);
+  }, [rows, dateField, topTypeByYear, useBriefType, getTypeLabel]);
+
   // ---- By Type of Casualty x Year (clustered bar) — full dataset, all years on file,
   // independent of the Year selector, matching the reference Power BI report ----
   const casualtyTypeAllYears = useMemo(() => {
@@ -314,16 +335,34 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
       </div>
 
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
-        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 by Type</div>
-        {byType.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No type data available.</div>:
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <tbody>{byType.map((t,i)=>(
-            <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
-              <td style={{padding:"6px 8px",color:"var(--text2)"}}>{t.type}</td>
-              <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{t.count}</td>
-            </tr>
-          ))}</tbody>
-        </table>}
+        <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"10px"}}>Top 25 by Type {topTypeByYear ? "— by Year (all years on file)" : ""}</div>
+        {topTypeByYear ? (
+          byTypeByYear.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No type data available.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <thead><tr>
+              <th style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Type</th>
+              {byTypeYearAllYears.map(yr=><th key={yr} style={{textAlign:"right",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{yr}</th>)}
+              <th style={{textAlign:"right",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Total</th>
+            </tr></thead>
+            <tbody>{byTypeByYear.map((t,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"6px 8px",color:"var(--text2)",fontWeight:600}}>{t.type}</td>
+                {byTypeYearAllYears.map(yr=><td key={yr} style={{padding:"6px 8px",color:"var(--text2)",textAlign:"right"}}>{t[yr]||0}</td>)}
+                <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{t.total}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : (
+          byType.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No type data available.</div>:
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <tbody>{byType.map((t,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"6px 8px",color:"var(--text2)"}}>{t.type}</td>
+                <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{t.count}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
       </div>
 
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Top 25 Companies by Year</div>
@@ -806,6 +845,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
               getSeverity={personalIncidentSeverity} companyField="managing_company"
               getTypeLabel={(r)=>r.incident_type||"Unspecified"} selectedYear={selectedYear}
               showCasualtyTypeChart={true} casualtyChartField="incident_type" casualtyChartTitle="By Incident — All Years on File"
+              topTypeByYear={true}
             />
           )}
           {activeTab==="mlc" && (
