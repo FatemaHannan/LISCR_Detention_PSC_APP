@@ -244,6 +244,59 @@ function SearchOverview({ query, mcMatches, piMatches }) {
 }
 
 
+function CaseDetailExpand({ row, sourceTable }) {
+  const [status, setStatus] = useState(row.workflow_status || "To Do");
+  const [saving, setSaving] = useState(false);
+
+  async function updateStatus(value) {
+    setStatus(value);
+    setSaving(true);
+    const { error } = await supabase.from(sourceTable).update({ workflow_status: value }).eq("id", row.id);
+    setSaving(false);
+    if (error) console.error("[CaseDetailExpand] status update error:", error.message);
+  }
+
+  const rowStyle = { display: "flex", gap: "8px", fontSize: "11px", padding: "3px 0" };
+  const kStyle = { color: "var(--text3)", minWidth: "130px", flexShrink: 0 };
+  const vStyle = { color: "var(--text2)" };
+
+  const fields = sourceTable === "vessel_casualty"
+    ? [
+        ["Vessel Type", row.vessel_type], ["Managing Company", row.managing_company],
+        ["Casualty Type", row.casualty_type], ["Marine Casualties", row.marine_casualties],
+        ["Location", row.location], ["Details", row.details_summary],
+        ["Case Status", row.case_status], ["Documents Received", row.documents_received],
+        ["Investigated", row.investigated], ["Near Miss", row.near_miss],
+      ]
+    : [
+        ["Vessel Type", row.vessel_type], ["Managing Company", row.managing_company],
+        ["ILO 6.1", row.ilo_6_1], ["ILO 6.2", row.ilo_6_2],
+        ["Incident", row.incident_type], ["Victim", row.victim],
+        ["Details", row.details], ["Case Status", row.case_status],
+        ["Type of Casualty", row.casualty_type], ["Investigated", row.investigated],
+        ["Documents Received", row.documents_received], ["IMO Reported", row.imo_reported],
+        ["Category", row.category],
+      ];
+
+  return (
+    <div style={{ background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: "6px", padding: "10px 12px", marginTop: "4px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text)" }}>Case Details</div>
+        <select value={status} onChange={e=>updateStatus(e.target.value)} disabled={saving} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"5px",color:WORKFLOW_STATUS_COLORS[status],fontSize:"10px",fontWeight:600,padding:"3px 7px",cursor:"pointer"}}>
+          {WORKFLOW_STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+      {fields.map(([k,v]) => v ? (
+        <div key={k} style={rowStyle}><span style={kStyle}>{k}</span><span style={vStyle}>{v}</span></div>
+      ) : null)}
+      <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
+        <CaseDocuments sourceTable={sourceTable} recordId={row.id} />
+      </div>
+    </div>
+  );
+}
+
+
 function CaseTrackingList({ rows, sourceTable, dateField }) {
   const [page, setPage] = useState(0);
   const [statusOverrides, setStatusOverrides] = useState({});
@@ -712,6 +765,7 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [expandedHistoryDate, setExpandedHistoryDate] = useState(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
@@ -814,11 +868,18 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
 
           {vesselHistory.length > 0 && (
             <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid var(--blue)", borderRadius: "6px", padding: "10px 12px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--blue)", marginBottom: "6px" }}>⚓ {vesselHistory.length} prior MC record{vesselHistory.length>1?"s":""} found for this vessel</div>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--blue)", marginBottom: "6px" }}>⚓ {vesselHistory.length} prior MC record{vesselHistory.length>1?"s":""} found for this vessel — click to view case</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 {vesselHistory.map((h,i) => (
-                  <div key={i} style={{ fontSize: "11px", color: "var(--text2)" }}>
-                    <b>{h.incident_date}</b> — {h.casualty_type||"Unspecified"}{h.marine_casualties?` (${h.marine_casualties})`:""}
+                  <div key={i}>
+                    <div
+                      onClick={() => setExpandedHistoryDate(expandedHistoryDate===h.id ? null : h.id)}
+                      style={{ fontSize: "11px", color: "var(--text2)", cursor: "pointer", padding: "3px 0" }}
+                    >
+                      <b>{h.incident_date}</b> — {h.casualty_type||"Unspecified"}{h.marine_casualties?` (${h.marine_casualties})`:""}
+                      <span style={{ color: "var(--blue)", marginLeft: "6px" }}>{expandedHistoryDate===h.id ? "▲ hide" : "▼ view case"}</span>
+                    </div>
+                    {expandedHistoryDate===h.id && <CaseDetailExpand row={h} sourceTable="vessel_casualty" />}
                   </div>
                 ))}
               </div>
@@ -919,6 +980,7 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [expandedHistoryDate, setExpandedHistoryDate] = useState(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inputStyle = { width: "100%", padding: "8px 11px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", boxSizing: "border-box" };
@@ -1025,11 +1087,18 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
 
           {vesselHistory.length > 0 && (
             <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid var(--amber2)", borderRadius: "6px", padding: "10px 12px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--amber2)", marginBottom: "6px" }}>🩹 {vesselHistory.length} prior PI record{vesselHistory.length>1?"s":""} found for this vessel</div>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--amber2)", marginBottom: "6px" }}>🩹 {vesselHistory.length} prior PI record{vesselHistory.length>1?"s":""} found for this vessel — click to view case</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 {vesselHistory.map((h,i) => (
-                  <div key={i} style={{ fontSize: "11px", color: "var(--text2)" }}>
-                    <b>{h.incident_date}</b> — {h.incident_type||"Unspecified"}{h.victim?` (${h.victim})`:""}
+                  <div key={i}>
+                    <div
+                      onClick={() => setExpandedHistoryDate(expandedHistoryDate===h.id ? null : h.id)}
+                      style={{ fontSize: "11px", color: "var(--text2)", cursor: "pointer", padding: "3px 0" }}
+                    >
+                      <b>{h.incident_date}</b> — {h.incident_type||"Unspecified"}{h.victim?` (${h.victim})`:""}
+                      <span style={{ color: "var(--amber2)", marginLeft: "6px" }}>{expandedHistoryDate===h.id ? "▲ hide" : "▼ view case"}</span>
+                    </div>
+                    {expandedHistoryDate===h.id && <CaseDetailExpand row={h} sourceTable="personal_incident" />}
                   </div>
                 ))}
               </div>
