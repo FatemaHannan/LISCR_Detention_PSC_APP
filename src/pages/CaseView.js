@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ReactDOM from "react-dom";
 import * as XLSX from "xlsx";
 import { DOC_TYPES } from "../data/masterData";
@@ -191,21 +191,25 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     }
   }, [preSelectImo, preSelectDate, dbVessels]); // eslint-disable-line
 
-  // ---- Vessel age lookup — Consolidated Inspection History, for the Average Fleet Age stat ----
+  // ---- Vessel age + type lookup — Consolidated Inspection History, for Average Fleet Age and Vessel Type ----
+  const [typeMap, setTypeMap] = useState({});
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set(dbVessels.filter(v=>v.imo).map(v=>v.imo))];
     if (imos.length === 0) return;
     (async () => {
-      const result = {};
+      const ageResult = {}, typeResult = {};
       const CHUNK = 100;
       for (let i=0; i<imos.length; i+=CHUNK) {
         const chunk = imos.slice(i, i+CHUNK);
-        const { data, error } = await supabase.from("inspection_history").select("imo,age").in("imo", chunk).not("age","is",null);
-        if (error) { console.error("[CaseView] age fetch error:", error.message); continue; }
-        (data||[]).forEach(d => { if (result[d.imo]==null) result[d.imo] = d.age; });
+        const { data, error } = await supabase.from("inspection_history").select("imo,age,vessel_type").in("imo", chunk);
+        if (error) { console.error("[CaseView] age/type fetch error:", error.message); continue; }
+        (data||[]).forEach(d => {
+          if (d.age!=null && ageResult[d.imo]==null) ageResult[d.imo] = d.age;
+          if (d.vessel_type && !typeResult[d.imo]) typeResult[d.imo] = d.vessel_type;
+        });
       }
-      if (!cancelled) setAgeMap(result);
+      if (!cancelled) { setAgeMap(ageResult); setTypeMap(typeResult); }
     })();
     return () => { cancelled = true; };
   }, [dbVessels]);
@@ -531,6 +535,34 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
   const v = modalVessel;
+
+  // ---- Company Snapshot — fleet size, 36-month detentions, rate, rank, and trend for this vessel's company ----
+  const companyStats = useMemo(() => {
+    if (!v?.company || v.company==="—") return null;
+    const now = new Date();
+    const cutoff36 = new Date(); cutoff36.setMonth(cutoff36.getMonth()-36);
+    const cutoff72 = new Date(); cutoff72.setMonth(cutoff72.getMonth()-72);
+    const companyVessels = dbVessels.filter(x => x.company === v.company);
+    const fleetSize = new Set(companyVessels.map(x=>x.imo)).size;
+    const det36 = companyVessels.filter(x => x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff36 && new Date(x.detentionDate) <= now);
+    const detPrior36 = companyVessels.filter(x => x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff72 && new Date(x.detentionDate) < cutoff36);
+    const detRate = fleetSize ? (det36.length/fleetSize*100) : null;
+    const byCompany = {};
+    dbVessels.forEach(x => {
+      if (!x.company || x.company==="—") return;
+      if (x.detained && x.detentionDate && new Date(x.detentionDate) >= cutoff36 && new Date(x.detentionDate) <= now) {
+        byCompany[x.company] = (byCompany[x.company]||0)+1;
+      }
+    });
+    const ranked = Object.entries(byCompany).sort((a,b)=>b[1]-a[1]);
+    const rankIdx = ranked.findIndex(([c])=>c===v.company);
+    return {
+      fleetSize, det36: det36.length, detPrior36: detPrior36.length,
+      detRate, rank: rankIdx>=0?rankIdx+1:null, totalCompanies: ranked.length,
+      pctDiff: detPrior36.length>0 ? ((det36.length-detPrior36.length)/detPrior36.length*100) : null,
+    };
+  }, [v, dbVessels]);
+
   async function openModal(vessel) {
     setSel(vessel);
     setTab("overview");
@@ -716,7 +748,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
@@ -739,6 +771,34 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   {vesselTasks.length===0&&<div style={{fontSize:"13px",color:"var(--text3)"}}>No tasks — import PDAIP CSV to link tasks</div>}
                   {vesselTasks.length>4&&<button onClick={()=>setTab("tasks")} style={{marginTop:"8px",fontSize:"13px",padding:"4px 10px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>See all {vesselTasks.length} tasks</button>}
                 </div>
+                {companyStats && (
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px",marginTop:"10px"}}>
+                    <div style={{fontSize:"13px",fontWeight:600,marginBottom:"9px",color:"var(--text)"}}>Company Snapshot — {v.company}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}}>
+                      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Fleet Size</div>
+                        <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.fleetSize}</div>
+                      </div>
+                      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Detentions (36mo)</div>
+                        <div style={{fontSize:"18px",fontWeight:700,color:companyStats.det36>0?"var(--red2)":"var(--green2)",fontFamily:"var(--mono)"}}>{companyStats.det36}</div>
+                      </div>
+                      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Detention Rate</div>
+                        <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.detRate!=null?companyStats.detRate.toFixed(1)+"%":"—"}</div>
+                      </div>
+                      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Rank</div>
+                        <div style={{fontSize:"18px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{companyStats.rank?"#"+companyStats.rank+" / "+companyStats.totalCompanies:"—"}</div>
+                      </div>
+                    </div>
+                    <div style={{fontSize:"13px",color:"var(--text3)"}}>
+                      vs prior 36mo: {companyStats.pctDiff==null
+                        ? (companyStats.det36>0 ? "New — no detentions in the prior 36-month period" : "No detentions in either period")
+                        : <span style={{color:companyStats.pctDiff>0?"var(--red2)":companyStats.pctDiff<0?"var(--green2)":"var(--text3)",fontWeight:600}}>{companyStats.pctDiff>0?"+":""}{companyStats.pctDiff.toFixed(0)}%</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1785,6 +1845,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       "LISCR FINAL CASE SUMMARY","=".repeat(60),
                       "Vessel: "+v.name+" | IMO: "+v.imo,
                       "Port: "+(v.port||"—")+" | MoU: "+(v.mou||"—"),
+                      "Age: "+(ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—")+" | Reg Date: "+(v.regDate||"—"),
                       "Detention Date: "+(v.detentionDate||"—")+(daysDetained?" ("+daysDetained+" days)":""),
                       "Status: "+(v.detained?"DETAINED":"ACTIVE/RELEASED"),
                       "Company: "+(v.company||"—"),
@@ -1843,6 +1904,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     <Row label="IMO" value={v.imo} />
                     <Row label="Port" value={v.port} />
                     <Row label="MoU" value={v.mou} />
+                    <Row label="Age" value={ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"} />
+                    <Row label="Reg Date" value={v.regDate||"—"} />
                     <Row label="Detention Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
                     <Row label="Status" value={v.detained?"DETAINED":"ACTIVE / RELEASED"} red={v.detained} />
                     <Row label="Company" value={v.company} />
@@ -2123,7 +2186,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const briefAlerts = getSmartAlerts(v, intel, vesselTasks);
                   const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const openTasksForCase = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
-                  const vesselAge = intel?.vessel?.age;
+                  const vesselAge = intel?.vessel?.age || ageMap[v.imo];
                   const priorDetentions = (dbVessels||[]).filter(c=>c.imo===v.imo&&c.id!==v.id&&c.detentionDate&&(!v.detentionDate||c.detentionDate<v.detentionDate)).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const lastDetention = priorDetentions[0];
                   const vetting60 = v.detentionDate?dppBeforeDet.filter(d=>d.created_date&&Math.abs(new Date(v.detentionDate)-new Date(d.created_date))<=60*24*60*60*1000):dppBeforeDet;
