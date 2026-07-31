@@ -348,8 +348,8 @@ export default function CasualtyMlcReport({ scope = "all" }) {
   }, [casualtyRaw, mlcRaw]);
 
   const ALL_TABS = [
-    { id: "casualty", label: "⚓ Marine Casualty" },
-    { id: "personal", label: "🩹 Personal Incident" },
+    { id: "casualty", label: "⚓ MC" },
+    { id: "personal", label: "🩹 PI" },
     { id: "mlc", label: "📋 MLC Complaints" },
   ];
   const TABS = scope === "investigation"
@@ -358,7 +358,7 @@ export default function CasualtyMlcReport({ scope = "all" }) {
     ? ALL_TABS.filter(t => t.id === "mlc")
     : ALL_TABS;
 
-  const headerTitle = scope === "investigation" ? "Casualty Investigation" : scope === "mlc" ? "MLC Report" : "MLC & Casualty Report";
+  const headerTitle = scope === "investigation" ? "Investigation" : scope === "mlc" ? "MLC Report" : "MLC & Casualty Report";
   const headerSubtitle = scope === "investigation"
     ? `Marine Casualty and Personal Incident — severity, status, trend, and company breakdown (${EARLIEST_YEAR} onward)`
     : scope === "mlc"

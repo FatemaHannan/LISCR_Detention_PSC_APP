@@ -14,7 +14,7 @@ import CasualtyMlcReport from "./CasualtyMlcReport";
 const SUB_TABS = [
   { id: "focus", label: "🎯 Prevention Focus" },
   { id: "dashboard", label: "Dashboard" },
-  { id: "investigation", label: "⚓ MC & PI" },
+  { id: "investigation", label: "🔍 Investigation" },
   { id: "mlc", label: "📋 MLC" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
