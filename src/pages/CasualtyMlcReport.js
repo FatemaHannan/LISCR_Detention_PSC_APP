@@ -512,7 +512,7 @@ function CaseTrackingList({ rows, sourceTable, dateField }) {
 }
 
 
-function CompanyDetailModal({ company, rows, companyField, dateField, sourceTable, onClose }) {
+function CompanyDetailModal({ company, rows, companyField, dateField, sourceTable, onClose, label }) {
   const [expandedId, setExpandedId] = useState(null);
   const matches = useMemo(() => {
     return rows
@@ -524,7 +524,10 @@ function CompanyDetailModal({ company, rows, companyField, dateField, sourceTabl
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,22,40,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "20px" }} onClick={onClose}>
       <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "10px", width: "100%", maxWidth: "720px", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e=>e.stopPropagation()}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>🏢 {company} — {matches.length} record{matches.length!==1?"s":""}</div>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>🏢 {company} — {matches.length} record{matches.length!==1?"s":""}</div>
+            {label && <div style={{ fontSize: "11px", color: "var(--text3)", marginTop: "2px" }}>{label}</div>}
+          </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>×</button>
         </div>
         <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
@@ -567,7 +570,7 @@ function CompanyDetailModal({ company, rows, companyField, dateField, sourceTabl
 
 
 function CategorySection({ title, subtitle, rows, dateField, getSeverity, companyField, getTypeLabel, selectedYear, useBriefType, showCasualtyTypeChart, casualtyChartField, casualtyChartTitle, topTypeByYear, sourceTable }) {
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null); // { name, rows, label }
 
   // Main filter (Year selector at top of the page) applies here
   const scoped = useMemo(() => rows.filter(r => {
@@ -926,7 +929,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
               <tbody>{topCompaniesByYear[yr].map(c=>(
                 <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-                  <td onClick={()=>setSelectedCompany(c.company)} style={{padding:"5px 8px",color:"var(--blue)",cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
+                  <td onClick={()=>setSelectedCompany({ name: c.company, rows: rows.filter(r=>yearOf(r[dateField])===yr), label: `${c.company} — ${yr} only` })} style={{padding:"5px 8px",color:"var(--blue)",cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
                   <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{c.count}</td>
                 </tr>
               ))}</tbody>
@@ -942,7 +945,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
           <thead><tr>{["Company","Total","High","Medium","Low"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
           <tbody>{byCompany.map(c=>(
             <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-              <td onClick={()=>setSelectedCompany(c.company)} style={{padding:"7px 10px",color:"var(--blue)",fontWeight:600,cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
+              <td onClick={()=>setSelectedCompany({ name: c.company, rows: scoped, label: `${c.company} — selected period (${selectedYear==="All"?"all years":selectedYear})` })} style={{padding:"7px 10px",color:"var(--blue)",fontWeight:600,cursor:"pointer",textDecoration:"underline"}}>{c.company}</td>
               <td style={{padding:"7px 10px",color:"var(--text)",fontWeight:700}}>{c.total}</td>
               <td style={{padding:"7px 10px",color:"var(--red2)"}}>{c.High||0}</td>
               <td style={{padding:"7px 10px",color:"var(--amber2)"}}>{c.Medium||0}</td>
@@ -954,7 +957,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
 
       {selectedCompany && (
         <CompanyDetailModal
-          company={selectedCompany} rows={rows} companyField={companyField} dateField={dateField}
+          company={selectedCompany.name} rows={selectedCompany.rows} label={selectedCompany.label} companyField={companyField} dateField={dateField}
           sourceTable={sourceTable} onClose={()=>setSelectedCompany(null)}
         />
       )}
