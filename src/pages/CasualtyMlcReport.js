@@ -965,7 +965,7 @@ function CategorySection({ title, subtitle, rows, dateField, getSeverity, compan
   );
 }
 
-function AddMcRecordModal({ onClose, onSaved, existingRows }) {
+function AddMcRecordModal({ onClose, onSaved, existingRows, mcRows, piRows }) {
   const [form, setForm] = useState({
     vessel: "", imo: "", incident_date: "", casualty_type: "Marine incident",
     vessel_type: "", managing_company: "", marine_casualties: "",
@@ -999,6 +999,23 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
     rows.forEach(r => { if (r.managing_company && r.managing_company.trim()) seen.add(r.managing_company.trim()); });
     return [...seen].sort();
   }, [rows]);
+
+  // ---- Company-based lookup: vessels under this company across BOTH MC and PI ----
+  const companyVesselHistory = useMemo(() => {
+    const cq = form.managing_company.trim().toLowerCase();
+    if (cq.length < 2) return [];
+    const combined = [...(mcRows||[]).map(r=>({...r,_src:"MC"})), ...(piRows||[]).map(r=>({...r,_src:"PI"}))];
+    const matches = combined.filter(r => (r.managing_company||"").toLowerCase().includes(cq));
+    const byVessel = {};
+    matches.forEach(r => {
+      const key = (r.imo && String(r.imo)) || r.vessel || "unknown";
+      byVessel[key] = byVessel[key] || { vessel: r.vessel, imo: r.imo, mc: 0, pi: 0, latest: null };
+      byVessel[key][r._src === "MC" ? "mc" : "pi"]++;
+      if (!byVessel[key].latest || new Date(r.incident_date||0) > new Date(byVessel[key].latest)) { byVessel[key].latest = r.incident_date; }
+    });
+    return Object.values(byVessel).sort((a,b)=> (b.mc+b.pi)-(a.mc+a.pi));
+  }, [form.managing_company, mcRows, piRows]);
+  const [showAllCompanyVessels, setShowAllCompanyVessels] = useState(false);
 
   const vesselHistory = useMemo(() => {
     const vq = form.vessel.trim().toLowerCase();
@@ -1144,6 +1161,30 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
             </datalist>
           </div>
 
+          {companyVesselHistory.length > 0 && (
+            <div style={{ background: "rgba(139,92,246,0.08)", border: "1px solid #8b5cf6", borderRadius: "6px", padding: "10px 12px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#8b5cf6", marginBottom: "6px" }}>
+                🏢 {companyVesselHistory.length} vessel{companyVesselHistory.length>1?"s":""} found under this company (MC + PI) — click to autofill
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {(showAllCompanyVessels ? companyVesselHistory : companyVesselHistory.slice(0,5)).map((v,i) => (
+                  <div
+                    key={i} onClick={()=>selectVessel(v.vessel)}
+                    style={{ fontSize: "11px", color: "var(--text2)", cursor: "pointer", padding: "3px 0", display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span><b>{v.vessel}</b> {v.imo?`(IMO ${v.imo})`:""}</span>
+                    <span style={{ color: "var(--text3)" }}>{v.mc>0?`${v.mc} MC`:""}{v.mc>0&&v.pi>0?", ":""}{v.pi>0?`${v.pi} PI`:""} · {v.latest||"—"}</span>
+                  </div>
+                ))}
+              </div>
+              {companyVesselHistory.length > 5 && (
+                <button onClick={()=>setShowAllCompanyVessels(s=>!s)} style={{ marginTop: "6px", background: "none", border: "none", color: "#8b5cf6", fontSize: "11px", cursor: "pointer", padding: 0 }}>
+                  {showAllCompanyVessels ? "▲ Show less" : `▼ Show all ${companyVesselHistory.length} vessels`}
+                </button>
+              )}
+            </div>
+          )}
+
           <div>
             <div style={labelStyle}>Location/Position</div>
             <input style={inputStyle} value={form.location} onChange={e => set("location", e.target.value)} placeholder="e.g. At Cochin" />
@@ -1210,7 +1251,7 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
 }
 
 
-function AddPiRecordModal({ onClose, onSaved, existingRows }) {
+function AddPiRecordModal({ onClose, onSaved, existingRows, mcRows, piRows }) {
   const [form, setForm] = useState({
     vessel: "", imo: "", incident_date: "", case_status: "Open", vessel_type: "",
     managing_company: "", ilo_6_1: "", ilo_6_2: "", incident_type: "Injury",
@@ -1245,6 +1286,23 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
     rows.forEach(r => { if (r.managing_company && r.managing_company.trim()) seen.add(r.managing_company.trim()); });
     return [...seen].sort();
   }, [rows]);
+
+  // ---- Company-based lookup: vessels under this company across BOTH MC and PI ----
+  const companyVesselHistory = useMemo(() => {
+    const cq = form.managing_company.trim().toLowerCase();
+    if (cq.length < 2) return [];
+    const combined = [...(mcRows||[]).map(r=>({...r,_src:"MC"})), ...(piRows||[]).map(r=>({...r,_src:"PI"}))];
+    const matches = combined.filter(r => (r.managing_company||"").toLowerCase().includes(cq));
+    const byVessel = {};
+    matches.forEach(r => {
+      const key = (r.imo && String(r.imo)) || r.vessel || "unknown";
+      byVessel[key] = byVessel[key] || { vessel: r.vessel, imo: r.imo, mc: 0, pi: 0, latest: null };
+      byVessel[key][r._src === "MC" ? "mc" : "pi"]++;
+      if (!byVessel[key].latest || new Date(r.incident_date||0) > new Date(byVessel[key].latest)) { byVessel[key].latest = r.incident_date; }
+    });
+    return Object.values(byVessel).sort((a,b)=> (b.mc+b.pi)-(a.mc+a.pi));
+  }, [form.managing_company, mcRows, piRows]);
+  const [showAllCompanyVessels, setShowAllCompanyVessels] = useState(false);
 
   const vesselHistory = useMemo(() => {
     const vq = form.vessel.trim().toLowerCase();
@@ -1378,6 +1436,30 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
               {companySuggestions.map(c=><option key={c} value={c} />)}
             </datalist>
           </div>
+
+          {companyVesselHistory.length > 0 && (
+            <div style={{ background: "rgba(139,92,246,0.08)", border: "1px solid #8b5cf6", borderRadius: "6px", padding: "10px 12px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#8b5cf6", marginBottom: "6px" }}>
+                🏢 {companyVesselHistory.length} vessel{companyVesselHistory.length>1?"s":""} found under this company (MC + PI) — click to autofill
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {(showAllCompanyVessels ? companyVesselHistory : companyVesselHistory.slice(0,5)).map((v,i) => (
+                  <div
+                    key={i} onClick={()=>selectVessel(v.vessel)}
+                    style={{ fontSize: "11px", color: "var(--text2)", cursor: "pointer", padding: "3px 0", display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span><b>{v.vessel}</b> {v.imo?`(IMO ${v.imo})`:""}</span>
+                    <span style={{ color: "var(--text3)" }}>{v.mc>0?`${v.mc} MC`:""}{v.mc>0&&v.pi>0?", ":""}{v.pi>0?`${v.pi} PI`:""} · {v.latest||"—"}</span>
+                  </div>
+                ))}
+              </div>
+              {companyVesselHistory.length > 5 && (
+                <button onClick={()=>setShowAllCompanyVessels(s=>!s)} style={{ marginTop: "6px", background: "none", border: "none", color: "#8b5cf6", fontSize: "11px", cursor: "pointer", padding: 0 }}>
+                  {showAllCompanyVessels ? "▲ Show less" : `▼ Show all ${companyVesselHistory.length} vessels`}
+                </button>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
@@ -1586,8 +1668,8 @@ export default function CasualtyMlcReport({ scope = "all" }) {
         </div>
       </div>
 
-      {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} existingRows={casualtyRaw} />}
-      {showAddPi && <AddPiRecordModal onClose={()=>setShowAddPi(false)} onSaved={fetchData} existingRows={personalRaw} />}
+      {showAddMc && <AddMcRecordModal onClose={()=>setShowAddMc(false)} onSaved={fetchData} existingRows={casualtyRaw} mcRows={casualtyRaw} piRows={personalRaw} />}
+      {showAddPi && <AddPiRecordModal onClose={()=>setShowAddPi(false)} onSaved={fetchData} existingRows={personalRaw} mcRows={casualtyRaw} piRows={personalRaw} />}
 
       {TABS.length > 1 && (
       <div style={{display:"flex",gap:"6px",marginBottom:"18px",borderBottom:"1px solid var(--border)",paddingBottom:"10px"}}>
