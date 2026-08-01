@@ -994,6 +994,12 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
     return list.slice(0, 6);
   }, [form.vessel, rows]);
 
+  const companySuggestions = useMemo(() => {
+    const seen = new Set();
+    rows.forEach(r => { if (r.managing_company && r.managing_company.trim()) seen.add(r.managing_company.trim()); });
+    return [...seen].sort();
+  }, [rows]);
+
   const vesselHistory = useMemo(() => {
     const vq = form.vessel.trim().toLowerCase();
     const iq = form.imo.trim();
@@ -1132,7 +1138,10 @@ function AddMcRecordModal({ onClose, onSaved, existingRows }) {
 
           <div>
             <div style={labelStyle}>Managing Company</div>
-            <input style={inputStyle} value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. MSC Shipmanagement Limited" />
+            <input style={inputStyle} list="company-list-mc" value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. MSC Shipmanagement Limited" />
+            <datalist id="company-list-mc">
+              {companySuggestions.map(c=><option key={c} value={c} />)}
+            </datalist>
           </div>
 
           <div>
@@ -1230,6 +1239,12 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
     });
     return list.slice(0, 6);
   }, [form.vessel, rows]);
+
+  const companySuggestions = useMemo(() => {
+    const seen = new Set();
+    rows.forEach(r => { if (r.managing_company && r.managing_company.trim()) seen.add(r.managing_company.trim()); });
+    return [...seen].sort();
+  }, [rows]);
 
   const vesselHistory = useMemo(() => {
     const vq = form.vessel.trim().toLowerCase();
@@ -1358,7 +1373,10 @@ function AddPiRecordModal({ onClose, onSaved, existingRows }) {
 
           <div>
             <div style={labelStyle}>Managing Company</div>
-            <input style={inputStyle} value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. STAR BULK (HELLAS) INC." />
+            <input style={inputStyle} list="company-list-pi" value={form.managing_company} onChange={e => set("managing_company", e.target.value)} placeholder="e.g. STAR BULK (HELLAS) INC." />
+            <datalist id="company-list-pi">
+              {companySuggestions.map(c=><option key={c} value={c} />)}
+            </datalist>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
