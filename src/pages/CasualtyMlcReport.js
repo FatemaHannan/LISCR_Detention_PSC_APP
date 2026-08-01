@@ -167,6 +167,7 @@ function CaseDocuments({ sourceTable, recordId }) {
 // full picture for that vessel/company/incident across both datasets at once.
 function SearchOverview({ query, mcMatches, piMatches }) {
   const [expandedKey, setExpandedKey] = useState(null);
+  const [showAllVessels, setShowAllVessels] = useState(false);
 
   const grouped = useMemo(() => {
     const groups = {};
@@ -188,7 +189,11 @@ function SearchOverview({ query, mcMatches, piMatches }) {
     }).sort((a,b) => (b.mcCount+b.piCount) - (a.mcCount+a.piCount));
   }, [mcMatches, piMatches]);
 
+  useEffect(() => { setShowAllVessels(false); }, [query]);
+
   if (!query) return null;
+  const VISIBLE_COUNT = 5;
+  const visibleGrouped = showAllVessels ? grouped : grouped.slice(0, VISIBLE_COUNT);
 
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--blue)",borderRadius:"8px",padding:"14px",marginBottom:"18px"}}>
@@ -200,7 +205,7 @@ function SearchOverview({ query, mcMatches, piMatches }) {
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Vessel","IMO","MC","PI","Open","Closed","Latest","Details"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{h}</th>)}</tr></thead>
           <tbody>
-            {grouped.map(g => {
+            {visibleGrouped.map(g => {
               const isExpanded = expandedKey === g.key;
               return (
                 <React.Fragment key={g.key}>
@@ -242,6 +247,11 @@ function SearchOverview({ query, mcMatches, piMatches }) {
             })}
           </tbody>
         </table>
+      )}
+      {grouped.length > VISIBLE_COUNT && (
+        <button onClick={()=>setShowAllVessels(s=>!s)} style={{ marginTop: "8px", background: "none", border: "none", color: "var(--blue)", fontSize: "12px", cursor: "pointer", padding: 0 }}>
+          {showAllVessels ? "▲ Show less" : `▼ Show all ${grouped.length} vessels`}
+        </button>
       )}
     </div>
   );
