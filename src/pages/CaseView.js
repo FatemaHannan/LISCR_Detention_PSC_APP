@@ -2233,7 +2233,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +boxHead("VESSEL DETAILS",SEC_COLORS.admin)
                         +pair("Name",v.name,"RO / Class",v.ro)
                         +pair("IMO #",v.imo,"Age",vesselAge?vesselAge+" yrs":null)
-                        +pair("Type",v.type,"Registration Date",v.regDate?fmtDate(v.regDate):null)
+                        +pair("Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—","Registration Date",v.regDate?fmtDate(v.regDate):null)
                         +pair("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record","Last Detention Port",lastDetention?.port,!!lastDetention)
                         +pair("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):null,null,null)
                         +boxHead("COMPANY DETAILS",SEC_COLORS.admin)
@@ -2366,7 +2366,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Vessel / IMO" value={v.name+" · "+v.imo} />
                           <Row label="Age" value={vesselAge?vesselAge+" yrs":"—"} />
                           <Row label="RO / Class" value={v.ro} />
-                          <Row label="Type" value={v.type} />
+                          <Row label="Type" value={typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"} />
                           <Row label="Registration Date" value={v.regDate?fmtDate(v.regDate):"—"} />
                           <Row label="Last Detention (prior)" value={lastDetention?fmtDate(lastDetention.detentionDate):"None on record"} red={!!lastDetention} />
                           <Row label="Last Detention Port" value={lastDetention?.port||"—"} />
