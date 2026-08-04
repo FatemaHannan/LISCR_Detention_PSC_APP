@@ -932,6 +932,291 @@ function CompanyPattern({vessels}) {
   );
 }
 
+// ── RO PATTERN TAB ───────────────────────────────────────────────────────────
+function ROPattern({vessels}) {
+  const [sortKey, setSortKey] = useState("detRate");
+  const [sortDir, setSortDir] = useState("desc");
+  const [search, setSearch] = useState("");
+  const [year, setYear] = useState("All");
+  const [highRiskExpanded, setHighRiskExpanded] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(false);
+  const [fleetRoster, setFleetRoster] = useState([]);
+  const [fleetLoading, setFleetLoading] = useState(true);
+
+  const EXCLUDED_RO = ["—","Unknown","","null"];
+  function normalizeRO(ro) {
+    if (!ro) return null;
+    const r = ro.trim().toLowerCase().replace(/['"[\]]/g,"").trim();
+    if (r.includes("dnv")||r.includes("det norske")) return "DNV";
+    if (r.includes("lloyd")||r.includes("lr ")) return "Lloyd's Register";
+    if (r.includes("american bureau")||r.includes("abs")) return "ABS";
+    if (r.includes("korean register")||r===("kr")||r.includes("korean r")) return "Korean Register (KR)";
+    if (r.includes("bureau veritas")||r.startsWith("bv")) return "Bureau Veritas (BV)";
+    if (r.includes("rina")) return "RINA Services";
+    if (r.includes("nippon")||r.includes("nk ")||r==="nk") return "Nippon Kaiji Kyokai (NK)";
+    if (r.includes("class nk")) return "Nippon Kaiji Kyokai (NK)";
+    if (r.includes("china classification")||r.includes("ccs")) return "China Classification Society (CCS)";
+    if (r.includes("indian register")||r.includes("irs")) return "Indian Register (IRS)";
+    if (r.includes("russian maritime")||r.includes("rs ")) return "Russian Maritime Register (RS)";
+    if (r.includes("polski")||r.includes("prs")) return "Polski Rejestr Statkow (PRS)";
+    return ro.trim();
+  }
+
+  // ---- Real fleet roster — true fleet-size denominator per RO, paginated to get all rows ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let all = [], from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase.from("fleet_roster").select("class_society,imo").range(from, from+PAGE-1);
+        if (error) { console.error("[ROPattern] fleet_roster fetch error:", error.message); break; }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      if (!cancelled) { setFleetRoster(all); setFleetLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const realFleetByRO = useMemo(() => {
+    const map = {};
+    fleetRoster.forEach(r => {
+      const norm = normalizeRO(r.class_society);
+      if (!norm) return;
+      if (!map[norm]) map[norm] = new Set();
+      if (r.imo) map[norm].add(r.imo);
+    });
+    const sizes = {};
+    Object.entries(map).forEach(([key,set]) => { sizes[key] = set.size; });
+    return sizes;
+  }, [fleetRoster]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    vessels.forEach(v => { if (v.detentionDate) years.add(String(v.detentionDate).slice(0,4)); });
+    return [...years].sort((a,b)=>b.localeCompare(a));
+  }, [vessels]);
+
+  const roMap = {};
+  vessels.filter(v=>v.ro&&!EXCLUDED_RO.includes(v.ro.trim()))
+    .filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)))
+    .forEach(v=>{
+    const r = normalizeRO(v.ro);
+    if (!r) return;
+    if (!roMap[r]) roMap[r]={name:r,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:[]};
+    roMap[r].cases++;
+    if (v.detained) roMap[r].detained++;
+    roMap[r].totalDefs += (v.defs||0);
+    roMap[r].totalDetainable += (v.detainable||0);
+    if (v.carStatus==="Complete") roMap[r].carComplete++;
+    if (v.carStatus==="Not Received") roMap[r].carNotReceived++;
+    if (v.mou) roMap[r].mous.add(v.mou);
+    roMap[r].vessels.push(v);
+  });
+
+  const ros = Object.values(roMap).map(r=>{
+    const avgDefs = r.cases?(r.totalDefs/r.cases).toFixed(1):"0";
+    const avgDetainable = r.cases?(r.totalDetainable/r.cases).toFixed(1):"0";
+    const carRate = r.cases?Math.round(r.carComplete/r.cases*100):0;
+    const detainedVesselCount = [...new Set(r.vessels.filter(v=>v.detained).map(v=>v.imo))].length;
+    const realFleetSize = realFleetByRO[r.name];
+    const fleetSize = realFleetSize!=null ? realFleetSize : [...new Set(r.vessels.map(v=>v.imo))].length;
+    const fleetSizeIsReal = realFleetSize!=null;
+    const detRate = fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : 0;
+    const isHigh = detRate>=50||parseFloat(avgDefs)>=15||r.carNotReceived>=2;
+    const isMed = detRate>=20||parseFloat(avgDefs)>=8||r.carNotReceived>=1;
+    const riskLabel = isHigh?"High":isMed?"Medium":"Low";
+    const riskColor = isHigh?"var(--red2)":isMed?"var(--amber2)":"var(--green2)";
+    const riskBg = isHigh?"var(--red-bg)":isMed?"var(--amber-bg)":"rgba(34,197,94,0.08)";
+    const riskBorder = isHigh?"#3D1A1A":isMed?"var(--amber)":"rgba(34,197,94,0.3)";
+    const worstVessel = [...r.vessels].sort((a,b)=>(b.defs||0)-(a.defs||0))[0];
+    const mouCounts={};r.vessels.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
+    const dominantMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
+    return {...r,avgDefs,avgDetainable,carRate,detRate,fleetSize,fleetSizeIsReal,detainedVesselCount,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
+  });
+
+  const searched = search.trim() ? ros.filter(r=>r.name.toLowerCase().includes(search.trim().toLowerCase())) : ros;
+
+  const riskOrder = {"High":3,"Medium":2,"Low":1};
+  const top5 = [...searched].sort((a,b)=>(riskOrder[b.riskLabel]||0)-(riskOrder[a.riskLabel]||0)||(b.detained||0)-(a.detained||0)||(parseFloat(b.avgDefs)||0)-(parseFloat(a.avgDefs)||0)).slice(0,5);
+  const sorted = [...searched].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
+  function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
+
+  const chartData = [...ros].filter(r=>r.fleetSize>0&&r.fleetSizeIsReal).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(r=>({name:r.name.length>20?r.name.slice(0,20)+"…":r.name,detRate:r.detRate}));
+  const riskDist = ["High","Medium","Low"].map(label=>({name:label,value:ros.filter(r=>r.riskLabel===label).length})).filter(d=>d.value>0);
+  const RISK_COLORS = {High:"#ef4444",Medium:"#f59e0b",Low:"#22c55e"};
+  const highRiskList = sorted.filter(r=>r.riskLabel==="High");
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+
+      {/* Controls */}
+      <div style={{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px"}}>
+        <span style={{fontSize:"13px",color:"var(--text3)"}}>Year:</span>
+        <select value={year} onChange={e=>setYear(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px"}}>
+          <option value="All">All Years</option>
+          {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search RO..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",width:"220px"}} />
+        {search && <button onClick={()=>setSearch("")} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"auto"}}>{searched.length} of {ros.length} ROs</span>
+      </div>
+      {!fleetLoading && fleetRoster.length===0 && (
+        <div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"var(--amber2)"}}>
+          ⚠ Fleet Roster not uploaded yet — fleet size and detention rate below are estimated from detained vessels only, not the true full fleet per RO.
+        </div>
+      )}
+
+      {/* Top 5 High Risk ROs */}
+      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"12px"}}>⚠ Top 5 High Risk ROs <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate vs fleet, avg deficiencies, CAR compliance</span></div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+          {top5.map((r,i)=>(
+            <div key={r.name} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:i===0?"rgba(239,68,68,0.08)":"var(--bg3)",borderRadius:"6px",border:"1px solid "+(i===0?"#3D1A1A":"var(--border)")}}>
+              <div style={{fontSize:"20px",fontWeight:700,color:i===0?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",width:"28px",flexShrink:0}}>#{i+1}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{r.name}</div>
+                <div style={{fontSize:"13px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""}  ·  {r.fleetSize} vessel{r.fleetSize>1?"s":""}{r.fleetSizeIsReal?" (full fleet)":" (detained only)"}  ·  {r.dominantMou}</div>
+              </div>
+              <div style={{display:"flex",gap:"10px",flexShrink:0}}>
+                <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{r.detRate}%</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{r.avgDefs}</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:r.carNotReceived>0?"var(--red2)":"var(--green2)"}}>{r.carNotReceived}</div></div>
+                <div style={{padding:"4px 10px",borderRadius:"4px",background:r.riskBg,border:"1px solid "+r.riskBorder,fontSize:"13px",fontWeight:700,color:r.riskColor,alignSelf:"center"}}>{r.riskLabel}</div>
+              </div>
+            </div>
+          ))}
+          {top5.length===0&&<div style={{fontSize:"13px",color:"var(--text3)"}}>No ROs match the current filters.</div>}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
+        {[{l:"ROs Active",v:ros.length,c:"var(--text)"},{l:"High Risk",v:ros.filter(r=>r.riskLabel==="High").length,c:"var(--red2)"},{l:"Total Cases",v:vessels.length,c:"var(--text)"},{l:"0% CAR",v:ros.filter(r=>r.carRate===0&&r.cases>0).length,c:"var(--amber2)"}].map(s=>(
+          <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+            <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px"}}>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top 10 ROs — Detention Rate vs Full Fleet</div>
+          {chartData.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>{fleetRoster.length===0?"Upload Fleet Roster to see this chart.":"No data for the current filters."}</div>:
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={chartData} layout="vertical" margin={{left:10,right:20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
+              <YAxis type="category" dataKey="name" width={150} tick={{fontSize:11,fill:"var(--text3)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} formatter={(v)=>v+"%"} />
+              <Bar dataKey="detRate" fill="#ef4444" radius={[0,3,3,0]}>
+                <LabelList dataKey="detRate" position="right" formatter={(v)=>v+"%"} style={{fontSize:12,fontWeight:700,fill:"#ffffff"}} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>}
+        </div>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Risk Distribution</div>
+          {riskDist.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No data.</div>:
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={riskDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}
+                label={({cx,cy,midAngle,innerRadius,outerRadius,value})=>{
+                  const RAD = Math.PI/180;
+                  const r = innerRadius + (outerRadius-innerRadius)*0.55;
+                  const x = cx + r*Math.cos(-midAngle*RAD);
+                  const y = cy + r*Math.sin(-midAngle*RAD);
+                  return <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" style={{fontSize:14,fontWeight:700}}>{value}</text>;
+                }}
+                labelLine={false}
+              >
+                {riskDist.map((d,i)=><Cell key={i} fill={RISK_COLORS[d.name]} />)}
+              </Pie>
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+              <Legend wrapperStyle={{fontSize:11}} />
+            </PieChart>
+          </ResponsiveContainer>}
+        </div>
+      </div>
+
+      {/* High Risk ROs — line/list format, collapsible */}
+      {highRiskList.length>0&&(
+        <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:highRiskExpanded?"10px":"0"}} onClick={()=>setHighRiskExpanded(x=>!x)}>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>High Risk ROs ({highRiskList.length})</div>
+            <span style={{fontSize:"13px",color:"var(--text3)"}}>{highRiskExpanded?"Hide ▴":"Show ▾"}</span>
+          </div>
+          {highRiskExpanded && (
+          <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+            {highRiskList.map(r=>(
+              <div key={r.name} style={{display:"flex",alignItems:"center",gap:"14px",padding:"9px 12px",background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:"180px"}}>
+                  <span style={{fontSize:"13px",fontWeight:700,color:"var(--red2)"}}>{r.name}</span>
+                  <span style={{fontSize:"8px",padding:"2px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,marginLeft:"8px"}}>HIGH RISK</span>
+                </div>
+                <div style={{display:"flex",gap:"16px",fontSize:"13px",flexShrink:0}}>
+                  <span style={{color:"var(--text3)"}}>Detained: <b style={{color:"var(--red2)"}}>{r.detained}</b></span>
+                  <span style={{color:"var(--text3)"}}>Avg Defs: <b style={{color:"var(--amber2)"}}>{r.avgDefs}</b></span>
+                  <span style={{color:"var(--text3)"}}>CAR%: <b style={{color:r.carRate===0?"var(--red2)":"var(--amber2)"}}>{r.carRate}%</b></span>
+                  <span style={{color:"var(--text3)"}}>Fleet: <b style={{color:"var(--text2)"}}>{r.fleetSize}</b></span>
+                </div>
+                <div style={{display:"flex",gap:"4px",flexShrink:0}}>
+                  {r.worstVessel&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(0,0,0,0.2)",color:"var(--text3)",fontFamily:"var(--mono)"}}>Worst: {r.worstVessel.name}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          )}
+        </div>
+      )}
+
+      {/* Master table — collapsible */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:tableExpanded?"10px":"0"}} onClick={()=>setTableExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>All ROs — Full Detail Table ({sorted.length})</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>Every RO / Class Society side by side — click any column header to sort</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{tableExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {tableExpanded && (
+        <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"1000px"}}>
+            <thead><tr style={{background:"var(--bg2)"}}>
+              {th("riskLabel","Risk")}{th("name","RO / Class")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}
+              <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Top MoU</th>
+              <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Worst Vessel</th>
+            </tr></thead>
+            <tbody>{sorted.map((r,i)=>(
+              <tr key={r.name} style={{background:r.riskLabel==="High"?"rgba(239,68,68,0.03)":i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"9px 12px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:r.riskBg,color:r.riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+r.riskBorder}}>{r.riskLabel}</span></td>
+                <td style={{padding:"9px 12px",fontWeight:600,color:r.riskLabel==="High"?"var(--red2)":"var(--text)"}}>{r.name}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.cases}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}} title={r.fleetSizeIsReal?"From Fleet Roster":"Estimated from detained vessels only"}>{r.fleetSize}{!r.fleetSizeIsReal&&<span style={{color:"var(--amber2)"}}>*</span>}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.detained>1?"var(--red2)":"var(--text)",fontWeight:r.detained>1?600:400}}>{r.detained}</td>
+                <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDefs)>=15?"var(--red2)":parseFloat(r.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(r.avgDefs)>=8?600:400}}>{r.avgDefs}</td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{r.avgDetainable}</td>
+                <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
+                <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:r.carNotReceived>0?600:400}}>{r.carNotReceived}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"13px"}}>{r.dominantMou}</td>
+                <td style={{padding:"9px 12px",color:"var(--text3)",whiteSpace:"nowrap",fontSize:"13px"}}>{r.worstVessel?r.worstVessel.name+" ("+r.worstVessel.defs+" defs)":"—"}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {ros.some(r=>!r.fleetSizeIsReal)&&<div style={{fontSize:"13px",color:"var(--text3)",padding:"8px 12px"}}>* Fleet size estimated from detained vessels only — RO not matched in Fleet Roster (check spelling/normalization matches Class Society).</div>}
+        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── CAR TRACKER TAB ──────────────────────────────────────────────────────────
 
 function CARTracker({vessels}) {
@@ -1198,139 +1483,7 @@ export default function VesselManager({ currentUser, onOpenCase }) {
       {tab==="analysis"&&<FleetAnalysis vessels={vessels} />}
       {tab==="patterns"&&<PatternDetection vessels={vessels} />}
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
-      {tab==="ro"&&(()=>{
-        const EXCLUDED_RO = ["—","Unknown","","null"];
-        function normalizeRO(ro) {
-          if (!ro) return null;
-          const r = ro.trim().toLowerCase().replace(/['"\[\]]/g,"").trim();
-          if (r.includes("dnv")||r.includes("det norske")) return "DNV";
-          if (r.includes("lloyd")||r.includes("lr ")) return "Lloyd's Register";
-          if (r.includes("american bureau")||r.includes("abs")) return "ABS";
-          if (r.includes("korean register")||r===("kr")||r.includes("korean r")) return "Korean Register (KR)";
-          if (r.includes("bureau veritas")||r.startsWith("bv")) return "Bureau Veritas (BV)";
-          if (r.includes("rina")) return "RINA Services";
-          if (r.includes("nippon")||r.includes("nk ")||r==="nk") return "Nippon Kaiji Kyokai (NK)";
-          if (r.includes("class nk")) return "Nippon Kaiji Kyokai (NK)";
-          if (r.includes("china classification")||r.includes("ccs")) return "China Classification Society (CCS)";
-          if (r.includes("indian register")||r.includes("irs")) return "Indian Register (IRS)";
-          if (r.includes("russian maritime")||r.includes("rs ")) return "Russian Maritime Register (RS)";
-          if (r.includes("polski")||r.includes("prs")) return "Polski Rejestr Statkow (PRS)";
-          return ro.trim();
-        }
-        const roMap = {};
-        vessels.filter(v=>v.ro&&!EXCLUDED_RO.includes(v.ro.trim())).forEach(v=>{
-          const r = normalizeRO(v.ro);
-          if (!r) return;
-          if (!roMap[r]) roMap[r]={name:r,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:[],worstVessel:null};
-          roMap[r].cases++;
-          if (v.detained) roMap[r].detained++;
-          roMap[r].totalDefs += (v.defs||0);
-          roMap[r].totalDetainable += (v.detainable||0);
-          if (v.carStatus==="Complete") roMap[r].carComplete++;
-          if (v.carStatus==="Not Received") roMap[r].carNotReceived++;
-          if (v.mou) roMap[r].mous.add(v.mou);
-          roMap[r].vessels.push(v);
-        });
-
-        const ros = Object.values(roMap).map(r=>({
-          ...r,
-          avgDefs: r.cases?(r.totalDefs/r.cases).toFixed(1):"0",
-          avgDetainable: r.cases?(r.totalDetainable/r.cases).toFixed(1):"0",
-          carRate: r.cases?Math.round(r.carComplete/r.cases*100):0,
-          detRate: r.cases?Math.round(r.detained/r.cases*100):0,
-          mouList:[...r.mous].join(", "),
-          worstVessel:[...r.vessels].sort((a,b)=>(b.defs||0)-(a.defs||0))[0],
-        })).sort((a,b)=>b.cases-a.cases);
-
-        const fleetAvgDefs = vessels.length?(vessels.reduce((s,v)=>s+(v.defs||0),0)/vessels.length).toFixed(1):0;
-        const fleetDetRate = vessels.length?Math.round(vessels.filter(v=>v.detained).length/vessels.length*100):0;
-        const maxCases = ros[0]?.cases||1;
-
-        return (
-          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-            {/* Fleet benchmark */}
-            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px",display:"flex",gap:"20px",alignItems:"center"}}>
-              <div style={{fontSize:"13px",color:"var(--text3)"}}>Fleet benchmark:</div>
-              <div style={{fontSize:"13px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{fleetAvgDefs}</strong> avg defs</div>
-              <div style={{fontSize:"13px",color:"var(--text)"}}><strong style={{fontFamily:"var(--mono)",color:"var(--red2)"}}>{fleetDetRate}%</strong> detention rate</div>
-              <div style={{fontSize:"13px",color:"var(--text3)",marginLeft:"auto"}}>{ros.length} ROs active across {vessels.length} cases</div>
-            </div>
-
-            {/* RO performance cards */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"10px"}}>
-              {ros.map(r=>{
-                const aboveAvgDefs = parseFloat(r.avgDefs)>parseFloat(fleetAvgDefs);
-                const aboveAvgDet = r.detRate>fleetDetRate;
-                const riskLevel = (aboveAvgDefs&&aboveAvgDet)?"High":aboveAvgDefs||aboveAvgDet?"Medium":"Low";
-                const riskColor = riskLevel==="High"?"var(--red2)":riskLevel==="Medium"?"var(--amber2)":"var(--green2)";
-                const riskBg = riskLevel==="High"?"var(--red-bg)":riskLevel==="Medium"?"var(--amber-bg)":"rgba(34,197,94,0.08)";
-                const riskBorder = riskLevel==="High"?"#3D1A1A":riskLevel==="Medium"?"var(--amber)":"rgba(34,197,94,0.3)";
-                return (
-                  <div key={r.name} style={{background:"var(--bg2)",border:"1px solid "+(riskLevel==="High"?"#3D1A1A":"var(--border)"),borderRadius:"10px",overflow:"hidden"}}>
-                    <div style={{padding:"12px 14px",borderBottom:"1px solid var(--border)"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
-                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",flex:1,lineHeight:1.3}}>{r.name}</div>
-                        <span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:riskBg,color:riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+riskBorder,flexShrink:0,marginLeft:"8px"}}>{riskLevel} RISK</span>
-                      </div>
-                      <div style={{fontSize:"13px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""} · {[...r.mous].slice(0,2).join(", ")}</div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"0"}}>
-                      {[
-                        {l:"Cases",v:r.cases,c:"var(--text)"},
-                        {l:"Detained",v:r.detained,c:r.detained>0?"var(--red2)":"var(--text3)"},
-                        {l:"Avg Defs",v:r.avgDefs,c:parseFloat(r.avgDefs)>parseFloat(fleetAvgDefs)?"var(--red2)":"var(--green2)"},
-                        {l:"CAR %",v:r.carRate+"%",c:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)"},
-                      ].map((s,i)=>(
-                        <div key={s.l} style={{padding:"10px 10px",borderRight:i<3?"1px solid var(--border)":"none",textAlign:"center"}}>
-                          <div style={{fontSize:"8px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{s.l}</div>
-                          <div style={{fontSize:"16px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {r.worstVessel&&(
-                      <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",fontSize:"13px",color:"var(--text3)"}}>
-                        Worst vessel: <span style={{color:"var(--red2)",fontWeight:600}}>{r.worstVessel.name}</span> ({r.worstVessel.defs} defs)
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* RO comparison table */}
-            <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-                <thead>
-                  <tr style={{background:"var(--bg2)"}}>
-                    {["RO / Class","Cases","Detained","Det %","Avg Defs","Avg Det.","CAR %","CAR Missing","vs Fleet Avg","Worst Vessel"].map(h=>(
-                      <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ros.map((r,i)=>{
-                    const vsAvg = parseFloat(r.avgDefs)-parseFloat(fleetAvgDefs);
-                    return (
-                      <tr key={r.name} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
-                        <td style={{padding:"9px 12px",fontWeight:600,color:"var(--text)"}}>{r.name}</td>
-                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.cases}</td>
-                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.detained>0?"var(--red2)":"var(--text3)",fontWeight:r.detained>0?600:400}}>{r.detained}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
-                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDefs)>=15?"var(--red2)":parseFloat(r.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(r.avgDefs)>=8?600:400}}>{r.avgDefs}</td>
-                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{r.avgDetainable}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
-                        <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.carNotReceived>0?"var(--red2)":"var(--text3)",fontWeight:r.carNotReceived>0?600:400}}>{r.carNotReceived}</td>
-                        <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:vsAvg>0?"var(--red-bg)":"rgba(34,197,94,0.08)",color:vsAvg>0?"var(--red2)":"var(--green2)",fontFamily:"var(--mono)",fontWeight:600}}>{vsAvg>0?"+":""}{vsAvg.toFixed(1)}</span></td>
-                        <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:"13px",whiteSpace:"nowrap"}}>{r.worstVessel?r.worstVessel.name+" ("+r.worstVessel.defs+" defs)":"—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })()}
+      {tab==="ro"&&<ROPattern vessels={vessels} />}
       {tab==="car"&&<CARTracker vessels={vessels} />}
     </div>
   );
