@@ -602,6 +602,7 @@ function CompanyPattern({vessels}) {
   const [year, setYear] = useState("All");
   const [unresponsiveExpanded, setUnresponsiveExpanded] = useState(false);
   const [rejectionExpanded, setRejectionExpanded] = useState(false);
+  const [highRiskExpanded, setHighRiskExpanded] = useState(false);
   const [fleetRoster, setFleetRoster] = useState([]);
   const [fleetLoading, setFleetLoading] = useState(true);
 
@@ -854,10 +855,14 @@ function CompanyPattern({vessels}) {
         </div>
       </div>
 
-      {/* High Risk Companies — line/list format, not boxes */}
+      {/* High Risk Companies — line/list format, not boxes, collapsible */}
       {highRiskList.length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies ({highRiskList.length})</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:highRiskExpanded?"10px":"0"}} onClick={()=>setHighRiskExpanded(x=>!x)}>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>High Risk Companies ({highRiskList.length})</div>
+            <span style={{fontSize:"13px",color:"var(--text3)"}}>{highRiskExpanded?"Hide ▴":"Show ▾"}</span>
+          </div>
+          {highRiskExpanded && (
           <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
             {highRiskList.map(c=>(
               <div key={c.name} style={{display:"flex",alignItems:"center",gap:"14px",padding:"9px 12px",background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",flexWrap:"wrap"}}>
@@ -879,6 +884,7 @@ function CompanyPattern({vessels}) {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
