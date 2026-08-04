@@ -964,13 +964,22 @@ function ROPattern({vessels}) {
     return ro.trim();
   }
 
+  // ---- Per-IMO RO lookup from Fleet Roster — fallback for detention records missing their own ro field
+  // (confirmed: 2023-2025 detentions mostly have no ro value stored at all, only 2026 does) ----
+  const roByImo = useMemo(() => {
+    const map = {};
+    fleetRoster.forEach(r => { if (r.imo && r.class_society && !map[r.imo]) map[r.imo] = r.class_society; });
+    return map;
+  }, [fleetRoster]);
+  function getRO(v) { return (v.ro && v.ro.trim()) ? v.ro : (roByImo[v.imo] || null); }
+
   // ---- Repeat detentions by RO — all-time, not affected by the Year filter (shows the full picture) ----
   const repeatByRO = useMemo(() => {
     const imoCounts = {};
     vessels.forEach(v => { if (v.detained && v.imo) imoCounts[v.imo] = (imoCounts[v.imo]||0)+1; });
     const roGroups = {};
-    vessels.filter(v=>v.detained && v.imo && imoCounts[v.imo]>1 && v.ro).forEach(v => {
-      const r = normalizeRO(v.ro);
+    vessels.filter(v=>v.detained && v.imo && imoCounts[v.imo]>1 && getRO(v)).forEach(v => {
+      const r = normalizeRO(getRO(v));
       if (!r) return;
       if (!roGroups[r]) roGroups[r] = {};
       if (!roGroups[r][v.imo]) roGroups[r][v.imo] = { name: v.name, imo: v.imo, count: imoCounts[v.imo], years: new Set() };
@@ -986,8 +995,8 @@ function ROPattern({vessels}) {
     const years = [...new Set(vessels.filter(v=>v.detained && v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
     const currentYear = String(new Date().getFullYear());
     const roYearMap = {};
-    vessels.filter(v=>v.detained && v.ro && v.detentionDate).forEach(v => {
-      const r = normalizeRO(v.ro);
+    vessels.filter(v=>v.detained && getRO(v) && v.detentionDate).forEach(v => {
+      const r = normalizeRO(getRO(v));
       if (!r) return;
       const yr = String(v.detentionDate).slice(0,4);
       if (!roYearMap[r]) roYearMap[r] = {};
@@ -1038,10 +1047,10 @@ function ROPattern({vessels}) {
   }, [vessels]);
 
   const roMap = {};
-  vessels.filter(v=>v.ro&&!EXCLUDED_RO.includes(v.ro.trim()))
+  vessels.filter(v=>getRO(v)&&!EXCLUDED_RO.includes(getRO(v).trim()))
     .filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)))
     .forEach(v=>{
-    const r = normalizeRO(v.ro);
+    const r = normalizeRO(getRO(v));
     if (!r) return;
     if (!roMap[r]) roMap[r]={name:r,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:[]};
     roMap[r].cases++;
