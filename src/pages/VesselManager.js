@@ -948,12 +948,12 @@ function ROPattern({vessels}) {
     if (!ro) return null;
     const r = ro.trim().toLowerCase().replace(/['"[\]]/g,"").trim();
     if (r.includes("dnv")||r.includes("det norske")) return "DNV";
-    if (r.includes("lloyd")||r.includes("lr ")) return "Lloyd's Register";
+    if (r.includes("lloyd")||r.includes("lr ")||r==="lr") return "Lloyd's Register";
     if (r.includes("american bureau")||r.includes("abs")) return "ABS";
     if (r.includes("korean register")||r===("kr")||r.includes("korean r")) return "Korean Register (KR)";
     if (r.includes("bureau veritas")||r.startsWith("bv")) return "Bureau Veritas (BV)";
     if (r.includes("rina")) return "RINA Services";
-    if (r.includes("nippon")||r.includes("nk ")||r==="nk") return "Nippon Kaiji Kyokai (NK)";
+    if (r.includes("nippon")||r.includes("nk ")||r==="nk"||r==="nkk"||r.includes("nkk")) return "Nippon Kaiji Kyokai (NK)";
     if (r.includes("class nk")) return "Nippon Kaiji Kyokai (NK)";
     if (r.includes("china classification")||r.includes("ccs")) return "China Classification Society (CCS)";
     if (r.includes("indian register")||r.includes("irs")) return "Indian Register (IRS)";
@@ -1094,7 +1094,7 @@ function ROPattern({vessels}) {
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
-        {[{l:"ROs Active",v:ros.length,c:"var(--text)"},{l:"High Risk",v:ros.filter(r=>r.riskLabel==="High").length,c:"var(--red2)"},{l:"Total Cases",v:vessels.length,c:"var(--text)"},{l:"0% CAR",v:ros.filter(r=>r.carRate===0&&r.cases>0).length,c:"var(--amber2)"}].map(s=>(
+        {[{l:"ROs Active",v:ros.length,c:"var(--text)"},{l:"High Risk",v:ros.filter(r=>r.riskLabel==="High").length,c:"var(--red2)"},{l:"Total Cases",v:ros.reduce((a,r)=>a+r.cases,0),c:"var(--text)"},{l:"0% CAR",v:ros.filter(r=>r.carRate===0&&r.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
