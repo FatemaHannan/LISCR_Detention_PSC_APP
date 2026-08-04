@@ -646,6 +646,10 @@ function CompanyPattern({vessels}) {
     return [...years].sort((a,b)=>b.localeCompare(a));
   }, [vessels]);
 
+  // ---- True total, independent of company grouping — for consistency with RO Pattern's total ----
+  const yearFilteredVessels = vessels.filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)));
+  const trueTotalDetentions = yearFilteredVessels.filter(v=>v.detained).length;
+
   const EXCLUDED = ["Unknown","—","Not specified","","null"];
   const companyMap = {};
   vessels.filter(v=>v.company&&!EXCLUDED.includes(v.company.trim()))
@@ -759,8 +763,8 @@ function CompanyPattern({vessels}) {
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"8px"}}>
-        {[{l:"Companies",v:companies.length,c:"var(--text)"},{l:"High Risk",v:companies.filter(c=>c.riskLabel==="High").length,c:"var(--red2)"},{l:"Multi-Detention",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},{l:"Unresponsive",v:companies.filter(c=>c.unresponsive>0).length,c:"var(--amber2)"},{l:"Insp. Rejected",v:companies.filter(c=>c.inspectionRejection>0).length,c:"var(--red2)"},{l:"0% CAR",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--amber2)"}].map(s=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"8px"}}>
+        {[{l:"Total Detentions",v:trueTotalDetentions,c:"var(--text)"},{l:"Companies",v:companies.length,c:"var(--text)"},{l:"High Risk",v:companies.filter(c=>c.riskLabel==="High").length,c:"var(--red2)"},{l:"Multi-Detention",v:companies.filter(c=>c.detained>1).length,c:"var(--red2)"},{l:"Unresponsive",v:companies.filter(c=>c.unresponsive>0).length,c:"var(--amber2)"},{l:"Insp. Rejected",v:companies.filter(c=>c.inspectionRejection>0).length,c:"var(--red2)"},{l:"0% CAR",v:companies.filter(c=>c.carRate===0&&c.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
@@ -1046,6 +1050,10 @@ function ROPattern({vessels}) {
     return [...years].sort((a,b)=>b.localeCompare(a));
   }, [vessels]);
 
+  // ---- True total, independent of RO grouping — matches Company Pattern's total exactly ----
+  const yearFilteredVessels = vessels.filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)));
+  const trueTotalDetentions = yearFilteredVessels.filter(v=>v.detained).length;
+
   const roMap = {};
   vessels.filter(v=>getRO(v)&&!EXCLUDED_RO.includes(getRO(v).trim()))
     .filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)))
@@ -1140,7 +1148,7 @@ function ROPattern({vessels}) {
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
-        {[{l:"ROs Active",v:ros.length,c:"var(--text)"},{l:"High Risk",v:ros.filter(r=>r.riskLabel==="High").length,c:"var(--red2)"},{l:"Total Cases",v:ros.reduce((a,r)=>a+r.cases,0),c:"var(--text)"},{l:"0% CAR",v:ros.filter(r=>r.carRate===0&&r.cases>0).length,c:"var(--amber2)"}].map(s=>(
+        {[{l:"Total Detentions",v:trueTotalDetentions,c:"var(--text)"},{l:"ROs Active",v:ros.length,c:"var(--text)"},{l:"High Risk",v:ros.filter(r=>r.riskLabel==="High").length,c:"var(--red2)"},{l:"0% CAR",v:ros.filter(r=>r.carRate===0&&r.cases>0).length,c:"var(--amber2)"}].map(s=>(
           <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
             <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
             <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:s.c}}>{s.v}</div>
