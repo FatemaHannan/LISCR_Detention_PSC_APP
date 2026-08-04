@@ -681,9 +681,14 @@ function CompanyPattern({vessels}) {
     const realFleetSize = realFleetByCompany[c.name.toLowerCase()];
     const fleetSize = realFleetSize!=null ? realFleetSize : [...c.vessels].length;
     const fleetSizeIsReal = realFleetSize!=null;
-    const detRate = fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : 0;
-    const isHigh = detRate>=50||parseFloat(avgDefs)>=15||c.carNotReceived>=2||c.unresponsive>0||c.inspectionRejection>0;
-    const isMed = detRate>=20||parseFloat(avgDefs)>=8||c.carNotReceived>=1;
+    // Fleet Roster is a CURRENT snapshot only — a real detention rate is only meaningful for the
+    // current year (or All, which trends toward current makeup). A specific past year's fleet size
+    // isn't known, so the rate would be misleading — show "N/A" instead of a wrong number.
+    const currentYearStr = String(new Date().getFullYear());
+    const rateCalculable = fleetSizeIsReal && (year==="All" || year===currentYearStr);
+    const detRate = rateCalculable && fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : null;
+    const isHigh = (detRate!=null&&detRate>=50)||parseFloat(avgDefs)>=15||c.carNotReceived>=2||c.unresponsive>0||c.inspectionRejection>0;
+    const isMed = (detRate!=null&&detRate>=20)||parseFloat(avgDefs)>=8||c.carNotReceived>=1;
     const riskLabel = isHigh?"High":isMed?"Medium":"Low";
     const riskColor = isHigh?"var(--red2)":isMed?"var(--amber2)":"var(--green2)";
     const riskBg = isHigh?"var(--red-bg)":isMed?"var(--amber-bg)":"rgba(34,197,94,0.08)";
@@ -701,7 +706,7 @@ function CompanyPattern({vessels}) {
   const sorted = [...searched].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
 
-  const chartData = [...companies].filter(c=>c.fleetSize>0&&c.fleetSizeIsReal).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(c=>({name:c.name.length>20?c.name.slice(0,20)+"…":c.name,detRate:c.detRate}));
+  const chartData = [...companies].filter(c=>c.fleetSize>0&&c.fleetSizeIsReal&&c.detRate!=null).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(c=>({name:c.name.length>20?c.name.slice(0,20)+"…":c.name,detRate:c.detRate}));
   const riskDist = ["High","Medium","Low"].map(label=>({name:label,value:companies.filter(c=>c.riskLabel===label).length})).filter(d=>d.value>0);
   const RISK_COLORS = {High:"#ef4444",Medium:"#f59e0b",Low:"#22c55e"};
   const unresponsiveList = sorted.filter(c=>c.unresponsive>0);
@@ -727,6 +732,11 @@ function CompanyPattern({vessels}) {
           ⚠ Fleet Roster not uploaded yet — fleet size and detention rate below are estimated from detained vessels only, not your true full fleet. Upload it in Weekly Data for accurate numbers.
         </div>
       )}
+      {year!=="All" && year!==String(new Date().getFullYear()) && (
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"var(--text3)"}}>
+          ℹ Detention Rate shows "N/A" for {year} — Fleet Roster only reflects the fleet as it exists today, not what it looked like in {year}, so a rate against today's fleet size would be misleading for past years. Detention counts themselves are still accurate.
+        </div>
+      )}
 
       {/* Top 5 High Risk Companies */}
       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
@@ -745,7 +755,7 @@ function CompanyPattern({vessels}) {
               <div style={{display:"flex",gap:"10px",flexShrink:0}}>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
-                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate}%</div>
+                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate!=null?c.detRate+"%":"N/A"}</div>
                 </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div>
@@ -916,7 +926,7 @@ function CompanyPattern({vessels}) {
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.cases}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}} title={c.fleetSizeIsReal?"From Fleet Roster":"Estimated from detained vessels only"}>{c.fleetSize}{!c.fleetSizeIsReal&&<span style={{color:"var(--amber2)"}}>*</span>}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.detained>1?"var(--red2)":"var(--text)",fontWeight:c.detained>1?600:400}}>{c.detained}</td>
-              <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
+              <td style={{padding:"9px 12px",textAlign:"center"}}>{c.detRate!=null?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span>:<span style={{fontSize:"13px",color:"var(--text3)"}} title="Fleet Roster is a current snapshot only \u2014 rate not calculable for past years">N/A</span>}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDefs)>=15?"var(--red2)":parseFloat(c.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(c.avgDefs)>=8?600:400}}>{c.avgDefs}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{c.avgDetainable}</td>
               <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.carRate>=80?"rgba(34,197,94,0.08)":c.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:c.carRate>=80?"var(--green2)":c.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.carRate}%</span></td>
@@ -1079,9 +1089,11 @@ function ROPattern({vessels}) {
     const realFleetSize = realFleetByRO[r.name];
     const fleetSize = realFleetSize!=null ? realFleetSize : [...new Set(r.vessels.map(v=>v.imo))].length;
     const fleetSizeIsReal = realFleetSize!=null;
-    const detRate = fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : 0;
-    const isHigh = detRate>=50||parseFloat(avgDefs)>=15||r.carNotReceived>=2;
-    const isMed = detRate>=20||parseFloat(avgDefs)>=8||r.carNotReceived>=1;
+    const currentYearStr = String(new Date().getFullYear());
+    const rateCalculable = fleetSizeIsReal && (year==="All" || year===currentYearStr);
+    const detRate = rateCalculable && fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : null;
+    const isHigh = (detRate!=null&&detRate>=50)||parseFloat(avgDefs)>=15||r.carNotReceived>=2;
+    const isMed = (detRate!=null&&detRate>=20)||parseFloat(avgDefs)>=8||r.carNotReceived>=1;
     const riskLabel = isHigh?"High":isMed?"Medium":"Low";
     const riskColor = isHigh?"var(--red2)":isMed?"var(--amber2)":"var(--green2)";
     const riskBg = isHigh?"var(--red-bg)":isMed?"var(--amber-bg)":"rgba(34,197,94,0.08)";
@@ -1099,7 +1111,7 @@ function ROPattern({vessels}) {
   const sorted = [...searched].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
 
-  const chartData = [...ros].filter(r=>r.fleetSize>0&&r.fleetSizeIsReal).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(r=>({name:r.name.length>20?r.name.slice(0,20)+"…":r.name,detRate:r.detRate}));
+  const chartData = [...ros].filter(r=>r.fleetSize>0&&r.fleetSizeIsReal&&r.detRate!=null).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(r=>({name:r.name.length>20?r.name.slice(0,20)+"…":r.name,detRate:r.detRate}));
   const riskDist = ["High","Medium","Low"].map(label=>({name:label,value:ros.filter(r=>r.riskLabel===label).length})).filter(d=>d.value>0);
   const RISK_COLORS = {High:"#ef4444",Medium:"#f59e0b",Low:"#22c55e"};
   const highRiskList = sorted.filter(r=>r.riskLabel==="High");
@@ -1123,6 +1135,11 @@ function ROPattern({vessels}) {
           ⚠ Fleet Roster not uploaded yet — fleet size and detention rate below are estimated from detained vessels only, not the true full fleet per RO.
         </div>
       )}
+      {year!=="All" && year!==String(new Date().getFullYear()) && (
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"var(--text3)"}}>
+          ℹ Detention Rate shows "N/A" for {year} — Fleet Roster only reflects the fleet as it exists today, not what it looked like in {year}, so a rate against today's fleet size would be misleading for past years. Detention counts themselves are still accurate.
+        </div>
+      )}
 
       {/* Top 5 High Risk ROs */}
       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
@@ -1136,7 +1153,7 @@ function ROPattern({vessels}) {
                 <div style={{fontSize:"13px",color:"var(--text3)"}}>{r.cases} case{r.cases>1?"s":""}  ·  {r.fleetSize} vessel{r.fleetSize>1?"s":""}{r.fleetSizeIsReal?" (full fleet)":" (detained only)"}  ·  {r.dominantMou}</div>
               </div>
               <div style={{display:"flex",gap:"10px",flexShrink:0}}>
-                <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{r.detRate}%</div></div>
+                <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{r.detRate!=null?r.detRate+"%":"N/A"}</div></div>
                 <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Avg Defs</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--amber2)"}}>{r.avgDefs}</div></div>
                 <div style={{textAlign:"center"}}><div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>CAR Miss</div><div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:r.carNotReceived>0?"var(--red2)":"var(--green2)"}}>{r.carNotReceived}</div></div>
                 <div style={{padding:"4px 10px",borderRadius:"4px",background:r.riskBg,border:"1px solid "+r.riskBorder,fontSize:"13px",fontWeight:700,color:r.riskColor,alignSelf:"center"}}>{r.riskLabel}</div>
@@ -1315,7 +1332,7 @@ function ROPattern({vessels}) {
                 <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.cases}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}} title={r.fleetSizeIsReal?"From Fleet Roster":"Estimated from detained vessels only"}>{r.fleetSize}{!r.fleetSizeIsReal&&<span style={{color:"var(--amber2)"}}>*</span>}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:r.detained>1?"var(--red2)":"var(--text)",fontWeight:r.detained>1?600:400}}>{r.detained}</td>
-                <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span></td>
+                <td style={{padding:"9px 12px",textAlign:"center"}}>{r.detRate!=null?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.detRate>=50?"var(--red-bg)":r.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:r.detRate>=50?"var(--red2)":r.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{r.detRate}%</span>:<span style={{fontSize:"13px",color:"var(--text3)"}} title="Fleet Roster is a current snapshot only \u2014 rate not calculable for past years">N/A</span>}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDefs)>=15?"var(--red2)":parseFloat(r.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(r.avgDefs)>=8?600:400}}>{r.avgDefs}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(r.avgDetainable)>=3?"var(--red2)":"var(--text3)"}}>{r.avgDetainable}</td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.carRate>=80?"rgba(34,197,94,0.08)":r.carRate>=50?"var(--amber-bg)":"var(--red-bg)",color:r.carRate>=80?"var(--green2)":r.carRate>=50?"var(--amber2)":"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{r.carRate}%</span></td>
