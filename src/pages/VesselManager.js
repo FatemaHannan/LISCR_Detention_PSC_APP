@@ -1350,6 +1350,260 @@ function ROPattern({vessels}) {
   );
 }
 
+// ── POST-DETENTION ANALYSIS TAB ──────────────────────────────────────────────
+function PostDetentionReport({vessels}) {
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [followUps, setFollowUps] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [highRiskExpanded, setHighRiskExpanded] = useState(true);
+  const [classExpanded, setClassExpanded] = useState(true);
+
+  const EXCLUDED_RO = ["—","Unknown","","null"];
+  function normalizeRO(ro) {
+    if (!ro) return null;
+    const r = ro.trim().toLowerCase().replace(/['"[\]]/g,"").trim();
+    if (r.includes("dnv")||r.includes("det norske")) return "DNV";
+    if (r.includes("lloyd")||r.includes("lr ")||r==="lr") return "LR";
+    if (r.includes("american bureau")||r.includes("abs")) return "ABS";
+    if (r.includes("korean register")||r===("kr")||r.includes("korean r")) return "KR";
+    if (r.includes("bureau veritas")||r.startsWith("bv")) return "BV";
+    if (r.includes("rina")) return "RINA";
+    if (r.includes("nippon")||r.includes("nk ")||r==="nk"||r==="nkk"||r.includes("nkk")) return "NK";
+    if (r.includes("class nk")) return "NK";
+    if (r.includes("china classification")||r.includes("ccs")) return "CCS";
+    if (r.includes("indian register")||r.includes("irs")) return "IRS";
+    if (r.includes("russian maritime")||r.includes("rs ")) return "RS";
+    if (r.includes("polski")||r.includes("prs")) return "PRS";
+    return ro.trim();
+  }
+
+  const detainedInRange = useMemo(() => vessels.filter(v => {
+    if (!v.detained || !v.detentionDate) return false;
+    if (fromDate && v.detentionDate < fromDate) return false;
+    if (toDate && v.detentionDate > toDate) return false;
+    return true;
+  }), [vessels, fromDate, toDate]);
+
+  // ---- Find the earliest PSC inspection after each detention, to measure post-detention performance ----
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(detainedInRange.map(v=>v.imo).filter(Boolean))];
+    if (imos.length === 0) { setFollowUps({}); setLoading(false); return; }
+    (async () => {
+      setLoading(true);
+      const byImo = {};
+      const CHUNK = 100;
+      for (let i=0; i<imos.length; i+=CHUNK) {
+        const chunk = imos.slice(i, i+CHUNK);
+        const { data, error } = await supabase.from("inspection_history").select("imo,inspection_date,num_findings").in("imo", chunk).order("inspection_date",{ascending:true});
+        if (error) { console.error("[PostDetentionReport] fetch error:", error.message); continue; }
+        (data||[]).forEach(d => { if (!byImo[d.imo]) byImo[d.imo]=[]; byImo[d.imo].push(d); });
+      }
+      if (!cancelled) { setFollowUps(byImo); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [detainedInRange]);
+
+  const analysis = useMemo(() => {
+    if (loading) return null;
+    const rows = detainedInRange.map(v => {
+      const history = followUps[v.imo] || [];
+      const next = history.find(h => h.inspection_date > v.detentionDate && h.num_findings != null);
+      const detentionDefs = v.defs || 0;
+      const followUpDefs = next ? next.num_findings : null;
+      const change = followUpDefs!=null ? followUpDefs - detentionDefs : null;
+      return { ...v, ro: normalizeRO(v.ro)||"Unknown", detentionDefs, followUpDefs, followUpDate: next?.inspection_date||null, change };
+    });
+    const withFollowUp = rows.filter(r=>r.followUpDefs!=null);
+    const improved = withFollowUp.filter(r=>r.change<0);
+    const unchanged = withFollowUp.filter(r=>r.change===0);
+    const worsened = withFollowUp.filter(r=>r.change>0);
+    const detainableElim = withFollowUp.filter(r=>r.detainable>0).filter(r=>r.followUpDefs<=Math.max(1,Math.round(r.detentionDefs*0.15)));
+    const detainableBase = withFollowUp.filter(r=>r.detainable>0);
+
+    const highRisk = rows.filter(r=>r.detentionDefs>=5 || (r.change!=null && r.change>0))
+      .map(r=>({ ...r, status: (r.change==null || r.change>=0) ? "CRITICAL" : "HIGH" }))
+      .sort((a,b)=>(b.change??0)-(a.change??0));
+
+    const classMap = {};
+    rows.forEach(r => {
+      if (!classMap[r.ro]) classMap[r.ro] = { ro:r.ro, vessels:new Set(), detentions:0, totalDefs:0, totalDetainable:0, maxDefs:0, followUpsConducted:0 };
+      classMap[r.ro].vessels.add(r.imo);
+      classMap[r.ro].detentions++;
+      classMap[r.ro].totalDefs += r.detentionDefs;
+      classMap[r.ro].totalDetainable += (r.detainable||0);
+      classMap[r.ro].maxDefs = Math.max(classMap[r.ro].maxDefs, r.detentionDefs);
+      if (r.followUpDefs!=null) classMap[r.ro].followUpsConducted++;
+    });
+    const classPerf = Object.values(classMap).map(c=>({
+      ro: c.ro, vessels: c.vessels.size, detentions: c.detentions,
+      avgDefs: c.detentions?(c.totalDefs/c.detentions).toFixed(1):"0",
+      avgDetainable: c.detentions?(c.totalDetainable/c.detentions).toFixed(1):"0",
+      maxDefs: c.maxDefs, followUpsConducted: c.followUpsConducted,
+    })).sort((a,b)=>parseFloat(b.avgDefs)-parseFloat(a.avgDefs));
+
+    return { rows, withFollowUp, improved, unchanged, worsened, detainableElim, detainableBase, highRisk, classPerf };
+  }, [detainedInRange, followUps, loading]);
+
+  const chartData = analysis ? [
+    { name:"Improved", value:analysis.improved.length },
+    { name:"Unchanged", value:analysis.unchanged.length },
+    { name:"Worsened", value:analysis.worsened.length },
+  ].filter(d=>d.value>0) : [];
+  const TREND_COLORS = { Improved:"#22c55e", Unchanged:"#f59e0b", Worsened:"#ef4444" };
+
+  const classChartData = analysis ? analysis.classPerf.map(c=>({name:c.ro, avgDefs:parseFloat(c.avgDefs)})) : [];
+
+  if (loading) return <div style={{padding:"40px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading post-detention inspection history…</div>;
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+      <div style={{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px"}}>
+        <span style={{fontSize:"13px",color:"var(--text3)"}}>From:</span>
+        <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px"}} />
+        <span style={{fontSize:"13px",color:"var(--text3)"}}>To:</span>
+        <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px"}} />
+        {(fromDate||toDate)&&<button onClick={()=>{setFromDate("");setToDate("");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"auto"}}>{detainedInRange.length} detentions in range</span>
+      </div>
+
+      {/* Executive Summary */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>Executive Summary</div>
+        <ul style={{margin:0,paddingLeft:"20px",fontSize:"13px",color:"var(--text2)",lineHeight:1.9}}>
+          <li>This report reviews <b>{detainedInRange.length} detentions</b> across <b>{new Set(detainedInRange.map(v=>v.imo)).size} vessels</b>{fromDate||toDate?" between "+(fromDate||"the earliest record")+" and "+(toDate||"today"):""}.</li>
+          {analysis.withFollowUp.length>0 ? (
+            <li>At detention, vessels averaged <b>{(analysis.rows.reduce((a,r)=>a+r.detentionDefs,0)/analysis.rows.length).toFixed(2)}</b> deficiencies. At the first PSC inspection after detention ({analysis.withFollowUp.length} vessel{analysis.withFollowUp.length!==1?"s":""} with a follow-up on file), this was <b>{(analysis.withFollowUp.reduce((a,r)=>a+r.followUpDefs,0)/analysis.withFollowUp.length).toFixed(2)}</b>. Roughly <b>{Math.round(analysis.improved.length/analysis.withFollowUp.length*100)}%</b> improved, <b>{Math.round(analysis.unchanged.length/analysis.withFollowUp.length*100)}%</b> were unchanged, and <b>{Math.round(analysis.worsened.length/analysis.withFollowUp.length*100)}%</b> worsened.</li>
+          ) : <li>No follow-up PSC inspections found yet for detentions in this range — post-detention trend can't be measured until more inspection data comes in.</li>}
+          {analysis.detainableBase.length>0 && <li>Of vessels with detainable deficiencies at detention, about <b>{Math.round(analysis.detainableElim.length/analysis.detainableBase.length*100)}%</b> showed findings reduced to near-zero by their next inspection.</li>}
+          <li><b>{analysis.highRisk.length}</b> vessel{analysis.highRisk.length!==1?"s":""} met the high-risk criteria (5+ deficiencies at detention, or an increase at follow-up).</li>
+          {analysis.classPerf.length>0 && <li>Class society performance varies — <b>{analysis.classPerf[0]?.ro}</b> shows the highest average deficiency burden ({analysis.classPerf[0]?.avgDefs} avg), while <b>{analysis.classPerf[analysis.classPerf.length-1]?.ro}</b> shows the lowest ({analysis.classPerf[analysis.classPerf.length-1]?.avgDefs} avg).</li>}
+        </ul>
+      </div>
+
+      {/* Post-Detention Trend */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}>Post-Detention Performance Trend</div>
+        <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>Deficiency count at the first PSC inspection after detention, compared to the detention itself — {analysis.withFollowUp.length} vessels with a follow-up on file</div>
+        {chartData.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No follow-up inspection data available yet.</div>:
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie
+              data={chartData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={95} paddingAngle={2}
+              label={({cx,cy,midAngle,innerRadius,outerRadius,value,name})=>{
+                const RAD = Math.PI/180;
+                const r = innerRadius + (outerRadius-innerRadius)*0.55;
+                const x = cx + r*Math.cos(-midAngle*RAD);
+                const y = cy + r*Math.sin(-midAngle*RAD);
+                return <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" style={{fontSize:13,fontWeight:700}}>{value} ({Math.round(value/analysis.withFollowUp.length*100)}%)</text>;
+              }}
+              labelLine={false}
+            >
+              {chartData.map((d,i)=><Cell key={i} fill={TREND_COLORS[d.name]} />)}
+            </Pie>
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Legend wrapperStyle={{fontSize:12}} />
+          </PieChart>
+        </ResponsiveContainer>}
+      </div>
+
+      {/* High Risk Vessels */}
+      <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:highRiskExpanded?"10px":"0"}} onClick={()=>setHighRiskExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"var(--red2)"}}>High Risk Vessels ({analysis.highRisk.length})</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>5+ deficiencies at detention, or an increase at first follow-up — CRITICAL means no improvement, HIGH means improved but still elevated</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{highRiskExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {highRiskExpanded && (analysis.highRisk.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No vessels meet the high-risk criteria in this range.</div>:
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+            <thead><tr>{["Vessel","Class","Detention Defs","Follow-up Defs","Change","Follow-up Date","Status"].map(h=>(
+              <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
+            ))}</tr></thead>
+            <tbody>{analysis.highRisk.map((r,i)=>(
+              <tr key={r.imo+i} style={{background:i%2===0?"var(--bg3)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"8px 10px",fontWeight:600,color:"var(--text)"}}>{r.name}</td>
+                <td style={{padding:"8px 10px",color:"var(--text3)"}}>{r.ro}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.detentionDefs}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{r.followUpDefs??"—"}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center",color:r.change>0?"var(--red2)":r.change<0?"var(--green2)":"var(--text3)",fontWeight:600}}>{r.change!=null?(r.change>0?"+":"")+r.change:"—"}</td>
+                <td style={{padding:"8px 10px",color:"var(--text3)",whiteSpace:"nowrap"}}>{r.followUpDate||"—"}</td>
+                <td style={{padding:"8px 10px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:r.status==="CRITICAL"?"var(--red-bg)":"var(--amber-bg)",color:r.status==="CRITICAL"?"var(--red2)":"var(--amber2)",fontFamily:"var(--mono)",fontWeight:700}}>{r.status}</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+        )}
+      </div>
+
+      {/* Class Society Performance */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:classExpanded?"10px":"0"}} onClick={()=>setClassExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>Class Society Performance</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>Average deficiencies at detention by class society, with vessel/detention counts and follow-up coverage</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{classExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {classExpanded && (
+        <>
+        {classChartData.length>0 && (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={classChartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="name" tick={{fontSize:11,fill:"var(--text3)"}} />
+            <YAxis tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Bar dataKey="avgDefs" fill="#3b82f6" radius={[3,3,0,0]}>
+              <LabelList dataKey="avgDefs" position="top" style={{fontSize:11,fontWeight:700,fill:"#ffffff"}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        )}
+        <div style={{overflowX:"auto",marginTop:"10px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+            <thead><tr>{["Class","Vessels","Detentions","Avg Deficiencies","Avg Detainable","Max Deficiencies","Follow-ups Conducted"].map(h=>(
+              <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{h}</th>
+            ))}</tr></thead>
+            <tbody>{analysis.classPerf.map((c,i)=>(
+              <tr key={c.ro} style={{background:i%2===0?"var(--bg3)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"8px 10px",fontWeight:600,color:"var(--text)"}}>{c.ro}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.vessels}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.detentions}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDefs)>=12?"var(--red2)":parseFloat(c.avgDefs)>=8?"var(--amber2)":"var(--text)"}}>{c.avgDefs}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.avgDetainable}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.maxDefs}</td>
+                <td style={{padding:"8px 10px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.followUpsConducted}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+        </>
+        )}
+      </div>
+
+      {/* Recommendations — auto-generated from the data above */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--blue)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{fontSize:"15px",fontWeight:700,color:"var(--blue)",marginBottom:"10px"}}>Recommendations</div>
+        <ul style={{margin:0,paddingLeft:"20px",fontSize:"13px",color:"var(--text2)",lineHeight:1.9}}>
+          {analysis.rows.length - analysis.withFollowUp.length > 0 && (
+            <li>{analysis.rows.length - analysis.withFollowUp.length} detained vessel{analysis.rows.length-analysis.withFollowUp.length!==1?"s have":" has"} no follow-up PSC inspection on file yet — ensure every detained vessel gets at least one re-inspection and that results are reported to close this data gap.</li>
+          )}
+          {analysis.highRisk.filter(r=>r.status==="CRITICAL").length>0 && (
+            <li>Prioritize early reinspection and enhanced oversight for high-risk vessels. Immediate intervention is warranted for: {analysis.highRisk.filter(r=>r.status==="CRITICAL").slice(0,5).map(r=>r.name).join(", ")}.</li>
+          )}
+          {analysis.classPerf.length>0 && (
+            <li>Collaborate with class societies to address systemic issues, particularly {analysis.classPerf.slice(0,2).map(c=>c.ro).join(" and ")}-classed vessels, which show the highest deficiency burden in this range.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ── CAR TRACKER TAB ──────────────────────────────────────────────────────────
 
 function CARTracker({vessels}) {
@@ -1548,6 +1802,7 @@ export default function VesselManager({ currentUser, onOpenCase }) {
     {id:"patterns",label:"Pattern Detection"},
     {id:"company",label:"Company Pattern"},
     {id:"ro",label:"RO Pattern"},
+    {id:"postdetention",label:"Post-Detention Analysis"},
     {id:"car",label:"CAR Tracker"},
   ];
 
@@ -1617,6 +1872,7 @@ export default function VesselManager({ currentUser, onOpenCase }) {
       {tab==="patterns"&&<PatternDetection vessels={vessels} />}
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
       {tab==="ro"&&<ROPattern vessels={vessels} />}
+      {tab==="postdetention"&&<PostDetentionReport vessels={vessels} />}
       {tab==="car"&&<CARTracker vessels={vessels} />}
     </div>
   );
