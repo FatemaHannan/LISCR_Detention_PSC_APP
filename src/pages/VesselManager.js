@@ -472,6 +472,128 @@ function PatternDetection({vessels}) {
   );
 }
 
+// ── FULL FLEET TAB ───────────────────────────────────────────────────────────
+function FullFleet() {
+  const [roster, setRoster] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("All");
+  const [roFilter, setRoFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      let all = [], from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase.from("fleet_roster").select("*").range(from, from+PAGE-1);
+        if (error) { console.error("[FullFleet] fetch error:", error.message); break; }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      if (!cancelled) { setRoster(all); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const companies = useMemo(() => ["All", ...Array.from(new Set(roster.map(r=>(r.ism_client||"").trim()).filter(Boolean))).sort()], [roster]);
+  const ros = useMemo(() => ["All", ...Array.from(new Set(roster.map(r=>(r.class_society||"").trim()).filter(Boolean))).sort()], [roster]);
+  const statuses = useMemo(() => ["All", ...Array.from(new Set(roster.map(r=>(r.vessel_status||"").trim()).filter(Boolean))).sort()], [roster]);
+
+  const filtered = useMemo(() => roster.filter(r => {
+    if (companyFilter!=="All" && (r.ism_client||"").trim()!==companyFilter) return false;
+    if (roFilter!=="All" && (r.class_society||"").trim()!==roFilter) return false;
+    if (statusFilter!=="All" && (r.vessel_status||"").trim()!==statusFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      if (!(r.vessel||"").toLowerCase().includes(q) && !String(r.imo||"").includes(q) && !(r.ism_client||"").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [roster, companyFilter, roFilter, statusFilter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length/PAGE_SIZE));
+  const pageRows = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+  if (loading) return <div style={{padding:"40px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>Loading full fleet roster...</div>;
+
+  if (roster.length===0) return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"30px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>
+      No Fleet Roster data on file yet. Upload it in Weekly Data → Fleet Roster.
+    </div>
+  );
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px"}}>
+        {[
+          {l:"Total Vessels",v:roster.length},
+          {l:"Companies",v:companies.length-1},
+          {l:"ROs / Class Societies",v:ros.length-1},
+          {l:"Filtered",v:filtered.length},
+        ].map(s=>(
+          <div key={s.l} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+            <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"4px"}}>{s.l}</div>
+            <div style={{fontSize:"22px",fontWeight:300,fontFamily:"var(--mono)",color:"var(--text)"}}>{s.v.toLocaleString()}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px"}}>
+        <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel, IMO, or company..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",width:"260px"}} />
+        <select value={companyFilter} onChange={e=>{setCompanyFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",maxWidth:"220px"}}>
+          {companies.map(c=><option key={c} value={c}>{c==="All"?"All Companies":c}</option>)}
+        </select>
+        <select value={roFilter} onChange={e=>{setRoFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",maxWidth:"200px"}}>
+          {ros.map(r=><option key={r} value={r}>{r==="All"?"All ROs":r}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px"}}>
+          {statuses.map(s=><option key={s} value={s}>{s==="All"?"All Statuses":s}</option>)}
+        </select>
+        {(search||companyFilter!=="All"||roFilter!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setCompanyFilter("All");setRoFilter("All");setStatusFilter("All");setPage(1);}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"1000px"}}>
+          <thead><tr style={{background:"var(--bg2)"}}>
+            {["Vessel","IMO","Company","RO / Class","Type","Reg. Date","Age","Regional Office","Status","Gross Tons"].map(h=>(
+              <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>{pageRows.map((r,i)=>(
+            <tr key={r.imo+"-"+i} style={{background:i%2===0?"var(--bg2)":"transparent",borderBottom:"1px solid var(--border)"}}>
+              <td style={{padding:"8px 12px",fontWeight:600,color:"var(--text)"}}>{r.vessel||"—"}</td>
+              <td style={{padding:"8px 12px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{r.imo||"—"}</td>
+              <td style={{padding:"8px 12px",color:"var(--text2)"}}>{r.ism_client||"—"}</td>
+              <td style={{padding:"8px 12px",color:"var(--text2)"}}>{r.class_society||"—"}</td>
+              <td style={{padding:"8px 12px",color:"var(--text3)"}}>{r.vessel_sub_type||"—"}</td>
+              <td style={{padding:"8px 12px",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{r.registration_date||"—"}</td>
+              <td style={{padding:"8px 12px",fontFamily:"var(--mono)",color:"var(--text3)"}}>{r.age??"—"}</td>
+              <td style={{padding:"8px 12px",color:"var(--text3)"}}>{r.regional_office||"—"}</td>
+              <td style={{padding:"8px 12px"}}>{r.vessel_status?<span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:r.vessel_status==="Active"?"rgba(34,197,94,0.08)":"var(--bg3)",color:r.vessel_status==="Active"?"var(--green2)":"var(--text3)"}}>{r.vessel_status}</span>:"—"}</td>
+              <td style={{padding:"8px 12px",fontFamily:"var(--mono)",color:"var(--text3)",textAlign:"right"}}>{r.gross_tons?Number(r.gross_tons).toLocaleString():"—"}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+        {filtered.length===0&&<div style={{padding:"30px",textAlign:"center",color:"var(--text3)",fontSize:"13px"}}>No vessels match the current filters.</div>}
+      </div>
+
+      {totalPages>1&&(
+        <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:"10px"}}>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:page===1?"var(--text3)":"var(--text)",cursor:page===1?"default":"pointer",fontSize:"13px"}}>← Prev</button>
+          <span style={{fontSize:"13px",color:"var(--text3)"}}>Page {page} of {totalPages} ({filtered.length.toLocaleString()} vessels)</span>
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:page===totalPages?"var(--text3)":"var(--text)",cursor:page===totalPages?"default":"pointer",fontSize:"13px"}}>Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── COMPANY PATTERN TAB ──────────────────────────────────────────────────────
 function CompanyPattern({vessels}) {
   const [sortKey, setSortKey] = useState("riskScore");
@@ -964,6 +1086,7 @@ export default function VesselManager({ currentUser, onOpenCase }) {
 
   const TABS = [
     {id:"list",label:"Case List"},
+    {id:"fleet",label:"Full Fleet"},
     {id:"analysis",label:"Fleet Analysis"},
     {id:"patterns",label:"Pattern Detection"},
     {id:"company",label:"Company Pattern"},
@@ -1032,6 +1155,7 @@ export default function VesselManager({ currentUser, onOpenCase }) {
       </div>
 
       {tab==="list"&&<CaseList vessels={vessels} canEdit={canEdit} canDelete={canDelete} onOpenCase={onOpenCase} />}
+      {tab==="fleet"&&<FullFleet />}
       {tab==="analysis"&&<FleetAnalysis vessels={vessels} />}
       {tab==="patterns"&&<PatternDetection vessels={vessels} />}
       {tab==="company"&&<CompanyPattern vessels={vessels} />}
