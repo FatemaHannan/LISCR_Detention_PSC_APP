@@ -940,6 +940,8 @@ function ROPattern({vessels}) {
   const [year, setYear] = useState("All");
   const [highRiskExpanded, setHighRiskExpanded] = useState(false);
   const [tableExpanded, setTableExpanded] = useState(false);
+  const [repeatExpanded, setRepeatExpanded] = useState(false);
+  const [yearlyExpanded, setYearlyExpanded] = useState(false);
   const [fleetRoster, setFleetRoster] = useState([]);
   const [fleetLoading, setFleetLoading] = useState(true);
 
@@ -961,6 +963,41 @@ function ROPattern({vessels}) {
     if (r.includes("polski")||r.includes("prs")) return "Polski Rejestr Statkow (PRS)";
     return ro.trim();
   }
+
+  // ---- Repeat detentions by RO — all-time, not affected by the Year filter (shows the full picture) ----
+  const repeatByRO = useMemo(() => {
+    const imoCounts = {};
+    vessels.forEach(v => { if (v.detained && v.imo) imoCounts[v.imo] = (imoCounts[v.imo]||0)+1; });
+    const roGroups = {};
+    vessels.filter(v=>v.detained && v.imo && imoCounts[v.imo]>1 && v.ro).forEach(v => {
+      const r = normalizeRO(v.ro);
+      if (!r) return;
+      if (!roGroups[r]) roGroups[r] = {};
+      if (!roGroups[r][v.imo]) roGroups[r][v.imo] = { name: v.name, imo: v.imo, count: imoCounts[v.imo], years: new Set() };
+      if (v.detentionDate) roGroups[r][v.imo].years.add(String(v.detentionDate).slice(0,4));
+    });
+    return Object.entries(roGroups).map(([ro, vesselMap]) => ({
+      ro, vessels: Object.values(vesselMap).sort((a,b)=>b.count-a.count),
+    })).sort((a,b)=>b.vessels.length-a.vessels.length);
+  }, [vessels]);
+
+  // ---- Detentions by RO, per year — full history plus current-year YTD ----
+  const yearlyByRO = useMemo(() => {
+    const years = [...new Set(vessels.filter(v=>v.detained && v.detentionDate).map(v=>String(v.detentionDate).slice(0,4)))].sort();
+    const currentYear = String(new Date().getFullYear());
+    const roYearMap = {};
+    vessels.filter(v=>v.detained && v.ro && v.detentionDate).forEach(v => {
+      const r = normalizeRO(v.ro);
+      if (!r) return;
+      const yr = String(v.detentionDate).slice(0,4);
+      if (!roYearMap[r]) roYearMap[r] = {};
+      roYearMap[r][yr] = (roYearMap[r][yr]||0)+1;
+    });
+    const data = Object.entries(roYearMap).map(([ro,yearCounts])=>({
+      ro, yearCounts, total: Object.values(yearCounts).reduce((a,b)=>a+b,0),
+    })).sort((a,b)=>b.total-a.total);
+    return { years, currentYear, data };
+  }, [vessels]);
 
   // ---- Real fleet roster — true fleet-size denominator per RO, paginated to get all rows ----
   useEffect(() => {
@@ -1174,6 +1211,68 @@ function ROPattern({vessels}) {
           )}
         </div>
       )}
+
+      {/* Repeat Detentions by RO — all-time, collapsible */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:repeatExpanded?"10px":"0"}} onClick={()=>setRepeatExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Repeat Detentions by RO ({repeatByRO.reduce((a,g)=>a+g.vessels.length,0)} vessels, all-time)</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>Vessels detained more than once, grouped by RO — not affected by the Year filter above</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{repeatExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {repeatExpanded && (repeatByRO.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No vessel has been detained more than once.</div>:
+        <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+          {repeatByRO.map(g=>(
+            <div key={g.ro}>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--text2)",marginBottom:"6px"}}>{g.ro} <span style={{color:"var(--text3)",fontWeight:400}}>({g.vessels.length} vessel{g.vessels.length>1?"s":""})</span></div>
+              <div style={{display:"flex",flexDirection:"column",gap:"4px"}}>
+                {g.vessels.map(v=>(
+                  <div key={v.imo} style={{display:"flex",alignItems:"center",gap:"12px",padding:"6px 10px",background:"var(--bg3)",borderRadius:"6px"}}>
+                    <span style={{fontSize:"13px",fontWeight:600,color:"var(--text)",flex:1}}>{v.name}</span>
+                    <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{[...v.years].sort().join(", ")}</span>
+                    <span style={{fontSize:"13px",padding:"1px 8px",borderRadius:"12px",background:"var(--red-bg)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700}}>{v.count}x</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        )}
+      </div>
+
+      {/* Detentions by RO, per year — full year + current YTD, collapsible */}
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:yearlyExpanded?"10px":"0"}} onClick={()=>setYearlyExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Detentions by RO — Full Year + {yearlyByRO.currentYear} YTD</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>Every year side by side per RO, all-time — {yearlyByRO.currentYear} column is year-to-date, not a complete year yet</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{yearlyExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {yearlyExpanded && (
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+            <thead><tr>
+              <th style={{padding:"8px 10px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>RO / Class</th>
+              {yearlyByRO.years.map(y=>(
+                <th key={y} style={{padding:"8px 10px",textAlign:"center",fontSize:"13px",fontWeight:600,color:y===yearlyByRO.currentYear?"var(--amber2)":"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{y}{y===yearlyByRO.currentYear?" (YTD)":""}</th>
+              ))}
+              <th style={{padding:"8px 10px",textAlign:"center",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>Total</th>
+            </tr></thead>
+            <tbody>{yearlyByRO.data.map((r,i)=>(
+              <tr key={r.ro} style={{background:i%2===0?"var(--bg3)":"transparent",borderBottom:"1px solid var(--border)"}}>
+                <td style={{padding:"8px 10px",fontWeight:600,color:"var(--text)"}}>{r.ro}</td>
+                {yearlyByRO.years.map(y=>(
+                  <td key={y} style={{padding:"8px 10px",textAlign:"center",fontFamily:"var(--mono)",color:r.yearCounts[y]?"var(--text2)":"var(--text3)"}}>{r.yearCounts[y]||0}</td>
+                ))}
+                <td style={{padding:"8px 10px",textAlign:"center",fontFamily:"var(--mono)",fontWeight:700,color:"var(--text)"}}>{r.total}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+        )}
+      </div>
 
       {/* Master table — collapsible */}
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
