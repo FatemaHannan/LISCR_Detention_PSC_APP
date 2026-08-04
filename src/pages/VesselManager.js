@@ -953,7 +953,7 @@ function ROPattern({vessels}) {
   const [search, setSearch] = useState("");
   const [year, setYear] = useState("All");
   const [highRiskExpanded, setHighRiskExpanded] = useState(false);
-  const [tableExpanded, setTableExpanded] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(true);
   const [repeatExpanded, setRepeatExpanded] = useState(false);
   const [yearlyExpanded, setYearlyExpanded] = useState(false);
   const [fleetRoster, setFleetRoster] = useState([]);
