@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { getVessels, upsertVessel, deleteVesselFromDB } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const CAR_OPTS = ["Not Received","Received","Requested","Complete","Rejected"];
 const CASE_OPTS = ["New","Pending Review","Pending CAR","In Progress","Close Case"];
@@ -475,10 +476,48 @@ function PatternDetection({vessels}) {
 function CompanyPattern({vessels}) {
   const [sortKey, setSortKey] = useState("riskScore");
   const [sortDir, setSortDir] = useState("desc");
+  const [search, setSearch] = useState("");
+  const [year, setYear] = useState("All");
+  const [unresponsiveExpanded, setUnresponsiveExpanded] = useState(false);
+  const [rejectionExpanded, setRejectionExpanded] = useState(false);
+  const [fleetRoster, setFleetRoster] = useState([]);
+  const [fleetLoading, setFleetLoading] = useState(true);
+
+  // ---- Real fleet roster — for a true fleet-size denominator instead of detained-vessels-only ----
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("fleet_roster").select("ism_client,imo").then(({data,error}) => {
+      if (error) console.error("[CompanyPattern] fleet_roster fetch error:", error.message);
+      if (!cancelled) { setFleetRoster(data||[]); setFleetLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const realFleetByCompany = useMemo(() => {
+    const map = {};
+    fleetRoster.forEach(r => {
+      const c = (r.ism_client||"").trim();
+      if (!c) return;
+      const key = c.toLowerCase();
+      if (!map[key]) map[key] = new Set();
+      if (r.imo) map[key].add(r.imo);
+    });
+    const sizes = {};
+    Object.entries(map).forEach(([key,set]) => { sizes[key] = set.size; });
+    return sizes;
+  }, [fleetRoster]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    vessels.forEach(v => { if (v.detentionDate) years.add(String(v.detentionDate).slice(0,4)); });
+    return [...years].sort((a,b)=>b.localeCompare(a));
+  }, [vessels]);
 
   const EXCLUDED = ["Unknown","—","Not specified","","null"];
   const companyMap = {};
-  vessels.filter(v=>v.company&&!EXCLUDED.includes(v.company.trim())).forEach(v=>{
+  vessels.filter(v=>v.company&&!EXCLUDED.includes(v.company.trim()))
+    .filter(v=>year==="All" || (v.detentionDate && String(v.detentionDate).startsWith(year)))
+    .forEach(v=>{
     const c = v.company.trim();
     if (!companyMap[c]) companyMap[c]={name:c,cases:0,detained:0,totalDefs:0,totalDetainable:0,carComplete:0,carNotReceived:0,mous:new Set(),vessels:new Set(),vesselList:[],unresponsive:0,inspectionRejection:0};
     companyMap[c].cases++;
@@ -501,11 +540,13 @@ function CompanyPattern({vessels}) {
     const avgDefs = c.cases?(c.totalDefs/c.cases).toFixed(1):"0";
     const avgDetainable = c.cases?(c.totalDetainable/c.cases).toFixed(1):"0";
     const carRate = c.cases?Math.round(c.carComplete/c.cases*100):0;
-    const detRate = c.cases?Math.round(c.detained/c.cases*100):0;
-    const fleetSize = [...c.vessels].length;
-    // Risk based on simple rules - no score
-    const isHigh = detRate===100||parseFloat(avgDefs)>=15||c.carNotReceived>=2||c.unresponsive>0||c.inspectionRejection>0;
-    const isMed = detRate>=50||parseFloat(avgDefs)>=8||c.carNotReceived>=1;
+    const detainedVesselCount = [...c.vessels].filter(imo=>c.vesselList.some(v=>v.imo===imo&&v.detained)).length;
+    const realFleetSize = realFleetByCompany[c.name.toLowerCase()];
+    const fleetSize = realFleetSize!=null ? realFleetSize : [...c.vessels].length;
+    const fleetSizeIsReal = realFleetSize!=null;
+    const detRate = fleetSize ? Math.round(detainedVesselCount/fleetSize*100) : 0;
+    const isHigh = detRate>=50||parseFloat(avgDefs)>=15||c.carNotReceived>=2||c.unresponsive>0||c.inspectionRejection>0;
+    const isMed = detRate>=20||parseFloat(avgDefs)>=8||c.carNotReceived>=1;
     const riskLabel = isHigh?"High":isMed?"Medium":"Low";
     const riskColor = isHigh?"var(--red2)":isMed?"var(--amber2)":"var(--green2)";
     const riskBg = isHigh?"var(--red-bg)":isMed?"var(--amber-bg)":"rgba(34,197,94,0.08)";
@@ -513,22 +554,48 @@ function CompanyPattern({vessels}) {
     const worstVessel = [...c.vesselList].sort((a,b)=>(b.defs||0)-(a.defs||0))[0];
     const mouCounts={};c.vesselList.forEach(v=>{if(v.mou)mouCounts[v.mou]=(mouCounts[v.mou]||0)+1;});
     const dominantMou=Object.entries(mouCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
+    return {...c,avgDefs,avgDetainable,carRate,detRate,fleetSize,fleetSizeIsReal,detainedVesselCount,riskLabel,riskColor,riskBg,riskBorder,worstVessel,dominantMou};
   });
 
+  const searched = search.trim() ? companies.filter(c=>c.name.toLowerCase().includes(search.trim().toLowerCase())) : companies;
+
   const riskOrder = {"High":3,"Medium":2,"Low":1};
-  const top5 = [...companies].sort((a,b)=>(riskOrder[b.riskLabel]||0)-(riskOrder[a.riskLabel]||0)||(b.detained||0)-(a.detained||0)||(parseFloat(b.avgDefs)||0)-(parseFloat(a.avgDefs)||0)).slice(0,5);
-  const sorted = [...companies].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
+  const top5 = [...searched].sort((a,b)=>(riskOrder[b.riskLabel]||0)-(riskOrder[a.riskLabel]||0)||(b.detained||0)-(a.detained||0)||(parseFloat(b.avgDefs)||0)-(parseFloat(a.avgDefs)||0)).slice(0,5);
+  const sorted = [...searched].sort((a,b)=>{const av=sortKey==="riskLabel"?(riskOrder[a.riskLabel]||0):(a[sortKey]||0);const bv=sortKey==="riskLabel"?(riskOrder[b.riskLabel]||0):(b[sortKey]||0);return sortDir==="asc"?(av>bv?1:-1):(av<bv?1:-1);});
   function th(k,l){return <th onClick={()=>{if(sortKey===k)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortKey(k);setSortDir("desc");}}} style={{padding:"10px 12px",textAlign:"left",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",borderBottom:"1px solid var(--border)"}}>{l}{sortKey===k?sortDir==="asc"?" ↑":" ↓":""}</th>;}
+
+  const chartData = [...companies].filter(c=>c.fleetSize>0&&c.fleetSizeIsReal).sort((a,b)=>b.detRate-a.detRate).slice(0,10).map(c=>({name:c.name.length>20?c.name.slice(0,20)+"…":c.name,detRate:c.detRate}));
+  const riskDist = ["High","Medium","Low"].map(label=>({name:label,value:companies.filter(c=>c.riskLabel===label).length})).filter(d=>d.value>0);
+  const RISK_COLORS = {High:"#ef4444",Medium:"#f59e0b",Low:"#22c55e"};
+  const unresponsiveList = sorted.filter(c=>c.unresponsive>0);
+  const rejectionList = sorted.filter(c=>c.inspectionRejection>0);
+  const highRiskList = sorted.filter(c=>c.riskLabel==="High");
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+
+      {/* Controls */}
+      <div style={{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 14px"}}>
+        <span style={{fontSize:"13px",color:"var(--text3)"}}>Year:</span>
+        <select value={year} onChange={e=>setYear(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px"}}>
+          <option value="All">All Years</option>
+          {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search company..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",width:"240px"}} />
+        {search && <button onClick={()=>setSearch("")} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        <span style={{fontSize:"13px",color:"var(--text3)",marginLeft:"auto"}}>{searched.length} of {companies.length} companies</span>
+      </div>
+      {!fleetLoading && fleetRoster.length===0 && (
+        <div style={{background:"var(--amber-bg)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"var(--amber2)"}}>
+          ⚠ Fleet Roster not uploaded yet — fleet size and detention rate below are estimated from detained vessels only, not your true full fleet. Upload it in Weekly Data for accurate numbers.
+        </div>
+      )}
 
       {/* Top 5 High Risk Companies */}
       <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
         <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",marginBottom:"12px",display:"flex",alignItems:"center",gap:"8px"}}>
           ⚠ Top 5 High Risk Companies
-          <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate, avg deficiencies, CAR compliance, responsiveness</span>
+          <span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>by risk score — detention rate vs fleet, avg deficiencies, CAR compliance, responsiveness</span>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
           {top5.map((c,i)=>(
@@ -536,13 +603,9 @@ function CompanyPattern({vessels}) {
               <div style={{fontSize:"20px",fontWeight:700,color:i===0?"var(--red2)":"var(--text3)",fontFamily:"var(--mono)",width:"28px",flexShrink:0}}>#{i+1}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px"}}>{c.name}</div>
-                <div style={{fontSize:"13px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}  ·  {c.dominantMou}</div>
+                <div style={{fontSize:"13px",color:"var(--text3)"}}>{c.cases} detention{c.cases>1?"s":""}  ·  {c.fleetSize} vessel{c.fleetSize>1?"s":""}{c.fleetSizeIsReal?" (full fleet)":" (detained only)"}  ·  {c.dominantMou}</div>
               </div>
               <div style={{display:"flex",gap:"10px",flexShrink:0}}>
-                <div style={{textAlign:"center"}}>
-                  <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Risk Score</div>
-                  <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:c.riskColor}}>{c.riskScore}<span style={{fontSize:"13px",color:"var(--text3)",fontWeight:400}}>/100</span></div>
-                </div>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>Det Rate</div>
                   <div style={{fontSize:"18px",fontWeight:700,fontFamily:"var(--mono)",color:"var(--red2)"}}>{c.detRate}%</div>
@@ -559,6 +622,7 @@ function CompanyPattern({vessels}) {
               </div>
             </div>
           ))}
+          {top5.length===0&&<div style={{fontSize:"13px",color:"var(--text3)"}}>No companies match the current filters.</div>}
         </div>
       </div>
 
@@ -571,13 +635,49 @@ function CompanyPattern({vessels}) {
         ))}
       </div>
 
+      {/* Charts: Top 10 detention rate vs fleet, and risk distribution */}
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px"}}>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Top 10 Companies — Detention Rate vs Full Fleet</div>
+          {chartData.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>{fleetRoster.length===0?"Upload Fleet Roster to see this chart.":"No data for the current filters."}</div>:
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={chartData} layout="vertical" margin={{left:10,right:20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
+              <YAxis type="category" dataKey="name" width={150} tick={{fontSize:11,fill:"var(--text3)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} formatter={(v)=>v+"%"} />
+              <Bar dataKey="detRate" fill="#ef4444" radius={[0,3,3,0]} />
+            </BarChart>
+          </ResponsiveContainer>}
+        </div>
+        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"10px"}}>Risk Distribution</div>
+          {riskDist.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No data.</div>:
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={riskDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                {riskDist.map((d,i)=><Cell key={i} fill={RISK_COLORS[d.name]} />)}
+              </Pie>
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+              <Legend wrapperStyle={{fontSize:11}} />
+            </PieChart>
+          </ResponsiveContainer>}
+        </div>
+      </div>
+
+      {/* Unresponsive + Inspection Rejection — collapsible */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}}>
         <div style={{background:"var(--bg2)",border:"1px solid var(--amber)",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)",marginBottom:"4px"}}>Unresponsive Companies</div>
-          <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>CAR not received 60+ days, no response to LISCR, or client unresponsive flag</div>
-          {sorted.filter(c=>c.unresponsive>0).length>0?(
-            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
-              {sorted.filter(c=>c.unresponsive>0).map(c=>(
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setUnresponsiveExpanded(x=>!x)}>
+            <div>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)"}}>Unresponsive Companies ({unresponsiveList.length})</div>
+              <div style={{fontSize:"13px",color:"var(--text3)"}}>CAR not received 60+ days, no response to LISCR, or client unresponsive flag</div>
+            </div>
+            <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{unresponsiveExpanded?"Hide ▴":"Show ▾"}</span>
+          </div>
+          {unresponsiveExpanded && (unresponsiveList.length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"6px",marginTop:"10px"}}>
+              {unresponsiveList.map(c=>(
                 <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--amber-bg)",borderRadius:"6px",border:"1px solid var(--amber)"}}>
                   <div style={{flex:1}}><div style={{fontSize:"13px",fontWeight:600,color:"var(--amber2)"}}>{c.name}</div><div style={{fontSize:"13px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
                   <div style={{display:"flex",gap:"4px"}}>
@@ -587,44 +687,48 @@ function CompanyPattern({vessels}) {
                 </div>
               ))}
             </div>
-          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No unresponsive companies detected.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)",marginTop:"10px"}}>No unresponsive companies detected.</div>)}
         </div>
 
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"4px"}}>Inspection Rejection</div>
-          <div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>Companies that refused or rejected PSC/ASI inspections</div>
-          {sorted.filter(c=>c.inspectionRejection>0).length>0?(
-            <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
-              {sorted.filter(c=>c.inspectionRejection>0).map(c=>(
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setRejectionExpanded(x=>!x)}>
+            <div>
+              <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>Inspection Rejection ({rejectionList.length})</div>
+              <div style={{fontSize:"13px",color:"var(--text3)"}}>Companies that refused or rejected PSC/ASI inspections</div>
+            </div>
+            <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{rejectionExpanded?"Hide ▴":"Show ▾"}</span>
+          </div>
+          {rejectionExpanded && (rejectionList.length>0?(
+            <div style={{display:"flex",flexDirection:"column",gap:"6px",marginTop:"10px"}}>
+              {rejectionList.map(c=>(
                 <div key={c.name} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",background:"var(--red-bg)",borderRadius:"6px",border:"1px solid #3D1A1A"}}>
                   <div style={{flex:1}}><div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)"}}>{c.name}</div><div style={{fontSize:"13px",color:"var(--text3)"}}>{c.dominantMou} {c.cases} cases</div></div>
                   <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>{c.inspectionRejection}x rejected</span>
                 </div>
               ))}
             </div>
-          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspection rejections on record.</div>}
+          ):<div style={{fontSize:"13px",color:"var(--text3)",marginTop:"10px"}}>No inspection rejections on record.</div>)}
         </div>
       </div>
 
-      {sorted.filter(c=>c.riskLabel==="High").length>0&&(
+      {/* High Risk Companies — line/list format, not boxes */}
+      {highRiskList.length>0&&(
         <div style={{background:"var(--bg2)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"14px"}}>
-          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"8px"}}>
-            {sorted.filter(c=>c.riskLabel==="High").map(c=>(
-              <div key={c.name} style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"var(--red2)",flex:1,lineHeight:1.3}}>{c.name}</div>
-                  <span style={{fontSize:"8px",padding:"2px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0,marginLeft:"6px"}}>HIGH RISK</span>
+          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"10px"}}>High Risk Companies ({highRiskList.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+            {highRiskList.map(c=>(
+              <div key={c.name} style={{display:"flex",alignItems:"center",gap:"14px",padding:"9px 12px",background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:"180px"}}>
+                  <span style={{fontSize:"13px",fontWeight:700,color:"var(--red2)"}}>{c.name}</span>
+                  <span style={{fontSize:"8px",padding:"2px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,marginLeft:"8px"}}>HIGH RISK</span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"4px",marginBottom:"8px"}}>
-                  {[["Detained",c.detained,"var(--red2)"],["Avg Defs",c.avgDefs,"var(--amber2)"],["CAR%",c.carRate+"%",c.carRate===0?"var(--red2)":"var(--amber2)"]].map(([l,v,col])=>(
-                    <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"4px",padding:"5px",textAlign:"center"}}>
-                      <div style={{fontSize:"8px",color:"var(--text3)",marginBottom:"1px"}}>{l}</div>
-                      <div style={{fontSize:"13px",fontWeight:600,fontFamily:"var(--mono)",color:col}}>{v}</div>
-                    </div>
-                  ))}
+                <div style={{display:"flex",gap:"16px",fontSize:"13px",flexShrink:0}}>
+                  <span style={{color:"var(--text3)"}}>Detained: <b style={{color:"var(--red2)"}}>{c.detained}</b></span>
+                  <span style={{color:"var(--text3)"}}>Avg Defs: <b style={{color:"var(--amber2)"}}>{c.avgDefs}</b></span>
+                  <span style={{color:"var(--text3)"}}>CAR%: <b style={{color:c.carRate===0?"var(--red2)":"var(--amber2)"}}>{c.carRate}%</b></span>
+                  <span style={{color:"var(--text3)"}}>Fleet: <b style={{color:"var(--text2)"}}>{c.fleetSize}</b></span>
                 </div>
-                <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:"4px",flexShrink:0}}>
                   {c.unresponsive>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(245,158,11,0.2)",color:"var(--amber2)",fontFamily:"var(--mono)",fontWeight:600}}>Unresponsive</span>}
                   {c.inspectionRejection>0&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(239,68,68,0.2)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:600}}>Insp. Rejected</span>}
                   {c.worstVessel&&<span style={{fontSize:"8px",padding:"1px 5px",borderRadius:"3px",background:"rgba(0,0,0,0.2)",color:"var(--text3)",fontFamily:"var(--mono)"}}>Worst: {c.worstVessel.name}</span>}
@@ -638,7 +742,7 @@ function CompanyPattern({vessels}) {
       <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"1100px"}}>
           <thead><tr style={{background:"var(--bg2)"}}>
-            {th("riskScore","Risk")}{th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}{th("unresponsive","Unresponsive")}{th("inspectionRejection","Insp. Rejected")}
+            {th("riskLabel","Risk")}{th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}{th("unresponsive","Unresponsive")}{th("inspectionRejection","Insp. Rejected")}
             <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Top MoU</th>
             <th style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:"13px",fontWeight:600,color:"var(--text3)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Worst Vessel</th>
           </tr></thead>
@@ -647,7 +751,7 @@ function CompanyPattern({vessels}) {
               <td style={{padding:"9px 12px"}}><span style={{fontSize:"13px",padding:"2px 7px",borderRadius:"3px",background:c.riskBg,color:c.riskColor,fontFamily:"var(--mono)",fontWeight:700,border:"1px solid "+c.riskBorder}}>{c.riskLabel}</span></td>
               <td style={{padding:"9px 12px",fontWeight:600,color:c.riskLabel==="High"?"var(--red2)":"var(--text)"}}>{c.name}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center"}}>{c.cases}</td>
-              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}}>{c.fleetSize}</td>
+              <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:"var(--text3)"}} title={c.fleetSizeIsReal?"From Fleet Roster":"Estimated from detained vessels only"}>{c.fleetSize}{!c.fleetSizeIsReal&&<span style={{color:"var(--amber2)"}}>*</span>}</td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:c.detained>1?"var(--red2)":"var(--text)",fontWeight:c.detained>1?600:400}}>{c.detained}</td>
               <td style={{padding:"9px 12px",textAlign:"center"}}><span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:c.detRate>=50?"var(--red-bg)":c.detRate>=25?"var(--amber-bg)":"var(--bg3)",color:c.detRate>=50?"var(--red2)":c.detRate>=25?"var(--amber2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:600}}>{c.detRate}%</span></td>
               <td style={{padding:"9px 12px",fontFamily:"var(--mono)",textAlign:"center",color:parseFloat(c.avgDefs)>=15?"var(--red2)":parseFloat(c.avgDefs)>=8?"var(--amber2)":"var(--text)",fontWeight:parseFloat(c.avgDefs)>=8?600:400}}>{c.avgDefs}</td>
@@ -661,12 +765,14 @@ function CompanyPattern({vessels}) {
             </tr>
           ))}</tbody>
         </table>
+        {companies.some(c=>!c.fleetSizeIsReal)&&<div style={{fontSize:"13px",color:"var(--text3)",padding:"8px 12px"}}>* Fleet size estimated from detained vessels only — company not matched in Fleet Roster (check spelling matches ISM Client exactly).</div>}
       </div>
     </div>
   );
 }
 
 // ── CAR TRACKER TAB ──────────────────────────────────────────────────────────
+
 function CARTracker({vessels}) {
   const [carData, setCarData] = useState([]);
   const [loading, setLoading] = useState(true);
