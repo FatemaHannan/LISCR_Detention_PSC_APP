@@ -603,6 +603,7 @@ function CompanyPattern({vessels}) {
   const [unresponsiveExpanded, setUnresponsiveExpanded] = useState(false);
   const [rejectionExpanded, setRejectionExpanded] = useState(false);
   const [highRiskExpanded, setHighRiskExpanded] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(false);
   const [fleetRoster, setFleetRoster] = useState([]);
   const [fleetLoading, setFleetLoading] = useState(true);
 
@@ -888,7 +889,16 @@ function CompanyPattern({vessels}) {
         </div>
       )}
 
-      <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:tableExpanded?"10px":"0"}} onClick={()=>setTableExpanded(x=>!x)}>
+          <div>
+            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>All Companies — Full Detail Table ({sorted.length})</div>
+            <div style={{fontSize:"13px",color:"var(--text3)"}}>Every company side by side — click any column header to sort</div>
+          </div>
+          <span style={{fontSize:"13px",color:"var(--text3)",flexShrink:0,marginLeft:"10px"}}>{tableExpanded?"Hide ▴":"Show ▾"}</span>
+        </div>
+        {tableExpanded && (
+        <div style={{overflowX:"auto",borderRadius:"8px",border:"1px solid var(--border)"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px",minWidth:"1100px"}}>
           <thead><tr style={{background:"var(--bg2)"}}>
             {th("riskLabel","Risk")}{th("name","Company")}{th("cases","Cases")}{th("fleetSize","Fleet")}{th("detained","Detained")}{th("detRate","Det %")}{th("avgDefs","Avg Defs")}{th("avgDetainable","Avg Det.")}{th("carRate","CAR %")}{th("carNotReceived","CAR Missing")}{th("unresponsive","Unresponsive")}{th("inspectionRejection","Insp. Rejected")}
@@ -915,6 +925,8 @@ function CompanyPattern({vessels}) {
           ))}</tbody>
         </table>
         {companies.some(c=>!c.fleetSizeIsReal)&&<div style={{fontSize:"13px",color:"var(--text3)",padding:"8px 12px"}}>* Fleet size estimated from detained vessels only — company not matched in Fleet Roster (check spelling matches ISM Client exactly).</div>}
+        </div>
+        )}
       </div>
     </div>
   );
