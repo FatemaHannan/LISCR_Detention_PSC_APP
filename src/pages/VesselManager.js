@@ -608,10 +608,19 @@ function CompanyPattern({vessels}) {
   // ---- Real fleet roster — for a true fleet-size denominator instead of detained-vessels-only ----
   useEffect(() => {
     let cancelled = false;
-    supabase.from("fleet_roster").select("ism_client,imo").then(({data,error}) => {
-      if (error) console.error("[CompanyPattern] fleet_roster fetch error:", error.message);
-      if (!cancelled) { setFleetRoster(data||[]); setFleetLoading(false); }
-    });
+    (async () => {
+      let all = [], from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase.from("fleet_roster").select("ism_client,imo").range(from, from+PAGE-1);
+        if (error) { console.error("[CompanyPattern] fleet_roster fetch error:", error.message); break; }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      if (!cancelled) { setFleetRoster(all); setFleetLoading(false); }
+    })();
     return () => { cancelled = true; };
   }, []);
 
