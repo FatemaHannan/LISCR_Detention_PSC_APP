@@ -3,7 +3,7 @@ import { getVessels, upsertVessel, deleteVesselFromDB } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList } from "recharts";
 
 const CAR_OPTS = ["Not Received","Received","Requested","Complete","Rejected"];
 const CASE_OPTS = ["New","Pending Review","Pending CAR","In Progress","Close Case"];
@@ -777,7 +777,9 @@ function CompanyPattern({vessels}) {
               <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} unit="%" />
               <YAxis type="category" dataKey="name" width={150} tick={{fontSize:11,fill:"var(--text3)"}} />
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} formatter={(v)=>v+"%"} />
-              <Bar dataKey="detRate" fill="#ef4444" radius={[0,3,3,0]} />
+              <Bar dataKey="detRate" fill="#ef4444" radius={[0,3,3,0]}>
+                <LabelList dataKey="detRate" position="right" formatter={(v)=>v+"%"} style={{fontSize:12,fontWeight:700,fill:"#ffffff"}} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>}
         </div>
@@ -786,7 +788,17 @@ function CompanyPattern({vessels}) {
           {riskDist.length===0?<div style={{fontSize:"13px",color:"var(--text3)"}}>No data.</div>:
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={riskDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+              <Pie
+                data={riskDist} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}
+                label={({cx,cy,midAngle,innerRadius,outerRadius,value})=>{
+                  const RAD = Math.PI/180;
+                  const r = innerRadius + (outerRadius-innerRadius)*0.55;
+                  const x = cx + r*Math.cos(-midAngle*RAD);
+                  const y = cy + r*Math.sin(-midAngle*RAD);
+                  return <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" style={{fontSize:14,fontWeight:700}}>{value}</text>;
+                }}
+                labelLine={false}
+              >
                 {riskDist.map((d,i)=><Cell key={i} fill={RISK_COLORS[d.name]} />)}
               </Pie>
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
