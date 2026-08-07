@@ -441,7 +441,24 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length };
+      // Focus Point — the most common CO-OCCURRING profile (age bracket + type + RO + port
+      // together, on the same vessels) among this MoU's detentions. Skips records missing any
+      // of the four dimensions, since a profile with an "Unknown" isn't a real targeted insight.
+      const profileCounts = {};
+      rows.forEach(v => {
+        const ageB = ageBracket(ageMap[v.imo]);
+        const vType = typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : null);
+        const ro = v.ro && v.ro!=="—" ? v.ro : null;
+        const port = extractLocation(v.port);
+        if (ageB==="Unknown" || !vType || !ro || port==="Unknown") return;
+        const key = [ageB, vType, ro, port].join("|");
+        profileCounts[key] = profileCounts[key] || { ageBracket: ageB, type: vType, ro, port, count: 0 };
+        profileCounts[key].count++;
+      });
+      const topProfile = Object.values(profileCounts).sort((a,b)=>b.count-a.count)[0];
+      const focusPoint = (topProfile && topProfile.count >= 3) ? { ...topProfile, pct: Math.round(topProfile.count/total*100) } : null;
+
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length, focusPoint };
     });
     return result;
   }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
@@ -606,6 +623,16 @@ export default function MouDetentionReport({ vessels = [] }) {
                     <Stat l="Total Detentions" v={dd.total||0} />
                     <Stat l="Friday → Tuesday Span" v={(dd.friToTuePct||0)+"%"} c={dd.friToTuePct>=60?"var(--amber2)":"var(--text)"} />
                     <Stat l="Repeat Vessels" v={(dd.riskVessels||[]).filter(v=>v.count>1).length} c={((dd.riskVessels||[]).filter(v=>v.count>1).length>0)?"var(--red2)":"var(--green2)"} />
+                  </div>
+                  <div style={{background:"rgba(139,92,246,0.08)",border:"1px solid #8b5cf6",borderRadius:"8px",padding:"12px 14px",marginBottom:"12px"}}>
+                    <div style={{fontSize:"11px",fontWeight:700,color:"#8b5cf6",marginBottom:"4px"}}>🎯 Focus Point</div>
+                    {dd.focusPoint ? (
+                      <div style={{fontSize:"12px",color:"var(--text2)"}}>
+                        <b style={{color:"var(--text)"}}>{dd.focusPoint.type}</b> vessels aged <b style={{color:"var(--text)"}}>{dd.focusPoint.ageBracket}</b> under RO <b style={{color:"var(--text)"}}>{dd.focusPoint.ro}</b> are the most frequently detained profile under {m.mou}, most often at <b style={{color:"var(--text)"}}>{dd.focusPoint.port}</b> — {dd.focusPoint.count} case{dd.focusPoint.count!==1?"s":""} ({dd.focusPoint.pct}% of all detentions this period).
+                      </div>
+                    ) : (
+                      <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough overlapping age/type/RO/port data yet to identify a clear targeted profile for this MoU.</div>
+                    )}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
                     <Card title="Year-over-Year Trend" subtitle={(dd.yearOverlay?.years||[]).join(" vs ")}>
