@@ -441,6 +441,12 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
 
+      // Simple aggregate RO breakdown (total count, not by-year) for the bar-chart view
+      // alongside Vessel Age/Risk/Type — same shape as those, for visual consistency.
+      const roChartCounts = {};
+      rows.forEach(v => { const ro = v.ro && v.ro!=="—" ? v.ro : "Unknown"; roChartCounts[ro] = (roChartCounts[ro]||0)+1; });
+      const roChartBreakdown = Object.entries(roChartCounts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([ro,count])=>({ro,count}));
+
       // Focus Point — the most common CO-OCCURRING profile (age bracket + type + RO + port
       // together, on the same vessels) among this MoU's detentions. Skips records missing any
       // of the four dimensions, since a profile with an "Unknown" isn't a real targeted insight.
@@ -458,7 +464,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       const topProfile = Object.values(profileCounts).sort((a,b)=>b.count-a.count)[0];
       const focusPoint = (topProfile && topProfile.count >= 3) ? { ...topProfile, pct: Math.round(topProfile.count/total*100) } : null;
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, detByYear, total:rows.length, focusPoint };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, roChartBreakdown, detByYear, total:rows.length, focusPoint };
     });
     return result;
   }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
@@ -739,7 +745,7 @@ export default function MouDetentionReport({ vessels = [] }) {
                       ))}</tbody>
                     </table>}
                   </Card>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
                     <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
                       {(dd.ageBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No age data available for this MoU's vessels.</div>:
                       <ResponsiveContainer width="100%" height={Math.max(140, dd.ageBreakdown.length*32)}>
@@ -780,6 +786,20 @@ export default function MouDetentionReport({ vessels = [] }) {
                           <YAxis type="category" dataKey="type" width={90} tick={{fontSize:10,fill:"var(--text3)"}} />
                           <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
                           <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]}>
+                            <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>}
+                    </Card>
+                    <Card title="Detentions by RO" subtitle="Recognized Organization / Classification Society">
+                      {(dd.roChartBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No RO data available.</div>:
+                      <ResponsiveContainer width="100%" height={Math.max(140, dd.roChartBreakdown.length*32)}>
+                        <BarChart data={dd.roChartBreakdown} layout="vertical" margin={{left:10,right:20}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+                          <YAxis type="category" dataKey="ro" width={70} tick={{fontSize:10,fill:"var(--text3)"}} />
+                          <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+                          <Bar dataKey="count" fill="#3b82f6" radius={[0,3,3,0]}>
                             <LabelList dataKey="count" position="right" style={{fontSize:10,fill:"var(--text2)",fontWeight:600}} />
                           </Bar>
                         </BarChart>

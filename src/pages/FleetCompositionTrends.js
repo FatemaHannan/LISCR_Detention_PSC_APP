@@ -22,16 +22,18 @@ export default function FleetCompositionTrends({ vessels = [] }) {
   // YTD cutoff = today's month-day, applied to every year for a fair comparison of a partial current year
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
 
-  // ---- Vessel age lookup (not in the bulk vessels table, needs a separate query against client_vessel_details) ----
+  // ---- Vessel age lookup — sourced from Consolidated Inspection History (inspection_history),
+  // not client_vessel_details, which has much sparser age coverage (same fix as MouDetentionReport.js) ----
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set(vessels.filter(v=>v.detained && v.imo).map(v=>v.imo))];
     if (imos.length === 0) return;
     (async () => {
-      const { data } = await supabase.from("client_vessel_details").select("imo,age").in("imo", imos);
+      const { data } = await supabase.from("inspection_history").select("imo,age,inspection_date").in("imo", imos)
+        .order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
       const map = {};
-      data.forEach(d => { if (d.age!=null) map[d.imo] = d.age; });
+      data.forEach(d => { if (d.age!=null && map[d.imo]==null) map[d.imo] = d.age; }); // first hit per imo = most recent, since sorted desc
       setAgeMap(map);
     })();
     return () => { cancelled = true; };
