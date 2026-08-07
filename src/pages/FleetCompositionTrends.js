@@ -2,6 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { YearBreakdownTable, ageBracket, AGE_BRACKET_ORDER } from "./TrendAnalysis";
 
+// Matches the same first-token extraction MouDetentionReport.js uses for port breakdowns,
+// so "port" is defined consistently everywhere in the app.
+function extractLocation(port) {
+  if (!port || port === "—") return "Unknown";
+  const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
+  return parts[0] || "Unknown";
+}
+
 export default function FleetCompositionTrends({ vessels = [] }) {
   const [ageMap, setAgeMap] = useState({});
 
@@ -52,6 +60,8 @@ export default function FleetCompositionTrends({ vessels = [] }) {
   }, [groupByYear, ageMap]);
   const fsiOwnerByYear = useMemo(() => groupByYear(v=>v.fsiCaseOwner||"Unassigned"), [groupByYear]);
   const pscOwnerByYear = useMemo(() => groupByYear(v=>v.pscOwner||"Unassigned"), [groupByYear]);
+  const portByYear = useMemo(() => groupByYear(v=>extractLocation(v.port), 25), [groupByYear]);
+  const roByYear = useMemo(() => groupByYear(v=>v.ro&&v.ro!=="—"?v.ro:"Unknown"), [groupByYear]);
 
   const yearsCol = availableYears.slice().reverse();
   const currentYear = String(new Date().getFullYear());
@@ -60,12 +70,16 @@ export default function FleetCompositionTrends({ vessels = [] }) {
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px"}}>
         <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>Fleet Composition & Case Ownership Trends</div>
-        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Detentions broken down by vessel type, age, and case owner — year over year, YTD-aligned</div>
+        <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Detentions broken down by vessel type, age, port, RO, and case owner — year over year, YTD-aligned</div>
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
         <YearBreakdownTable title="Detentions by Vessel Type" rows={vesselTypeByYear} keyLabel="Vessel Type" years={yearsCol} currentYear={currentYear} />
         <YearBreakdownTable title="Detentions by Vessel Age" subtitle="Age bracket at time of detention" rows={ageByYear} keyLabel="Age Bracket" years={yearsCol} currentYear={currentYear} />
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+        <YearBreakdownTable title="Detentions by Port" subtitle="Top 25 by total volume" rows={portByYear} keyLabel="Port" years={yearsCol} currentYear={currentYear} />
+        <YearBreakdownTable title="Detentions by RO" subtitle="Recognized Organization at time of detention" rows={roByYear} keyLabel="RO" years={yearsCol} currentYear={currentYear} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <YearBreakdownTable title="Detentions by FSI Case Owner" rows={fsiOwnerByYear} keyLabel="FSI Case Owner" years={yearsCol} currentYear={currentYear} />
