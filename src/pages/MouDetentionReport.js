@@ -62,10 +62,12 @@ export default function MouDetentionReport({ vessels = [] }) {
       const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date").in("imo", imos)
         .order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
+      const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
       const aMap = {}, tMap = {};
       data.forEach(d => {
-        if (d.age!=null && aMap[d.imo]==null) aMap[d.imo] = d.age; // first hit per imo = most recent, since sorted desc
-        if (d.vessel_type && tMap[d.imo]==null) tMap[d.imo] = d.vessel_type;
+        const key = nImo(d.imo);
+        if (d.age!=null && aMap[key]==null) aMap[key] = d.age; // first hit per imo = most recent, since sorted desc
+        if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
       });
       setAgeMap(aMap);
       setTypeMap(tMap);
@@ -396,7 +398,7 @@ export default function MouDetentionReport({ vessels = [] }) {
 
       // Age breakdown
       const ageCounts = {};
-      rows.forEach(v => { const b = ageBracket(ageMap[v.imo]); ageCounts[b] = (ageCounts[b]||0)+1; });
+      rows.forEach(v => { const b = ageBracket(ageMap[String(v.imo||"").replace(/\.0$/,"").trim()]); ageCounts[b] = (ageCounts[b]||0)+1; });
       const ageBreakdown = AGE_BRACKET_ORDER.filter(b=>ageCounts[b]>0).map(b=>({bracket:b, count:ageCounts[b]}));
 
       // Vessel risk breakdown (from DPP Vetting History)
@@ -452,7 +454,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       // of the four dimensions, since a profile with an "Unknown" isn't a real targeted insight.
       const profileCounts = {};
       rows.forEach(v => {
-        const ageB = ageBracket(ageMap[v.imo]);
+        const ageB = ageBracket(ageMap[String(v.imo||"").replace(/\.0$/,"").trim()]);
         const vType = typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : null);
         const ro = v.ro && v.ro!=="—" ? v.ro : null;
         const port = extractLocation(v.port);

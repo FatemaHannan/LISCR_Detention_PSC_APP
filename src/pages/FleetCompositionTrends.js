@@ -32,8 +32,9 @@ export default function FleetCompositionTrends({ vessels = [] }) {
       const { data } = await supabase.from("inspection_history").select("imo,age,inspection_date").in("imo", imos)
         .order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
+      const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
       const map = {};
-      data.forEach(d => { if (d.age!=null && map[d.imo]==null) map[d.imo] = d.age; }); // first hit per imo = most recent, since sorted desc
+      data.forEach(d => { const key = nImo(d.imo); if (d.age!=null && map[key]==null) map[key] = d.age; }); // first hit per imo = most recent, since sorted desc
       setAgeMap(map);
     })();
     return () => { cancelled = true; };
@@ -57,7 +58,7 @@ export default function FleetCompositionTrends({ vessels = [] }) {
 
   const vesselTypeByYear = useMemo(() => groupByYear(v=>v.type&&v.type!=="—"?v.type:"Unknown"), [groupByYear]);
   const ageByYear = useMemo(() => {
-    const rows = groupByYear(v=>ageBracket(ageMap[v.imo]));
+    const rows = groupByYear(v=>ageBracket(ageMap[String(v.imo||"").replace(/\.0$/,"").trim()]));
     return rows.slice().sort((a,b)=>AGE_BRACKET_ORDER.indexOf(a.key)-AGE_BRACKET_ORDER.indexOf(b.key));
   }, [groupByYear, ageMap]);
   const fsiOwnerByYear = useMemo(() => groupByYear(v=>v.fsiCaseOwner||"Unassigned"), [groupByYear]);

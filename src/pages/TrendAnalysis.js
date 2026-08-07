@@ -232,10 +232,12 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
       const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date").in("imo", imos)
         .order("inspection_date", { ascending: false });
       if (cancelled || !data) return;
+      const normImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
       const aMap = {}, tMap = {};
       data.forEach(d => {
-        if (d.age!=null && aMap[d.imo]==null) aMap[d.imo] = d.age;
-        if (d.vessel_type && tMap[d.imo]==null) tMap[d.imo] = d.vessel_type;
+        const key = normImo(d.imo);
+        if (d.age!=null && aMap[key]==null) aMap[key] = d.age;
+        if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
       });
       setAgeMap(aMap);
       setTypeMap(tMap);
@@ -262,7 +264,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
   // ---- Vessel profile breakdowns (Age / Type / Risk) — follows Year selector ----
   const vesselAgeBreakdown = useMemo(() => {
     const counts = {};
-    detained.forEach(v => { const b = ageBracket(ageMap[v.imo]); counts[b] = (counts[b]||0)+1; });
+    detained.forEach(v => { const b = ageBracket(ageMap[String(v.imo||"").replace(/\.0$/,"").trim()]); counts[b] = (counts[b]||0)+1; });
     return AGE_BRACKET_ORDER.filter(b=>counts[b]>0).map(b=>({bracket:b, count:counts[b]}));
   }, [detained, ageMap]);
 
@@ -333,7 +335,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
     const grid = {};
     AGE_BRACKET_ORDER.forEach(b => { grid[b] = { bracket:b }; topTypes.forEach(t=>{ grid[b][t]=0; }); grid[b]["Other"]=0; });
     detained.forEach(v => {
-      const b = ageBracket(ageMap[v.imo]);
+      const b = ageBracket(ageMap[String(v.imo||"").replace(/\.0$/,"").trim()]);
       const t = typeMap[v.imo] || (v.type && v.type!=="—" ? v.type : "Unknown");
       if (!grid[b]) return;
       const key = topTypes.includes(t) ? t : "Other";
