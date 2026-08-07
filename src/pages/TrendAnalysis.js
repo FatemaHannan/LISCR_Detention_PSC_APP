@@ -60,6 +60,13 @@ function extractCountry(port) {
   return parts[parts.length-1];
 }
 
+// Port-level (finer than country) — same logic as MouDetentionReport.js's per-MoU version
+function extractLocation(port) {
+  if (!port || port === "—") return "Unknown";
+  const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
+  return parts[0] || "Unknown";
+}
+
 export function Card({ title, subtitle, children, style }) {
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",...style}}>
@@ -586,6 +593,33 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
     return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([country,count])=>({ country, count }));
   }, [detained]);
 
+  // ---- Top detention locations (port-level, fleet-wide) — same grouping as each MoU's "Top Locations" ----
+  const portData = useMemo(() => {
+    const counts = {};
+    detained.forEach(v => { const l = extractLocation(v.port); counts[l] = (counts[l]||0)+1; });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([location,count])=>({ location, count }));
+  }, [detained]);
+
+  // ---- Fleet-wide Focus Point — most common CO-OCCURRING profile (age+type+RO+port
+  // together, on the same vessels) across ALL detentions, same logic as each MoU's version ----
+  const fleetFocusPoint = useMemo(() => {
+    const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+    const profileCounts = {};
+    detained.forEach(v => {
+      const ageB = ageBracket(ageMap[nImo(v.imo)]);
+      const vType = typeMap[nImo(v.imo)] || (v.type && v.type!=="—" ? v.type : null);
+      const ro = v.ro && v.ro!=="—" ? v.ro : null;
+      const port = extractLocation(v.port);
+      if (ageB==="Unknown" || !vType || !ro || port==="Unknown") return;
+      const key = [ageB, vType, ro, port].join("|");
+      profileCounts[key] = profileCounts[key] || { ageBracket: ageB, type: vType, ro, port, count: 0 };
+      profileCounts[key].count++;
+    });
+    const total = detained.length || 1;
+    const top = Object.values(profileCounts).sort((a,b)=>b.count-a.count)[0];
+    return (top && top.count >= 5) ? { ...top, pct: Math.round(top.count/total*100) } : null;
+  }, [detained, ageMap, typeMap]);
+
   // ---- PSC authority (MoU) ranking ----
   const mouData = useMemo(() => {
     const counts = {};
@@ -774,6 +808,16 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
 
       {/* Vessel Profile — Age, Type, Risk */}
       <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Vessel Profile — Detentions by Age, Type & Risk<ScopeBadge filtered={true} /></div>
+      <div style={{background:"rgba(139,92,246,0.08)",border:"1px solid #8b5cf6",borderRadius:"8px",padding:"12px 14px",marginBottom:"12px"}}>
+        <div style={{fontSize:"11px",fontWeight:700,color:"#8b5cf6",marginBottom:"4px"}}>🎯 Focus Point — Fleet-wide</div>
+        {fleetFocusPoint ? (
+          <div style={{fontSize:"12px",color:"var(--text2)"}}>
+            <b style={{color:"var(--text)"}}>{fleetFocusPoint.type}</b> vessels aged <b style={{color:"var(--text)"}}>{fleetFocusPoint.ageBracket}</b> under RO <b style={{color:"var(--text)"}}>{fleetFocusPoint.ro}</b> are the most frequently detained profile fleet-wide, most often at <b style={{color:"var(--text)"}}>{fleetFocusPoint.port}</b> — {fleetFocusPoint.count} cases ({fleetFocusPoint.pct}% of all detentions this period).
+          </div>
+        ) : (
+          <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough overlapping age/type/RO/port data yet to identify a clear fleet-wide targeted profile.</div>
+        )}
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
           {vesselAgeBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No age data available.</div>:
@@ -1322,6 +1366,19 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
           </ResponsiveContainer>
         </Card>
       </div>
+      <Card title="Top 10 Detention Locations" subtitle="Port-level, fleet-wide" style={{marginBottom:"20px"}}>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={portData} layout="vertical" margin={{left:10,right:24}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" tick={{fontSize:11,fill:"var(--text3)"}} allowDecimals={false} />
+            <YAxis type="category" dataKey="location" width={100} tick={{fontSize:11,fill:"var(--text3)"}} />
+            <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:12}} />
+            <Bar dataKey="count" fill="#f59e0b" radius={[0,3,3,0]}>
+              <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
       <Card title={<>PSC Authority Trend (latest year vs prior year, YTD-aligned)<ScopeBadge filtered={false} /></>} style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["PSC Authority","Detentions","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
