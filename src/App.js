@@ -8,6 +8,7 @@ import InspectorNetwork from "./pages/InspectorNetwork";
 import MeetingMinutes from "./pages/MeetingMinutes";
 import InitiativeTracker from "./pages/InitiativeTracker";
 import TrendAnalysisHub from "./pages/TrendAnalysisHub";
+import FleetVetting from "./pages/FleetVetting";
 import DeficiencyCodeSearch from "./pages/DeficiencyCodeSearch";
 import MeetingBriefingQueue from "./pages/MeetingBriefingQueue";
 import { setAuditUser, logAudit, AUDIT_ACTIONS } from "./lib/auditLog";
@@ -31,6 +32,7 @@ const NAV = [
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
+    { id:"fleetvetting", label:"Fleet Vetting", icon:"ti-shield-check", badge:null },
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
   ]},
   { section:"INTELLIGENCE", items:[
@@ -874,6 +876,7 @@ export default function App() {
           {page === "trends" && <TrendAnalysisHub vessels={fleetVessels||[]} tasks={fleetTasks||[]} setPage={setPage} currentUser={currentUser} />}
           {page === "defcodesearch" && <DeficiencyCodeSearch vessels={fleetVessels||[]} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
           {page === "vessels" && <VesselManager canEdit={canEdit} canDelete={canDelete} currentUser={currentUser} onOpenCase={(imo,detDate)=>{setOpenCaseImo(imo);setOpenCaseDate(detDate);nav("case");}} />}
+          {page === "fleetvetting" && <FleetVetting vessels={fleetVessels||[]} />}
           {page === "admin" && <AdminPanel />}
           {page === "weekly" && <WeeklyData currentUser={currentUser} />}
           {page === "tracker" && (
