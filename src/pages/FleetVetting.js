@@ -325,7 +325,7 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
-    // 12. Overdue ISI (Internal Safety Inspection) — straight from Fleet Roster, no extra query needed
+    // 12. Overdue ISI (International Safety Inspection) — straight from Fleet Roster, no extra query needed
     const overdueIsiRaw = String(selected.overdue_isi||"").trim().toLowerCase();
     const isOverdueIsi = overdueIsiRaw && overdueIsiRaw!=="no" && overdueIsiRaw!=="0" && overdueIsiRaw!=="false" && overdueIsiRaw!=="";
     factors.push({
@@ -352,7 +352,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
-    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue ISI (Internal Safety Inspection)"); }
+    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue ISI (International Safety Inspection)"); }
 
     const floorApplied = floor && RISK_LEVEL_ORDER.indexOf(floor) > RISK_LEVEL_ORDER.indexOf(level);
     if (floor) level = maxLevel(level, floor);
@@ -465,9 +465,9 @@ export default function FleetVetting({ vessels = [] }) {
 
               {riskAssessment.isOverdueIsi && (
                 <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue ISI (Internal Safety Inspection)</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue ISI (International Safety Inspection)</div>
                   <div style={{ fontSize: "13px", color: "var(--text2)" }}>
-                    {selected.overdue_isi} — this vessel's internal safety inspection is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
+                    {selected.overdue_isi} — this vessel's International Safety Inspection (ISI) is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
                   </div>
                 </div>
               )}
