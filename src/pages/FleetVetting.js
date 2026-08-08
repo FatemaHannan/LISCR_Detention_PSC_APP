@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 
-const RISK_COLORS = { High: "var(--red2)", Medium: "var(--amber2)", Low: "var(--green2)" };
-const RISK_BG = { High: "var(--red-bg)", Medium: "var(--amber-bg)", Low: "rgba(34,197,94,0.08)" };
-const RISK_BORDER = { High: "#3D1A1A", Medium: "var(--amber)", Low: "rgba(34,197,94,0.3)" };
+const RISK_LEVEL_ORDER = ["Low", "Medium", "High", "Very High"];
+const RISK_COLORS = { "Very High": "#ff4d4d", High: "var(--red2)", Medium: "var(--amber2)", Low: "var(--green2)" };
+const RISK_BG = { "Very High": "rgba(255,77,77,0.15)", High: "var(--red-bg)", Medium: "var(--amber-bg)", Low: "rgba(34,197,94,0.08)" };
+const RISK_BORDER = { "Very High": "#ff4d4d", High: "#3D1A1A", Medium: "var(--amber)", Low: "rgba(34,197,94,0.3)" };
+function maxLevel(a, b) {
+  if (!a) return b; if (!b) return a;
+  return RISK_LEVEL_ORDER.indexOf(a) >= RISK_LEVEL_ORDER.indexOf(b) ? a : b;
+}
 
 async function fetchAll(table, select, filterFn) {
   let all = [], from = 0;
@@ -168,10 +173,22 @@ export default function FleetVetting({ vessels = [] }) {
       factors.push({ label: "RO Track Record", detail: "No fleet size data for this RO", score: 0, max: 3 });
     }
 
-    // 9. Own detention history (repeat offender)
+    // 9. Own detention history — weighted toward RECENT (36-month) detentions, since a detention
+    // 8 years ago shouldn't weigh the same as one last quarter. Worth double the other factors
+    // (max 6, not 3) because repeat detention is one of the strongest real-world predictors.
+    const now = new Date();
+    const detentionsWithin36mo = intel.detentionHistory.filter(v => {
+      if (!v.detentionDate) return false;
+      const months = (now - new Date(v.detentionDate)) / (1000*60*60*24*30.44);
+      return months <= 36;
+    });
     let ownDetScore = 0;
-    if (intel.detentionHistory.length>=3) ownDetScore = 3; else if (intel.detentionHistory.length===2) ownDetScore = 2; else if (intel.detentionHistory.length===1) ownDetScore = 1;
-    factors.push({ label: "Own Detention History", detail: `${intel.detentionHistory.length} detention${intel.detentionHistory.length!==1?"s":""} on file`, score: ownDetScore, max: 3 });
+    if (detentionsWithin36mo.length>=2) ownDetScore = 6; else if (detentionsWithin36mo.length===1) ownDetScore = 3;
+    factors.push({
+      label: "Own Detention History",
+      detail: `${detentionsWithin36mo.length} detention${detentionsWithin36mo.length!==1?"s":""} in the last 36 months (${intel.detentionHistory.length} total on file)`,
+      score: ownDetScore, max: 6,
+    });
 
     // 10. Open CAR (Corrective Action Request) from the most recent Flag inspection
     const latestCar = intel.cars[0] || null;
@@ -192,8 +209,27 @@ export default function FleetVetting({ vessels = [] }) {
     const total = factors.reduce((s,f)=>s+f.score, 0);
     const maxTotal = factors.reduce((s,f)=>s+f.max, 0);
     const pct = Math.round(total/maxTotal*100);
-    const level = pct>=50 ? "High" : pct>=25 ? "Medium" : "Low";
-    let recommendation = level==="High"
+    let level = pct>=70 ? "Very High" : pct>=45 ? "High" : pct>=20 ? "Medium" : "Low";
+
+    // ---- Risk floor rules — hard overrides that can only push the level UP, never down,
+    // borrowed from the fleet's ML-based Risk Prediction System's safety-net floors, adapted
+    // to the data available here. These exist so a genuinely dangerous vessel never scores
+    // low just because it happens to be light on points elsewhere. ----
+    const floorReasons = [];
+    let floor = null;
+    const totalDetentions = intel.detentionHistory.length;
+    if (totalDetentions >= 1) { floor = maxLevel(floor, "High"); floorReasons.push("Prior PSC detention on file"); }
+    if (totalDetentions >= 1 && age!=null && age>=15) { floor = maxLevel(floor, "Very High"); floorReasons.push("Prior detention + vessel age 15+"); }
+    if (totalDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple prior detentions"); }
+    if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
+    if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
+
+    const floorApplied = floor && RISK_LEVEL_ORDER.indexOf(floor) > RISK_LEVEL_ORDER.indexOf(level);
+    if (floor) level = maxLevel(level, floor);
+
+    let recommendation = level==="Very High"
+      ? "Recommend enhanced inspection / vetting review before next call — this vessel matches multiple hard risk indicators (detention history and/or age)."
+      : level==="High"
       ? "Recommend enhanced inspection / vetting review before next call — multiple risk indicators present."
       : level==="Medium"
       ? "Recommend standard heightened monitoring — some risk indicators present, not yet critical."
@@ -202,7 +238,7 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons };
   }, [selected, intel, companyStats, roStats]);
 
   return (
@@ -262,9 +298,14 @@ export default function FleetVetting({ vessels = [] }) {
             <>
               <div style={{ background: RISK_BG[riskAssessment.level], border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "12px", fontWeight: 700, color: RISK_COLORS[riskAssessment.level], marginBottom: "4px" }}>
-                  {riskAssessment.level==="High"?"🔴":riskAssessment.level==="Medium"?"🟡":"🟢"} Recommendation
+                  {riskAssessment.level==="Very High"?"⛔":riskAssessment.level==="High"?"🔴":riskAssessment.level==="Medium"?"🟡":"🟢"} Recommendation
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--text)" }}>{riskAssessment.recommendation}</div>
+                {riskAssessment.floorApplied && (
+                  <div style={{ fontSize: "11px", color: "var(--text3)", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid "+RISK_BORDER[riskAssessment.level] }}>
+                    ⚠ Risk floor applied — raised from the point score because of: {riskAssessment.floorReasons.join(", ")}.
+                  </div>
+                )}
               </div>
 
               <div style={{ background: riskAssessment.carIsOpen?"var(--red-bg)":"var(--bg2)", border: "1px solid "+(riskAssessment.carIsOpen?"#3D1A1A":"var(--border)"), borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
