@@ -67,6 +67,117 @@ function extractLocation(port) {
   return parts[0] || "Unknown";
 }
 
+const normImoBuilder = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+
+// ---- Build Your Own Report — lets the person pick any 2+ factors and see every
+// combination that actually occurs in the data, ranked by count, with drill-down to
+// the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou }) {
+  const DIMENSIONS = useMemo(() => {
+    const base = [
+      { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null); return t; } },
+      { id: "age", label: "Vessel Age", get: v => { const a = ageMap && ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; } },
+      { id: "ro", label: "RO (Classification Society)", get: v => v.ro && v.ro!=="—" ? v.ro : null },
+      { id: "port", label: "Location / Port", get: v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; } },
+      { id: "company", label: "Company", get: v => v.company && v.company!=="—" ? v.company : null },
+      { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
+      { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
+      { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
+    ];
+    if (includeMou) base.push({ id: "mou", label: "MoU", get: v => v.mou && v.mou!=="—" ? v.mou : null });
+    return base;
+  }, [includeMou, ageMap, typeMap, riskMap]);
+
+  const [selected, setSelected] = useState([]);
+  const [expandedKey, setExpandedKey] = useState(null);
+  const toggle = (id) => { setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s, id]); setExpandedKey(null); };
+
+  const activeDims = DIMENSIONS.filter(d => selected.includes(d.id));
+
+  const combos = useMemo(() => {
+    if (activeDims.length < 2) return [];
+    const groups = {};
+    rows.forEach(v => {
+      const values = activeDims.map(d => d.get(v));
+      if (values.some(x => x==null)) return; // skip records missing any selected dimension
+      const key = values.join("|");
+      groups[key] = groups[key] || { values, count: 0, vessels: [] };
+      groups[key].count++;
+      groups[key].vessels.push(v);
+    });
+    const total = rows.length || 1;
+    return Object.values(groups).sort((a,b)=>b.count-a.count).slice(0,25).map(g=>({ ...g, pct: Math.round(g.count/total*100) }));
+  }, [rows, activeDims]);
+
+  return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>🧩 Build Your Own Report</div>
+      <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick 2 or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"12px"}}>
+        {DIMENSIONS.map(d => (
+          <label key={d.id} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:selected.includes(d.id)?"var(--text)":"var(--text3)",background:selected.includes(d.id)?"rgba(59,130,246,0.15)":"var(--bg3)",border:"1px solid "+(selected.includes(d.id)?"var(--blue)":"var(--border2)"),borderRadius:"6px",padding:"5px 10px",cursor:"pointer"}}>
+            <input type="checkbox" checked={selected.includes(d.id)} onChange={()=>toggle(d.id)} style={{margin:0}} />
+            {d.label}
+          </label>
+        ))}
+      </div>
+
+      {activeDims.length < 2 ? (
+        <div style={{fontSize:"12px",color:"var(--text3)"}}>Select at least 2 factors above to see combinations.</div>
+      ) : combos.length === 0 ? (
+        <div style={{fontSize:"12px",color:"var(--text3)"}}>No records have all of the selected factors filled in together.</div>
+      ) : (
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+          <thead><tr>
+            {activeDims.map(d=><th key={d.id} style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>{d.label}</th>)}
+            <th style={{textAlign:"right",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>Count</th>
+            <th style={{textAlign:"right",padding:"6px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>% of Total</th>
+            <th style={{borderBottom:"1px solid var(--border)"}}></th>
+          </tr></thead>
+          <tbody>
+            {combos.map((c,i) => {
+              const key = c.values.join("|");
+              const isExpanded = expandedKey === key;
+              return (
+                <React.Fragment key={key}>
+                  <tr style={{borderBottom:"1px solid var(--border)"}}>
+                    {c.values.map((v,j)=><td key={j} style={{padding:"6px 8px",color:"var(--text2)",fontWeight:j===0?600:400}}>{v}</td>)}
+                    <td style={{padding:"6px 8px",color:"var(--text)",fontWeight:700,textAlign:"right"}}>{c.count}</td>
+                    <td style={{padding:"6px 8px",color:"var(--text2)",textAlign:"right"}}>{c.pct}%</td>
+                    <td style={{padding:"6px 8px"}}>
+                      <button onClick={()=>setExpandedKey(isExpanded?null:key)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
+                        {isExpanded?"Hide":"View vessels"}
+                      </button>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={activeDims.length+3} style={{padding:"10px",background:"var(--bg3)"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                          <thead><tr>{["Vessel","IMO","Detention Date"].map(h=><th key={h} style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {c.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,k)=>(
+                              <tr key={k} style={{borderBottom:"1px solid var(--border)"}}>
+                                <td style={{padding:"4px 8px",color:"var(--text2)",fontWeight:600}}>{v.name}</td>
+                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{v.imo}</td>
+                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{v.detentionDate}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export function Card({ title, subtitle, children, style }) {
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",...style}}>
@@ -826,6 +937,9 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
           <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough overlapping age/type/RO/port data yet to identify a clear fleet-wide targeted profile.</div>
         )}
       </div>
+
+      <CombinationBuilder rows={detained} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} includeMou={true} />
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
           {vesselAgeBreakdown.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No age data available.</div>:

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
-import { ageBracket, AGE_BRACKET_ORDER, catDef } from "./TrendAnalysis";
+import { ageBracket, AGE_BRACKET_ORDER, catDef, CombinationBuilder } from "./TrendAnalysis";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -472,7 +472,7 @@ export default function MouDetentionReport({ vessels = [] }) {
       const topProfile = Object.values(profileCounts).sort((a,b)=>b.count-a.count)[0];
       const focusPoint = (topProfile && topProfile.count >= 3) ? { ...topProfile, pct: Math.round(topProfile.count/total*100) } : null;
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, roChartBreakdown, detByYear, total:rows.length, focusPoint };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, roChartBreakdown, detByYear, total:rows.length, focusPoint, rows };
     });
     return result;
   }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
@@ -648,6 +648,9 @@ export default function MouDetentionReport({ vessels = [] }) {
                       <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough overlapping age/type/RO/port data yet to identify a clear targeted profile for this MoU.</div>
                     )}
                   </div>
+
+                  <CombinationBuilder rows={dd.rows||[]} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} includeMou={false} />
+
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
                     <Card title="Year-over-Year Trend" subtitle={(dd.yearOverlay?.years||[]).join(" vs ")}>
                       {(dd.yearOverlay?.years||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No dated records.</div>:
