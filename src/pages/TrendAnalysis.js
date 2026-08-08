@@ -90,6 +90,8 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou 
 
   const [selected, setSelected] = useState([]);
   const [expandedKey, setExpandedKey] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [view, setView] = useState("graph"); // "graph" | "table"
   const toggle = (id) => { setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s, id]); setExpandedKey(null); };
 
   const activeDims = DIMENSIONS.filter(d => selected.includes(d.id));
@@ -109,23 +111,67 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou 
     return Object.values(groups).sort((a,b)=>b.count-a.count).slice(0,25).map(g=>({ ...g, pct: Math.round(g.count/total*100) }));
   }, [rows, activeDims]);
 
+  const chartData = useMemo(() => combos.slice(0,15).map(c => ({ label: c.values.join(" · "), count: c.count })), [combos]);
+
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>🧩 Build Your Own Report</div>
       <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick 2 or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"12px"}}>
-        {DIMENSIONS.map(d => (
-          <label key={d.id} style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"11px",color:selected.includes(d.id)?"var(--text)":"var(--text3)",background:selected.includes(d.id)?"rgba(59,130,246,0.15)":"var(--bg3)",border:"1px solid "+(selected.includes(d.id)?"var(--blue)":"var(--border2)"),borderRadius:"6px",padding:"5px 10px",cursor:"pointer"}}>
-            <input type="checkbox" checked={selected.includes(d.id)} onChange={()=>toggle(d.id)} style={{margin:0}} />
-            {d.label}
-          </label>
-        ))}
+
+      <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{position:"relative"}}>
+          <button onClick={()=>setDropdownOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:"6px",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",color:"var(--text)",fontSize:"12px",padding:"7px 12px",cursor:"pointer"}}>
+            {selected.length===0 ? "Select factors…" : `${selected.length} factor${selected.length>1?"s":""} selected`}
+            <span style={{fontSize:"9px"}}>{dropdownOpen?"▲":"▼"}</span>
+          </button>
+          {dropdownOpen && (
+            <div style={{position:"absolute",top:"100%",left:0,marginTop:"4px",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",zIndex:20,minWidth:"240px",maxHeight:"280px",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
+              {DIMENSIONS.map(d => (
+                <label key={d.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 12px",fontSize:"12px",color:"var(--text2)",cursor:"pointer",borderBottom:"1px solid var(--border)"}}>
+                  <input type="checkbox" checked={selected.includes(d.id)} onChange={()=>toggle(d.id)} style={{margin:0}} />
+                  {d.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        {selected.length>0 && (
+          <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+            {activeDims.map(d=>(
+              <span key={d.id} style={{fontSize:"11px",color:"var(--blue)",background:"rgba(59,130,246,0.15)",border:"1px solid var(--blue)",borderRadius:"5px",padding:"4px 8px",display:"flex",alignItems:"center",gap:"5px"}}>
+                {d.label}
+                <span onClick={()=>toggle(d.id)} style={{cursor:"pointer",fontWeight:700}}>×</span>
+              </span>
+            ))}
+          </div>
+        )}
+        {activeDims.length >= 2 && (
+          <div style={{display:"flex",gap:"4px",marginLeft:"auto"}}>
+            <button onClick={()=>setView("graph")} style={{background:view==="graph"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="graph"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="graph"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>📊 Graph</button>
+            <button onClick={()=>setView("table")} style={{background:view==="table"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="table"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="table"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>☰ Table</button>
+          </div>
+        )}
       </div>
 
       {activeDims.length < 2 ? (
         <div style={{fontSize:"12px",color:"var(--text3)"}}>Select at least 2 factors above to see combinations.</div>
       ) : combos.length === 0 ? (
         <div style={{fontSize:"12px",color:"var(--text3)"}}>No records have all of the selected factors filled in together.</div>
+      ) : view === "graph" ? (
+        <>
+          <ResponsiveContainer width="100%" height={Math.max(200, chartData.length*34)}>
+            <BarChart data={chartData} layout="vertical" margin={{left:10,right:60}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
+              <YAxis type="category" dataKey="label" width={220} tick={{fontSize:10,fill:"var(--text2)"}} />
+              <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
+              <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]}>
+                <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"6px"}}>Showing top {chartData.length} of {combos.length} combinations. Switch to Table view for % of total and vessel drill-down.</div>
+        </>
       ) : (
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>
