@@ -69,6 +69,15 @@ function extractLocation(port) {
 
 const normImoBuilder = (imo) => String(imo||"").replace(/\.0$/,"").trim();
 
+function gtBucket(gt) {
+  if (gt==null || isNaN(gt) || gt<=0) return null;
+  if (gt<10000) return "<10,000 GT";
+  if (gt<25000) return "10,000-25,000 GT";
+  if (gt<50000) return "25,000-50,000 GT";
+  if (gt<100000) return "50,000-100,000 GT";
+  return "100,000+ GT";
+}
+
 // ---- Build Your Own Report — lets the person pick any 2+ factors and see every
 // combination that actually occurs in the data, ranked by count, with drill-down to
 // the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
@@ -83,6 +92,11 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
       { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
       { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
+      { id: "defCategory", label: "Major Deficiency Category", get: v => { const first = (v.deficiencies||[])[0]; return first ? catDef(first.desc) : null; } },
+      { id: "gt", label: "Gross Tonnage Range", get: v => gtBucket(v.gt) },
+      { id: "caseStatus", label: "Case Status", get: v => v.caseStatus && v.caseStatus!=="—" ? v.caseStatus : null },
+      { id: "carStatus", label: "CAR Status", get: v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null },
+      { id: "detainable", label: "Detainable Deficiency", get: v => v.detainable!=null ? (v.detainable>0 ? "Yes" : "No") : null },
     ];
     if (includeMou) base.push({ id: "mou", label: "MoU", get: v => v.mou && v.mou!=="—" ? v.mou : null });
     return base;

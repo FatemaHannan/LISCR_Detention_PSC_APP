@@ -5,8 +5,6 @@ import PerformanceReview from "./PerformanceReview";
 import PatternDetection from "./PatternDetection";
 import AISMonitor from "./AISMonitor";
 import VIPProtocol from "./VIPProtocol";
-import FleetCompositionTrends from "./FleetCompositionTrends";
-import HighRiskAreas from "./HighRiskAreas";
 import OperationalResponseTracking from "./OperationalResponseTracking";
 import PreventionFocus from "./PreventionFocus";
 import CasualtyMlcReport from "./CasualtyMlcReport";
@@ -17,8 +15,6 @@ const SUB_TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
-  { id: "highrisk", label: "High-Risk Areas" },
-  { id: "fleet", label: "Fleet Composition & Case Ownership" },
   { id: "response", label: "Operational Response Tracking" },
   { id: "patterns", label: "Pattern Detection" },
   { id: "ais", label: "AIS Monitor" },
@@ -63,8 +59,6 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage, cu
         {subTab === "mlc" && <CasualtyMlcReport scope="mlc" />}
         {subTab === "mou" && <MouDetentionReport vessels={vessels} />}
         {subTab === "perf" && <PerformanceReview vessels={vessels} />}
-        {subTab === "highrisk" && <HighRiskAreas vessels={vessels} />}
-        {subTab === "fleet" && <FleetCompositionTrends vessels={vessels} />}
         {subTab === "response" && <OperationalResponseTracking vessels={vessels} tasks={tasks} />}
         {subTab === "patterns" && <PatternDetection vessels={vessels} tasks={tasks} learnedPatterns={window._learnedPatterns||[]} />}
         {subTab === "ais" && <AISMonitor vessels={vessels} />}
