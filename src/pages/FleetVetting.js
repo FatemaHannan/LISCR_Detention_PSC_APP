@@ -451,6 +451,35 @@ export default function FleetVetting({ vessels = [] }) {
                 )}
               </div>
 
+              <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Risk Score Breakdown — every point explained</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                  <tbody>
+                    {riskAssessment.factors.map((f,i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "7px 8px", color: "var(--text2)", fontWeight: 600, width: "180px" }}>{f.label}</td>
+                        <td style={{ padding: "7px 8px", color: "var(--text3)" }}>{f.detail}</td>
+                        <td style={{ padding: "7px 8px", textAlign: "right", color: f.score>=2?"var(--red2)":f.score===1?"var(--amber2)":"var(--green2)", fontWeight: 700, width: "70px" }}>{f.score}/{f.max}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--border)", fontSize: "11px", color: "var(--text3)", fontFamily: "monospace" }}>
+                  <div>Show the working:</div>
+                  <div style={{ marginTop: "4px" }}>
+                    {riskAssessment.total} points ÷ {riskAssessment.maxTotal} max points = {riskAssessment.pct}%
+                  </div>
+                  <div style={{ marginTop: "2px" }}>
+                    {riskAssessment.pct}% falls in the {riskAssessment.pct>=70?"70%+":riskAssessment.pct>=45?"45-69%":riskAssessment.pct>=20?"20-44%":"0-19%"} band → base level: <b style={{color:RISK_COLORS[riskAssessment.pct>=70?"Very High":riskAssessment.pct>=45?"High":riskAssessment.pct>=20?"Medium":"Low"]}}>{riskAssessment.pct>=70?"Very High":riskAssessment.pct>=45?"High":riskAssessment.pct>=20?"Medium":"Low"}</b>
+                  </div>
+                  {riskAssessment.floorApplied && (
+                    <div style={{ marginTop: "2px" }}>
+                      Floor rule raised it to <b style={{color:RISK_COLORS[riskAssessment.level]}}>{riskAssessment.level}</b> — see Recommendation above for why.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {riskAssessment.destCountry && (
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                   <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Findings Pattern at {riskAssessment.destCountry}</div>
@@ -478,21 +507,6 @@ export default function FleetVetting({ vessels = [] }) {
                   )}
                 </div>
               )}
-
-              <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Risk Score Breakdown — every point explained</div>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                  <tbody>
-                    {riskAssessment.factors.map((f,i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "7px 8px", color: "var(--text2)", fontWeight: 600, width: "180px" }}>{f.label}</td>
-                        <td style={{ padding: "7px 8px", color: "var(--text3)" }}>{f.detail}</td>
-                        <td style={{ padding: "7px 8px", textAlign: "right", color: f.score>=2?"var(--red2)":f.score===1?"var(--amber2)":"var(--green2)", fontWeight: 700, width: "70px" }}>{f.score}/{f.max}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
