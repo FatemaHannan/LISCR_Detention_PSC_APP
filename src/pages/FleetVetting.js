@@ -102,28 +102,38 @@ export default function FleetVetting({ vessels = [] }) {
   // is a directional signal only: "how often has this country/port shown up in our detention
   // history", same spirit as the ML system's Country Deficiency Trends, without the AIS feed. ----
   const portFrequency = useMemo(() => {
-    const byCountry = {}, byPort = {};
+    const byCountry = {}, byPort = {}, portToCountry = {};
     detained.forEach(v => {
       const country = extractCountryFV(v.port);
       const port = extractLocationFV(v.port);
-      if (country!=="Unknown") byCountry[country] = (byCountry[country]||0)+1;
-      if (port!=="Unknown") byPort[port] = (byPort[port]||0)+1;
+      if (country!=="Unknown") {
+        const key = country.toLowerCase();
+        byCountry[key] = byCountry[key] || { count: 0, label: country };
+        byCountry[key].count++;
+      }
+      if (port!=="Unknown") {
+        const key = port.toLowerCase();
+        byPort[key] = byPort[key] || { count: 0, label: port };
+        byPort[key].count++;
+        if (country!=="Unknown" && !portToCountry[key]) portToCountry[key] = country;
+      }
     });
-    return { byCountry, byPort, totalDetentions: detained.length };
+    return { byCountry, byPort, portToCountry, totalDetentions: detained.length };
   }, [detained]);
 
   // ---- Fleet-wide deficiency CATEGORY pattern by country — "what does PSC typically cite
   // ships for at this location", same spirit as the ML system's Country Deficiency Trends /
   // China Port Match, computed from data already loaded (no extra query). ----
   const locationCategoryPattern = useMemo(() => {
-    const byCountry = {}; // country -> { category -> count }
+    const byCountry = {}; // lowercase country -> { category -> count }
     detained.forEach(v => {
       const country = extractCountryFV(v.port);
       if (country==="Unknown") return;
+      const key = country.toLowerCase();
       (v.deficiencies||[]).forEach(d => {
         const cat = catDef(d.desc);
-        byCountry[country] = byCountry[country] || {};
-        byCountry[country][cat] = (byCountry[country][cat]||0)+1;
+        byCountry[key] = byCountry[key] || {};
+        byCountry[key][cat] = (byCountry[key][cat]||0)+1;
       });
     });
     return byCountry;
@@ -255,27 +265,47 @@ export default function FleetVetting({ vessels = [] }) {
     });
 
     // 11. Destination Port — manually entered (no live AIS/LRIT feed in this database yet).
-    // Two signals: how often this country/port shows up in the fleet's overall detention
-    // history (frequency, not a true rate — that needs total port-call volume), and whether
-    // THIS vessel specifically has a problem history at that exact port.
+    // Accepts either "Port, Country" or just a port name — if no country is given, resolves
+    // it from the fleet's own history of that port. All matching is case-insensitive.
     let destScore = 0, destDetail = "Not specified";
     let locationAlert = null;
     let topLocationCategories = [];
+    let destCountryDisplay = null;
     if (destinationPort.trim()) {
-      const destCountry = extractCountryFV(destinationPort);
-      const destPortName = extractLocationFV(destinationPort);
-      const countryCount = portFrequency.byCountry[destCountry] || 0;
-      const portCount = portFrequency.byPort[destPortName] || 0;
-      const vesselPriorAtPort = intel.detentionHistory.filter(v => extractLocationFV(v.port)===destPortName || extractCountryFV(v.port)===destCountry);
+      const rawInput = destinationPort.trim();
+      const inputCountryRaw = extractCountryFV(rawInput);
+      const inputPortRaw = extractLocationFV(rawInput);
+      const noCommaGiven = inputCountryRaw.toLowerCase() === inputPortRaw.toLowerCase();
+      const portKey = inputPortRaw.toLowerCase();
+
+      // Resolve the country: use what was typed, or look it up via the port if only a port name was given
+      let countryKey = inputCountryRaw.toLowerCase();
+      if (noCommaGiven && portFrequency.portToCountry[portKey]) {
+        countryKey = portFrequency.portToCountry[portKey].toLowerCase();
+      }
+
+      const countryStat = portFrequency.byCountry[countryKey];
+      const portStat = portFrequency.byPort[portKey];
+      const countryCount = countryStat?.count || 0;
+      const portCount = portStat?.count || 0;
+      destCountryDisplay = countryStat?.label || (noCommaGiven ? inputPortRaw : inputCountryRaw);
+
+      const vesselPriorAtPort = intel.detentionHistory.filter(v => {
+        const vPort = extractLocationFV(v.port).toLowerCase();
+        const vCountry = extractCountryFV(v.port).toLowerCase();
+        return vPort===portKey || vCountry===countryKey;
+      });
 
       if (vesselPriorAtPort.length > 0) destScore = 3;
       else if (portCount >= 10 || countryCount >= 30) destScore = 2;
       else if (portCount >= 3 || countryCount >= 10) destScore = 1;
 
-      destDetail = `${destinationPort} — ${countryCount} fleet-wide detention${countryCount!==1?"s":""} on record for ${destCountry}${portCount>0?`, ${portCount} at this specific port`:""}${vesselPriorAtPort.length>0?` · this vessel has ${vesselPriorAtPort.length} prior detention${vesselPriorAtPort.length!==1?"s":""} there`:""}`;
+      destDetail = countryCount===0 && portCount===0
+        ? `${destinationPort} — no fleet-wide detention history on record for this location`
+        : `${destinationPort} — ${countryCount} fleet-wide detention${countryCount!==1?"s":""} on record for ${destCountryDisplay}${portCount>0?`, ${portCount} at this specific port`:""}${vesselPriorAtPort.length>0?` · this vessel has ${vesselPriorAtPort.length} prior detention${vesselPriorAtPort.length!==1?"s":""} there`:""}`;
 
       // What does PSC typically cite ships for at this country, fleet-wide?
-      const catCounts = locationCategoryPattern[destCountry] || {};
+      const catCounts = locationCategoryPattern[countryKey] || {};
       topLocationCategories = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,count])=>({cat,count}));
 
       // This vessel's own deficiency categories, from its detention history
@@ -284,11 +314,11 @@ export default function FleetVetting({ vessels = [] }) {
       const overlap = topLocationCategories.filter(c => ownCategories.has(c.cat));
 
       if (vesselPriorAtPort.length > 0 && overlap.length > 0) {
-        locationAlert = `⚠️ This vessel has previously been cited for ${overlap.map(c=>c.cat).join(", ")} — which is also among the most common findings at ${destCountry}. Elevated risk of re-detention for the same category.`;
+        locationAlert = `⚠️ This vessel has previously been cited for ${overlap.map(c=>c.cat).join(", ")} — which is also among the most common findings at ${destCountryDisplay}. Elevated risk of re-detention for the same category.`;
       } else if (overlap.length > 0) {
-        locationAlert = `⚠️ This vessel's deficiency history includes ${overlap.map(c=>c.cat).join(", ")} — a category commonly cited at ${destCountry}. Worth a targeted pre-inspection check.`;
+        locationAlert = `⚠️ This vessel's deficiency history includes ${overlap.map(c=>c.cat).join(", ")} — a category commonly cited at ${destCountryDisplay}. Worth a targeted pre-inspection check.`;
       } else if (topLocationCategories.length > 0) {
-        locationAlert = `ℹ️ No overlap between this vessel's own deficiency history and ${destCountry}'s most common findings — no elevated category-specific concern identified.`;
+        locationAlert = `ℹ️ No overlap between this vessel's own deficiency history and ${destCountryDisplay}'s most common findings — no elevated category-specific concern identified.`;
       }
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
@@ -326,7 +356,7 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destinationPort.trim() ? extractCountryFV(destinationPort) : null };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern]);
 
   return (
