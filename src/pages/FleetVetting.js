@@ -405,7 +405,28 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi, arrivalAlert };
+    // ---- Everything Considered — a single synthesized briefing pulling together every active
+    // concern across all 13 factors and both manual inputs (destination + arrival date), so
+    // nothing important is scattered across separate banners you have to piece together yourself. ----
+    const advisory = [];
+    if (recentDetentions >= 2) advisory.push(`🔴 Detained ${recentDetentions} times in the last 36 months — repeat offender within the recency window.`);
+    else if (recentDetentions === 1) advisory.push(`🟡 Detained once in the last 36 months.`);
+    if (age!=null && age>=20) advisory.push(`🟡 Vessel age ${age} yrs — in the higher-risk age bracket (20+).`);
+    if (latestDpp && dppScore>=2) advisory.push(`🔴 DPP Vetting Risk is currently "${latestDpp}".`);
+    if (totalFindings>=8) advisory.push(`🟡 ${totalFindings} PSC findings on file across ${intel.inspections.length} inspections — significant deficiency history.`);
+    if (intel.mc.length>0) advisory.push(`🟡 ${intel.mc.length} Marine Casualty record${intel.mc.length!==1?"s":""} on file.`);
+    if (intel.pi.length>0) advisory.push(`🟡 ${intel.pi.length} Personal Incident record${intel.pi.length!==1?"s":""} on file.`);
+    if (intel.mlc.length>0) advisory.push(`🟡 ${intel.mlc.length} MLC complaint${intel.mlc.length!==1?"s":""} on file.`);
+    if (cStat && cStat.rate!=null && cStat.rate>=25) advisory.push(`🟡 Managing company's fleet-wide detention rate is ${cStat.rate}%.`);
+    if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
+    if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
+    if (isOverdueIsi) advisory.push(`🔴 Overdue International Safety Inspection (ISI).`);
+    if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
+    if (arrivalDate && arrivalScore>0) advisory.push(`🟡 Arrival day falls within the Fri→Tue high-scrutiny window.`);
+    if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
+    if (advisory.length===0) advisory.push(`🟢 No significant concerns identified across any factor — clean profile based on data currently on file.`);
+
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi, arrivalAlert, advisory };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   return (
@@ -477,6 +498,14 @@ export default function FleetVetting({ vessels = [] }) {
             <div style={{ fontSize: "13px", color: "var(--text3)", padding: "30px", textAlign: "center" }}>Gathering vessel intelligence…</div>
           ) : riskAssessment && (
             <>
+              <div style={{ background: "var(--bg2)", border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>📋 Everything Considered</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {riskAssessment.advisory.map((line,i) => (
+                    <div key={i} style={{ fontSize: "13px", color: "var(--text2)" }}>{line}</div>
+                  ))}
+                </div>
+              </div>
               <div style={{ background: RISK_BG[riskAssessment.level], border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "12px", fontWeight: 700, color: RISK_COLORS[riskAssessment.level], marginBottom: "4px" }}>
                   {riskAssessment.level==="Very High"?"⛔":riskAssessment.level==="High"?"🔴":riskAssessment.level==="Medium"?"🟡":"🟢"} Recommendation
