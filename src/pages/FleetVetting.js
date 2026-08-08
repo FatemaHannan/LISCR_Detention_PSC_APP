@@ -27,6 +27,7 @@ async function fetchAll(table, select, filterFn) {
   return all;
 }
 
+const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function ageBracketFV(age) {
   if (age==null || isNaN(age)) return "Unknown";
   if (age<=5) return "0-5 yrs"; if (age<=10) return "6-10 yrs"; if (age<=15) return "11-15 yrs";
@@ -54,6 +55,7 @@ export default function FleetVetting({ vessels = [] }) {
   const [selected, setSelected] = useState(null);
   const [intel, setIntel] = useState(null);
   const [destinationPort, setDestinationPort] = useState("");
+  const [arrivalDate, setArrivalDate] = useState("");
   const [intelLoading, setIntelLoading] = useState(false);
 
   const detained = useMemo(() => vessels.filter(v=>v.detained), [vessels]);
@@ -121,6 +123,16 @@ export default function FleetVetting({ vessels = [] }) {
     return { byCountry, byPort, portToCountry, totalDetentions: detained.length };
   }, [detained]);
 
+  // ---- Fleet-wide day-of-week detention pattern — same "Friday \u2192 Tuesday" PSC targeting
+  // window already used in the By MoU tab, reused here so the two stay consistent. ----
+  const dowPattern = useMemo(() => {
+    const counts = [0,0,0,0,0,0,0]; // Sun..Sat
+    let total = 0;
+    detained.forEach(v => { if (v.detentionDate) { counts[new Date(v.detentionDate).getDay()]++; total++; } });
+    const friToTue = [5,6,0,1,2].reduce((s,i)=>s+counts[i], 0);
+    return { counts, total, friToTuePct: total>0 ? Math.round(friToTue/total*100) : 0 };
+  }, [detained]);
+
   // ---- Fleet-wide deficiency CATEGORY pattern by country — "what does PSC typically cite
   // ships for at this location", same spirit as the ML system's Country Deficiency Trends /
   // China Port Match, computed from data already loaded (no extra query). ----
@@ -150,6 +162,7 @@ export default function FleetVetting({ vessels = [] }) {
     setQuery("");
     setIntel(null);
     setDestinationPort("");
+    setArrivalDate("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
     const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows] = await Promise.all([
@@ -334,6 +347,30 @@ export default function FleetVetting({ vessels = [] }) {
       score: isOverdueIsi ? 3 : 0, max: 3,
     });
 
+    // 13. Arrival Day — cross-references the fleet's own Friday\u2192Tuesday PSC targeting pattern
+    // (PSCOs commonly board before a weekend so corrective actions/re-inspection land on a
+    // weekday). Manual entry for now, same reasoning as Destination Port above.
+    let arrivalScore = 0, arrivalDetail = "Not specified";
+    let arrivalAlert = null;
+    if (arrivalDate) {
+      const d = new Date(arrivalDate + "T00:00:00");
+      const dowIdx = d.getDay();
+      const dayName = DOW_NAMES[dowIdx];
+      const isHighRiskDay = [5,6,0,1,2].includes(dowIdx); // Fri, Sat, Sun, Mon, Tue
+      const dayCount = dowPattern.counts[dowIdx];
+      const dayPct = dowPattern.total>0 ? Math.round(dayCount/dowPattern.total*100) : 0;
+
+      if (isHighRiskDay) arrivalScore = 2;
+      arrivalDetail = `Arriving ${dayName} — ${dayPct}% of the fleet's ${dowPattern.total} detentions on file happened on a ${dayName}${isHighRiskDay?" (within the Fri\u2192Tue targeting window)":""}`;
+
+      if (isHighRiskDay) {
+        arrivalAlert = `⚠️ ${dayName} falls within the fleet's historical Friday→Tuesday PSC targeting window — ${dowPattern.friToTuePct}% of all detentions on file happened Fri-Tue. Consider this a higher-scrutiny arrival day.`;
+      } else {
+        arrivalAlert = `✅ ${dayName} is outside the fleet's typical Friday→Tuesday high-scrutiny window.`;
+      }
+    }
+    factors.push({ label: "Arrival Day", detail: arrivalDetail, score: arrivalScore, max: 2 });
+
     const total = factors.reduce((s,f)=>s+f.score, 0);
     const maxTotal = factors.reduce((s,f)=>s+f.max, 0);
     const pct = Math.round(total/maxTotal*100);
@@ -368,8 +405,8 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi };
-  }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern]);
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi, arrivalAlert };
+  }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   return (
     <div className="pg active" style={{ padding: "20px" }}>
@@ -411,12 +448,17 @@ export default function FleetVetting({ vessels = [] }) {
                   IMO {selected.imo} · {selected.vessel_sub_type||selected.vessel_type||"—"} · {selected.age!=null?`${selected.age} yrs`:"Age unknown"} · {selected.class_society||"RO unknown"} · {selected.gross_tons?`${Number(selected.gross_tons).toLocaleString()} GT`:""}
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text3)", marginTop: "3px" }}>{selected.ism_client||"Company unknown"}</div>
-                <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "11px", color: "var(--text3)" }}>Destination:</span>
                   <input
                     value={destinationPort} onChange={e=>setDestinationPort(e.target.value)}
                     placeholder="e.g. Ningbo, China"
-                    style={{ padding: "5px 9px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", width: "200px" }}
+                    style={{ padding: "5px 9px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", width: "180px" }}
+                  />
+                  <span style={{ fontSize: "11px", color: "var(--text3)", marginLeft: "6px" }}>Arrival Date:</span>
+                  <input
+                    type="date" value={arrivalDate} onChange={e=>setArrivalDate(e.target.value)}
+                    style={{ padding: "5px 9px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none" }}
                   />
                   <span style={{ fontSize: "10px", color: "var(--text3)", fontStyle: "italic" }}>manual entry — live AIS/LRIT feed planned</span>
                 </div>
@@ -469,6 +511,13 @@ export default function FleetVetting({ vessels = [] }) {
                   <div style={{ fontSize: "13px", color: "var(--text2)" }}>
                     {selected.overdue_isi} — this vessel's International Safety Inspection (ISI) is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
                   </div>
+                </div>
+              )}
+
+              {riskAssessment.arrivalAlert && (
+                <div style={{ background: riskAssessment.arrivalAlert.startsWith("⚠️")?"var(--amber-bg)":"var(--bg2)", border: "1px solid "+(riskAssessment.arrivalAlert.startsWith("⚠️")?"var(--amber2)":"var(--border)"), borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: riskAssessment.arrivalAlert.startsWith("⚠️")?"var(--amber2)":"var(--text)", marginBottom: "4px" }}>📅 Arrival Day</div>
+                  <div style={{ fontSize: "13px", color: "var(--text2)" }}>{riskAssessment.arrivalAlert}</div>
                 </div>
               )}
 
