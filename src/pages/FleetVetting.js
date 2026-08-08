@@ -89,15 +89,17 @@ export default function FleetVetting({ vessels = [] }) {
     setIntel(null);
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
-    const [inspections, dpp, mc, pi, mlc] = await Promise.all([
+    const [inspections, dpp, mc, pi, mlc, cars, flagFindings] = await Promise.all([
       fetchAll("inspection_history", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("dpp_vetting_history", "*", q=>q.eq("imo", imoStr).order("created_date",{ascending:false})),
       fetchAll("vessel_casualty", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
       fetchAll("personal_incident", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
       fetchAll("mlc_complaints", "*", q=>q.eq("imo", imoStr).order("reported_date",{ascending:false})),
+      fetchAll("car_status_report", "*", q=>q.eq("imo", imoStr).order("insp_date",{ascending:false})),
+      fetchAll("flag_psc_findings", "*", q=>q.eq("imo", imoStr).order("insp_date",{ascending:false})),
     ]);
     const detentionHistory = detained.filter(v => String(v.imo)===imoStr).sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
-    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory });
+    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings });
     setIntelLoading(false);
   }
 
@@ -171,17 +173,36 @@ export default function FleetVetting({ vessels = [] }) {
     if (intel.detentionHistory.length>=3) ownDetScore = 3; else if (intel.detentionHistory.length===2) ownDetScore = 2; else if (intel.detentionHistory.length===1) ownDetScore = 1;
     factors.push({ label: "Own Detention History", detail: `${intel.detentionHistory.length} detention${intel.detentionHistory.length!==1?"s":""} on file`, score: ownDetScore, max: 3 });
 
+    // 10. Open CAR (Corrective Action Request) from the most recent Flag inspection
+    const latestCar = intel.cars[0] || null;
+    const isCarClosed = latestCar?.car_status && (
+      latestCar.car_status.toLowerCase().includes("complete") ||
+      latestCar.car_status.toLowerCase().includes("closed") ||
+      latestCar.car_status.toLowerCase().includes("approved")
+    );
+    const carIsOpen = !!(latestCar?.car_status && !isCarClosed && latestCar.car_status!=="No Deficiencies" && latestCar.car_status.trim()!=="");
+    let carScore = 0;
+    if (carIsOpen) carScore = latestCar.days_open>60 ? 3 : 2;
+    factors.push({
+      label: "Open CAR",
+      detail: latestCar ? (carIsOpen ? `Open — "${latestCar.car_status}"${latestCar.days_open!=null?` (${latestCar.days_open}d open)`:""}` : `Closed — "${latestCar.car_status}"`) : "No Flag inspection / CAR on file",
+      score: carScore, max: 3,
+    });
+
     const total = factors.reduce((s,f)=>s+f.score, 0);
     const maxTotal = factors.reduce((s,f)=>s+f.max, 0);
     const pct = Math.round(total/maxTotal*100);
     const level = pct>=50 ? "High" : pct>=25 ? "Medium" : "Low";
-    const recommendation = level==="High"
+    let recommendation = level==="High"
       ? "Recommend enhanced inspection / vetting review before next call — multiple risk indicators present."
       : level==="Medium"
       ? "Recommend standard heightened monitoring — some risk indicators present, not yet critical."
       : "Standard monitoring — no significant risk indicators found in the data on file.";
+    if (carIsOpen) {
+      recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
+    }
 
-    return { factors, total, maxTotal, pct, level, recommendation };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar };
   }, [selected, intel, companyStats, roStats]);
 
   return (
@@ -246,6 +267,22 @@ export default function FleetVetting({ vessels = [] }) {
                 <div style={{ fontSize: "13px", color: "var(--text)" }}>{riskAssessment.recommendation}</div>
               </div>
 
+              <div style={{ background: riskAssessment.carIsOpen?"var(--red-bg)":"var(--bg2)", border: "1px solid "+(riskAssessment.carIsOpen?"#3D1A1A":"var(--border)"), borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: riskAssessment.carIsOpen?"var(--red2)":"var(--text)", marginBottom: "4px" }}>
+                  {riskAssessment.carIsOpen ? "⚠️ Open CAR" : "✅ CAR Status"}
+                </div>
+                {riskAssessment.latestCar ? (
+                  <div style={{ fontSize: "13px", color: "var(--text2)" }}>
+                    Last Flag inspection ({riskAssessment.latestCar.insp_date||"date unknown"}
+                    {riskAssessment.latestCar.port?`, ${riskAssessment.latestCar.port}`:""}) — CAR status: <b style={{color:riskAssessment.carIsOpen?"var(--red2)":"var(--green2)"}}>{riskAssessment.latestCar.car_status||"Unknown"}</b>
+                    {riskAssessment.latestCar.days_open!=null && <> · {riskAssessment.latestCar.days_open} days open</>}
+                    {riskAssessment.latestCar.assigned_to && <> · Assigned to {riskAssessment.latestCar.assigned_to}</>}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "var(--text3)" }}>No Flag inspection / CAR record on file for this vessel.</div>
+                )}
+              </div>
+
               <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Risk Score Breakdown — every point explained</div>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
@@ -280,6 +317,30 @@ export default function FleetVetting({ vessels = [] }) {
                         <b>{r.inspection_date}</b> — {r.inspection_type||"—"} · {r.num_findings||0} findings
                       </div>
                     ))
+                  )}
+                </div>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Flag Inspection & CAR History ({intel.cars.length})</div>
+                  {intel.cars.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No Flag inspections on file.</div> : (
+                    intel.cars.slice(0,10).map((c,i) => {
+                      const closed = c.car_status && (c.car_status.toLowerCase().includes("complete")||c.car_status.toLowerCase().includes("closed")||c.car_status.toLowerCase().includes("approved"));
+                      const open = c.car_status && !closed && c.car_status!=="No Deficiencies" && c.car_status.trim()!=="";
+                      return (
+                        <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                          <b>{c.insp_date}</b>{c.port?` — ${c.port}`:""} · {c.num_findings||0} findings · <span style={{color:open?"var(--red2)":closed?"var(--green2)":"var(--text3)",fontWeight:600}}>{c.car_status||"—"}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                  {intel.flagFindings.length > 0 && (
+                    <>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text3)", marginTop: "10px", marginBottom: "4px", textTransform: "uppercase" }}>Recent Findings ({intel.flagFindings.length})</div>
+                      {intel.flagFindings.slice(0,8).map((f,i) => (
+                        <div key={i} style={{ fontSize: "11px", color: "var(--text3)", padding: "3px 0" }}>
+                          {f.insp_date} — {f.defect_code?`[${f.defect_code}] `:""}{f.main_defect_text||f.full_description||f.desc||"—"}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
