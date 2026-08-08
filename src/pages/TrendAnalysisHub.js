@@ -15,11 +15,11 @@ const SUB_TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "mou", label: "By MoU" },
   { id: "perf", label: "Performance Review" },
+  { id: "builder", label: "🧩 Build Your Report" },
   { id: "response", label: "Operational Response Tracking" },
   { id: "patterns", label: "Pattern Detection" },
   { id: "ais", label: "AIS Monitor" },
   { id: "vip", label: "VIP Protocol" },
-  { id: "builder", label: "🧩 Build Your Report" },
   { id: "investigation", label: "🔍 Investigation" },
   { id: "mlc", label: "📋 MLC" },
 ];
