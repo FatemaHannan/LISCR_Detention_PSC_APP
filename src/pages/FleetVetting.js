@@ -33,12 +33,26 @@ function ageBracketFV(age) {
   return "31+ yrs";
 }
 
+// Same port/country extraction convention used elsewhere in the app (MouDetentionReport.js, TrendAnalysis.js)
+function extractLocationFV(port) {
+  if (!port || port === "—") return "Unknown";
+  const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
+  return parts[0] || "Unknown";
+}
+function extractCountryFV(port) {
+  if (!port || port === "—") return "Unknown";
+  const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
+  if (parts.length < 2) return parts[0] || "Unknown";
+  return parts[parts.length-1];
+}
+
 export default function FleetVetting({ vessels = [] }) {
   const [roster, setRoster] = useState([]);
   const [rosterLoading, setRosterLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [intel, setIntel] = useState(null);
+  const [destinationPort, setDestinationPort] = useState("");
   const [intelLoading, setIntelLoading] = useState(false);
 
   const detained = useMemo(() => vessels.filter(v=>v.detained), [vessels]);
@@ -82,6 +96,21 @@ export default function FleetVetting({ vessels = [] }) {
     return stats;
   }, [roster, detained]);
 
+  // ---- Historical detention FREQUENCY by country/port, fleet-wide. Not a true rate — that
+  // would need total port-call volume (live AIS/LRIT), which this database doesn't have. This
+  // is a directional signal only: "how often has this country/port shown up in our detention
+  // history", same spirit as the ML system's Country Deficiency Trends, without the AIS feed. ----
+  const portFrequency = useMemo(() => {
+    const byCountry = {}, byPort = {};
+    detained.forEach(v => {
+      const country = extractCountryFV(v.port);
+      const port = extractLocationFV(v.port);
+      if (country!=="Unknown") byCountry[country] = (byCountry[country]||0)+1;
+      if (port!=="Unknown") byPort[port] = (byPort[port]||0)+1;
+    });
+    return { byCountry, byPort, totalDetentions: detained.length };
+  }, [detained]);
+
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [];
@@ -92,6 +121,7 @@ export default function FleetVetting({ vessels = [] }) {
     setSelected(r);
     setQuery("");
     setIntel(null);
+    setDestinationPort("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
     const [inspections, dpp, mc, pi, mlc, cars, flagFindings] = await Promise.all([
@@ -206,6 +236,26 @@ export default function FleetVetting({ vessels = [] }) {
       score: carScore, max: 3,
     });
 
+    // 11. Destination Port — manually entered (no live AIS/LRIT feed in this database yet).
+    // Two signals: how often this country/port shows up in the fleet's overall detention
+    // history (frequency, not a true rate — that needs total port-call volume), and whether
+    // THIS vessel specifically has a problem history at that exact port.
+    let destScore = 0, destDetail = "Not specified";
+    if (destinationPort.trim()) {
+      const destCountry = extractCountryFV(destinationPort);
+      const destPortName = extractLocationFV(destinationPort);
+      const countryCount = portFrequency.byCountry[destCountry] || 0;
+      const portCount = portFrequency.byPort[destPortName] || 0;
+      const vesselPriorAtPort = intel.detentionHistory.filter(v => extractLocationFV(v.port)===destPortName || extractCountryFV(v.port)===destCountry);
+
+      if (vesselPriorAtPort.length > 0) destScore = 3;
+      else if (portCount >= 10 || countryCount >= 30) destScore = 2;
+      else if (portCount >= 3 || countryCount >= 10) destScore = 1;
+
+      destDetail = `${destinationPort} — ${countryCount} fleet-wide detention${countryCount!==1?"s":""} on record for ${destCountry}${portCount>0?`, ${portCount} at this specific port`:""}${vesselPriorAtPort.length>0?` · this vessel has ${vesselPriorAtPort.length} prior detention${vesselPriorAtPort.length!==1?"s":""} there`:""}`;
+    }
+    factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
+
     const total = factors.reduce((s,f)=>s+f.score, 0);
     const maxTotal = factors.reduce((s,f)=>s+f.max, 0);
     const pct = Math.round(total/maxTotal*100);
@@ -240,7 +290,7 @@ export default function FleetVetting({ vessels = [] }) {
     }
 
     return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons };
-  }, [selected, intel, companyStats, roStats]);
+  }, [selected, intel, companyStats, roStats, destinationPort, portFrequency]);
 
   return (
     <div className="pg active" style={{ padding: "20px" }}>
@@ -282,6 +332,15 @@ export default function FleetVetting({ vessels = [] }) {
                   IMO {selected.imo} · {selected.vessel_sub_type||selected.vessel_type||"—"} · {selected.age!=null?`${selected.age} yrs`:"Age unknown"} · {selected.class_society||"RO unknown"} · {selected.gross_tons?`${Number(selected.gross_tons).toLocaleString()} GT`:""}
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text3)", marginTop: "3px" }}>{selected.ism_client||"Company unknown"}</div>
+                <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text3)" }}>Destination:</span>
+                  <input
+                    value={destinationPort} onChange={e=>setDestinationPort(e.target.value)}
+                    placeholder="e.g. Ningbo, China"
+                    style={{ padding: "5px 9px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg3)", color: "var(--text)", fontSize: "12px", outline: "none", width: "200px" }}
+                  />
+                  <span style={{ fontSize: "10px", color: "var(--text3)", fontStyle: "italic" }}>manual entry — live AIS/LRIT feed planned</span>
+                </div>
               </div>
               {riskAssessment && (
                 <div style={{ background: RISK_BG[riskAssessment.level], border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "10px 18px", textAlign: "center" }}>
