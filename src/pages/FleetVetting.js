@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
+import { catDef } from "./TrendAnalysis";
 
 const RISK_LEVEL_ORDER = ["Low", "Medium", "High", "Very High"];
 const RISK_COLORS = { "Very High": "#ff4d4d", High: "var(--red2)", Medium: "var(--amber2)", Low: "var(--green2)" };
@@ -109,6 +110,23 @@ export default function FleetVetting({ vessels = [] }) {
       if (port!=="Unknown") byPort[port] = (byPort[port]||0)+1;
     });
     return { byCountry, byPort, totalDetentions: detained.length };
+  }, [detained]);
+
+  // ---- Fleet-wide deficiency CATEGORY pattern by country — "what does PSC typically cite
+  // ships for at this location", same spirit as the ML system's Country Deficiency Trends /
+  // China Port Match, computed from data already loaded (no extra query). ----
+  const locationCategoryPattern = useMemo(() => {
+    const byCountry = {}; // country -> { category -> count }
+    detained.forEach(v => {
+      const country = extractCountryFV(v.port);
+      if (country==="Unknown") return;
+      (v.deficiencies||[]).forEach(d => {
+        const cat = catDef(d.desc);
+        byCountry[country] = byCountry[country] || {};
+        byCountry[country][cat] = (byCountry[country][cat]||0)+1;
+      });
+    });
+    return byCountry;
   }, [detained]);
 
   const searchResults = useMemo(() => {
@@ -241,6 +259,8 @@ export default function FleetVetting({ vessels = [] }) {
     // history (frequency, not a true rate — that needs total port-call volume), and whether
     // THIS vessel specifically has a problem history at that exact port.
     let destScore = 0, destDetail = "Not specified";
+    let locationAlert = null;
+    let topLocationCategories = [];
     if (destinationPort.trim()) {
       const destCountry = extractCountryFV(destinationPort);
       const destPortName = extractLocationFV(destinationPort);
@@ -253,6 +273,23 @@ export default function FleetVetting({ vessels = [] }) {
       else if (portCount >= 3 || countryCount >= 10) destScore = 1;
 
       destDetail = `${destinationPort} — ${countryCount} fleet-wide detention${countryCount!==1?"s":""} on record for ${destCountry}${portCount>0?`, ${portCount} at this specific port`:""}${vesselPriorAtPort.length>0?` · this vessel has ${vesselPriorAtPort.length} prior detention${vesselPriorAtPort.length!==1?"s":""} there`:""}`;
+
+      // What does PSC typically cite ships for at this country, fleet-wide?
+      const catCounts = locationCategoryPattern[destCountry] || {};
+      topLocationCategories = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,count])=>({cat,count}));
+
+      // This vessel's own deficiency categories, from its detention history
+      const ownCategories = new Set();
+      intel.detentionHistory.forEach(v => (v.deficiencies||[]).forEach(d => ownCategories.add(catDef(d.desc))));
+      const overlap = topLocationCategories.filter(c => ownCategories.has(c.cat));
+
+      if (vesselPriorAtPort.length > 0 && overlap.length > 0) {
+        locationAlert = `⚠️ This vessel has previously been cited for ${overlap.map(c=>c.cat).join(", ")} — which is also among the most common findings at ${destCountry}. Elevated risk of re-detention for the same category.`;
+      } else if (overlap.length > 0) {
+        locationAlert = `⚠️ This vessel's deficiency history includes ${overlap.map(c=>c.cat).join(", ")} — a category commonly cited at ${destCountry}. Worth a targeted pre-inspection check.`;
+      } else if (topLocationCategories.length > 0) {
+        locationAlert = `ℹ️ No overlap between this vessel's own deficiency history and ${destCountry}'s most common findings — no elevated category-specific concern identified.`;
+      }
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
@@ -289,8 +326,8 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons };
-  }, [selected, intel, companyStats, roStats, destinationPort, portFrequency]);
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destinationPort.trim() ? extractCountryFV(destinationPort) : null };
+  }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern]);
 
   return (
     <div className="pg active" style={{ padding: "20px" }}>
@@ -383,6 +420,34 @@ export default function FleetVetting({ vessels = [] }) {
                   <div style={{ fontSize: "13px", color: "var(--text3)" }}>No Flag inspection / CAR record on file for this vessel.</div>
                 )}
               </div>
+
+              {riskAssessment.destCountry && (
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Findings Pattern at {riskAssessment.destCountry}</div>
+                  {riskAssessment.locationAlert && (
+                    <div style={{ fontSize: "12px", color: riskAssessment.locationAlert.startsWith("⚠️")?"var(--amber2)":"var(--text3)", background: riskAssessment.locationAlert.startsWith("⚠️")?"rgba(245,158,11,0.1)":"var(--bg3)", border: "1px solid "+(riskAssessment.locationAlert.startsWith("⚠️")?"var(--amber2)":"var(--border2)"), borderRadius: "6px", padding: "8px 10px", marginBottom: "10px" }}>
+                      {riskAssessment.locationAlert}
+                    </div>
+                  )}
+                  {riskAssessment.topLocationCategories.length===0 ? (
+                    <div style={{ fontSize: "12px", color: "var(--text3)" }}>No itemized deficiency category data on file for detentions at this country.</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: "11px", color: "var(--text3)", marginBottom: "6px" }}>Most common deficiency categories cited fleet-wide at {riskAssessment.destCountry}:</div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <tbody>
+                          {riskAssessment.topLocationCategories.map((c,i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ padding: "5px 8px", color: "var(--text2)" }}>{c.cat}</td>
+                              <td style={{ padding: "5px 8px", color: "var(--text)", fontWeight: 700, textAlign: "right" }}>{c.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Risk Score Breakdown — every point explained</div>
