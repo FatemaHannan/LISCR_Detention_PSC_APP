@@ -10,6 +10,7 @@ import HighRiskAreas from "./HighRiskAreas";
 import OperationalResponseTracking from "./OperationalResponseTracking";
 import PreventionFocus from "./PreventionFocus";
 import CasualtyMlcReport from "./CasualtyMlcReport";
+import BuildYourReportTab from "./BuildYourReportTab";
 
 const SUB_TABS = [
   { id: "focus", label: "🎯 Prevention Focus" },
@@ -22,11 +23,12 @@ const SUB_TABS = [
   { id: "patterns", label: "Pattern Detection" },
   { id: "ais", label: "AIS Monitor" },
   { id: "vip", label: "VIP Protocol" },
+  { id: "builder", label: "🧩 Build Your Report" },
   { id: "investigation", label: "🔍 Investigation" },
   { id: "mlc", label: "📋 MLC" },
 ];
 
-export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) {
+export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage, currentUser }) {
   const [subTab, setSubTab] = useState(() => {
     const initial = window._trendsInitialSubTab;
     window._trendsInitialSubTab = null;
@@ -67,7 +69,9 @@ export default function TrendAnalysisHub({ vessels = [], tasks = [], setPage }) 
         {subTab === "patterns" && <PatternDetection vessels={vessels} tasks={tasks} learnedPatterns={window._learnedPatterns||[]} />}
         {subTab === "ais" && <AISMonitor vessels={vessels} />}
         {subTab === "vip" && <VIPProtocol vessels={vessels} />}
+        {subTab === "builder" && <BuildYourReportTab vessels={vessels} currentUser={currentUser} />}
       </div>
     </div>
   );
 }
+

@@ -72,7 +72,7 @@ const normImoBuilder = (imo) => String(imo||"").replace(/\.0$/,"").trim();
 // ---- Build Your Own Report — lets the person pick any 2+ factors and see every
 // combination that actually occurs in the data, ranked by count, with drill-down to
 // the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou, selected: controlledSelected, onSelectedChange }) {
   const DIMENSIONS = useMemo(() => {
     const base = [
       { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null); return t; } },
@@ -88,7 +88,13 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou 
     return base;
   }, [includeMou, ageMap, typeMap, riskMap]);
 
-  const [selected, setSelected] = useState([]);
+  const [internalSelected, setInternalSelected] = useState([]);
+  const selected = controlledSelected !== undefined ? controlledSelected : internalSelected;
+  const setSelected = (updater) => {
+    const next = typeof updater === "function" ? updater(selected) : updater;
+    if (onSelectedChange) onSelectedChange(next);
+    if (controlledSelected === undefined) setInternalSelected(next);
+  };
   const [expandedKey, setExpandedKey] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [view, setView] = useState("graph"); // "graph" | "table"
@@ -983,8 +989,6 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
           <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough overlapping age/type/RO/port data yet to identify a clear fleet-wide targeted profile.</div>
         )}
       </div>
-
-      <CombinationBuilder rows={detained} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} includeMou={true} />
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Detentions by Vessel Age" subtitle="Source: Consolidated Inspection History">
