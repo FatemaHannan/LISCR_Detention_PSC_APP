@@ -32,7 +32,7 @@ const NAV = [
   { section:"ANALYSIS", items:[
     { id:"case", label:"Case view", icon:"ti-file-analytics" },
     { id:"vessels", label:"Detention Cases", icon:"ti-ship", badge:null },
-    { id:"fleetvetting", label:"Fleet Vetting", icon:"ti-shield-check", badge:null },
+    { id:"fleetvetting", label:"Pre-Boarding Risk Screening", icon:"ti-shield-check", badge:null },
     { id:"upload", label:"Upload & analyze", icon:"ti-upload", badge:null },
   ]},
   { section:"INTELLIGENCE", items:[

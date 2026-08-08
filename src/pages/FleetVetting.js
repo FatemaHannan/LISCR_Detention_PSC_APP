@@ -186,7 +186,7 @@ export default function FleetVetting({ vessels = [] }) {
 
   return (
     <div className="pg active" style={{ padding: "20px" }}>
-      <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)", marginBottom: "2px" }}>🛡️ Fleet Vetting</div>
+      <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)", marginBottom: "2px" }}>🛡️ Pre-Boarding Risk Screening</div>
       <div style={{ fontSize: "12px", color: "var(--text3)", marginBottom: "18px" }}>
         Search any vessel in the full fleet roster — detained or not — and see a risk dossier built from PSC, casualty, MLC, and vetting history.
       </div>
