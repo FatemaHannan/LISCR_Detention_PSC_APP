@@ -214,13 +214,14 @@ export default function FleetVetting({ vessels = [] }) {
     // ---- Risk floor rules — hard overrides that can only push the level UP, never down,
     // borrowed from the fleet's ML-based Risk Prediction System's safety-net floors, adapted
     // to the data available here. These exist so a genuinely dangerous vessel never scores
-    // low just because it happens to be light on points elsewhere. ----
+    // low just because it happens to be light on points elsewhere. Only counts detentions
+    // within the last 36 months — anything older doesn't count toward these floors either. ----
     const floorReasons = [];
     let floor = null;
-    const totalDetentions = intel.detentionHistory.length;
-    if (totalDetentions >= 1) { floor = maxLevel(floor, "High"); floorReasons.push("Prior PSC detention on file"); }
-    if (totalDetentions >= 1 && age!=null && age>=15) { floor = maxLevel(floor, "Very High"); floorReasons.push("Prior detention + vessel age 15+"); }
-    if (totalDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple prior detentions"); }
+    const recentDetentions = detentionsWithin36mo.length;
+    if (recentDetentions >= 1) { floor = maxLevel(floor, "High"); floorReasons.push("Prior PSC detention within 36 months"); }
+    if (recentDetentions >= 1 && age!=null && age>=15) { floor = maxLevel(floor, "Very High"); floorReasons.push("Detention within 36 months + vessel age 15+"); }
+    if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
 
