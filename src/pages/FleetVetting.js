@@ -338,12 +338,12 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
-    // 12. Overdue ISI (International Safety Inspection) — straight from Fleet Roster, no extra query needed
+    // 12. Overdue SSI — straight from Fleet Roster, no extra query needed
     const overdueIsiRaw = String(selected.overdue_isi||"").trim().toLowerCase();
     const isOverdueIsi = overdueIsiRaw && overdueIsiRaw!=="no" && overdueIsiRaw!=="0" && overdueIsiRaw!=="false" && overdueIsiRaw!=="";
     factors.push({
-      label: "Overdue ISI",
-      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Inspection status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Inspection status: ${selected.inspection_status}` : "No overdue ISI on file"),
+      label: "Overdue SSI",
+      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Inspection status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Inspection status: ${selected.inspection_status}` : "No overdue SSI on file"),
       score: isOverdueIsi ? 3 : 0, max: 3,
     });
 
@@ -389,7 +389,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
-    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue ISI (International Safety Inspection)"); }
+    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue SSI"); }
 
     const floorApplied = floor && RISK_LEVEL_ORDER.indexOf(floor) > RISK_LEVEL_ORDER.indexOf(level);
     if (floor) level = maxLevel(level, floor);
@@ -435,7 +435,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (cStat && cStat.rate!=null && cStat.rate>=25) advisory.push(`🟡 Managing company's fleet-wide detention rate is ${cStat.rate}%.`);
     if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
     if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
-    if (isOverdueIsi) advisory.push(`🔴 Overdue International Safety Inspection (ISI).`);
+    if (isOverdueIsi) advisory.push(`🔴 Overdue SSI.`);
     if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
     if (arrivalDate && arrivalScore>0) advisory.push(`🟡 Arrival day falls within the Fri→Tue high-scrutiny window.`);
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
@@ -551,9 +551,9 @@ export default function FleetVetting({ vessels = [] }) {
 
               {riskAssessment.isOverdueIsi && (
                 <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue ISI (International Safety Inspection)</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue SSI</div>
                   <div style={{ fontSize: "13px", color: "var(--text2)" }}>
-                    {selected.overdue_isi} — this vessel's International Safety Inspection (ISI) is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
+                    {selected.overdue_isi} — this vessel's SSI is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
                   </div>
                 </div>
               )}
