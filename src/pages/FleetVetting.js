@@ -338,13 +338,32 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
-    // 12. Overdue SSI — straight from Fleet Roster, no extra query needed
-    const overdueIsiRaw = String(selected.overdue_isi||"").trim().toLowerCase();
-    const isOverdueIsi = overdueIsiRaw && overdueIsiRaw!=="no" && overdueIsiRaw!=="0" && overdueIsiRaw!=="false" && overdueIsiRaw!=="";
+    // 12. Flag Inspection Status — from Fleet Roster's overdue-inspection field, covers whatever
+    // type it actually tracks (could be ISI/SSI/MLC/ISM/ISPS/ASI depending on what's due) — we
+    // display the field's own text rather than assuming a specific inspection type. Fixed a real
+    // bug here: "Not Due" contains the word "due" and was being misread as overdue.
+    const flagStatusRaw = String(selected.overdue_isi||"").trim().toLowerCase();
+    const isFlagInspectionDue = flagStatusRaw.includes("overdue") || (flagStatusRaw.includes("due") && !flagStatusRaw.includes("not"));
     factors.push({
-      label: "Overdue SSI",
-      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Inspection status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Inspection status: ${selected.inspection_status}` : "No overdue SSI on file"),
-      score: isOverdueIsi ? 3 : 0, max: 3,
+      label: "Flag Inspection Status",
+      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Status: ${selected.inspection_status}` : "No data on file"),
+      score: isFlagInspectionDue ? 3 : 0, max: 3,
+    });
+
+    // 12b. PSC Inspection Recency — how long since this vessel's last PSC inspection. A ship
+    // PSC hasn't seen in a long time has genuinely unknown current condition (same "temporal
+    // decay" reasoning as the ML system's Needle Detection). Not a schedule (PSC boarding isn't
+    // something we control), just a recency signal.
+    const lastPscDate = intel.inspections[0]?.inspection_date || null;
+    const monthsSinceLastPsc = lastPscDate ? Math.round((new Date() - new Date(lastPscDate)) / (1000*60*60*24*30.44)) : null;
+    let pscRecencyScore = 0;
+    if (monthsSinceLastPsc!=null) {
+      if (monthsSinceLastPsc >= 24) pscRecencyScore = 3; else if (monthsSinceLastPsc >= 12) pscRecencyScore = 1;
+    }
+    factors.push({
+      label: "PSC Inspection Recency",
+      detail: lastPscDate ? `Last PSC inspection ${lastPscDate} — ${monthsSinceLastPsc} months ago` : "No PSC inspection on file",
+      score: pscRecencyScore, max: 3,
     });
 
     // 13. Arrival Day — cross-references the fleet's own Friday\u2192Tuesday PSC targeting pattern
@@ -389,7 +408,8 @@ export default function FleetVetting({ vessels = [] }) {
     if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
-    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue SSI"); }
+    if (isFlagInspectionDue) { floor = maxLevel(floor, "Medium"); floorReasons.push("Flag inspection due"); }
+    if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=24) { floor = maxLevel(floor, "Medium"); floorReasons.push("No PSC inspection in 24+ months"); }
 
     const floorApplied = floor && RISK_LEVEL_ORDER.indexOf(floor) > RISK_LEVEL_ORDER.indexOf(level);
     if (floor) level = maxLevel(level, floor);
@@ -435,13 +455,14 @@ export default function FleetVetting({ vessels = [] }) {
     if (cStat && cStat.rate!=null && cStat.rate>=25) advisory.push(`🟡 Managing company's fleet-wide detention rate is ${cStat.rate}%.`);
     if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
     if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
-    if (isOverdueIsi) advisory.push(`🔴 Overdue SSI.`);
+    if (isFlagInspectionDue) advisory.push(`🔴 Flag inspection due — "${selected.overdue_isi}".`);
+    if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=12) advisory.push(`🟡 Last PSC inspection was ${monthsSinceLastPsc} months ago (${lastPscDate}) — condition not recently independently verified.`);
     if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
     if (arrivalDate && arrivalScore>0) advisory.push(`🟡 Arrival day falls within the Fri→Tue high-scrutiny window.`);
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
     if (advisory.length===0) advisory.push(`🟢 No significant concerns identified across any factor — clean profile based on data currently on file.`);
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi, arrivalAlert, advisory };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   return (
@@ -549,11 +570,20 @@ export default function FleetVetting({ vessels = [] }) {
                 )}
               </div>
 
-              {riskAssessment.isOverdueIsi && (
+              {riskAssessment.isFlagInspectionDue && (
                 <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue SSI</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Flag Inspection Due</div>
                   <div style={{ fontSize: "13px", color: "var(--text2)" }}>
-                    {selected.overdue_isi} — this vessel's SSI is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
+                    Fleet Roster shows: "{selected.overdue_isi}"{selected.inspection_status?` (status: ${selected.inspection_status})`:""} — recommend confirming with the Flag team what specifically is due before this vessel's next PSC exposure.
+                  </div>
+                </div>
+              )}
+
+              {riskAssessment.monthsSinceLastPsc!=null && riskAssessment.monthsSinceLastPsc>=12 && (
+                <div style={{ background: "var(--amber-bg)", border: "1px solid var(--amber2)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--amber2)", marginBottom: "4px" }}>🔍 PSC Inspection Recency</div>
+                  <div style={{ fontSize: "13px", color: "var(--text2)" }}>
+                    Last PSC inspection was {riskAssessment.monthsSinceLastPsc} months ago ({riskAssessment.lastPscDate}) — this vessel's current condition hasn't been independently verified by PSC recently.
                   </div>
                 </div>
               )}
