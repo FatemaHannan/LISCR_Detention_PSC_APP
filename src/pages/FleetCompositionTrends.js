@@ -35,6 +35,12 @@ export default function FleetCompositionTrends({ vessels = [] }) {
       const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
       const map = {};
       data.forEach(d => { const key = nImo(d.imo); if (d.age!=null && map[key]==null) map[key] = d.age; }); // first hit per imo = most recent, since sorted desc
+      // Fallback: for any vessel inspection_history didn't have age for, check client_vessel_details.
+      const stillMissing = imos.map(nImo).filter(imo => map[imo]==null);
+      if (stillMissing.length > 0) {
+        const { data: cvd } = await supabase.from("client_vessel_details").select("imo,age").in("imo", stillMissing);
+        (cvd||[]).forEach(d => { const key = nImo(d.imo); if (d.age!=null && map[key]==null) map[key] = d.age; });
+      }
       setAgeMap(map);
     })();
     return () => { cancelled = true; };

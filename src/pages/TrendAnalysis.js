@@ -246,6 +246,14 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
         if (d.age!=null && aMap[key]==null) aMap[key] = d.age;
         if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
       });
+      // Fallback: for any vessel inspection_history didn't have age for, check client_vessel_details.
+      // Not every vessel will have it there either — remaining gaps are a genuine data-entry gap,
+      // not something a query can manufacture.
+      const stillMissing = imos.map(normImo).filter(imo => aMap[imo]==null);
+      if (stillMissing.length > 0) {
+        const { data: cvd } = await supabase.from("client_vessel_details").select("imo,age").in("imo", stillMissing);
+        (cvd||[]).forEach(d => { const key = normImo(d.imo); if (d.age!=null && aMap[key]==null) aMap[key] = d.age; });
+      }
       setAgeMap(aMap);
       setTypeMap(tMap);
     })();

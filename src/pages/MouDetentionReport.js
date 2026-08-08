@@ -69,6 +69,12 @@ export default function MouDetentionReport({ vessels = [] }) {
         if (d.age!=null && aMap[key]==null) aMap[key] = d.age; // first hit per imo = most recent, since sorted desc
         if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
       });
+      // Fallback: for any vessel inspection_history didn't have age for, check client_vessel_details.
+      const stillMissing = imos.map(nImo).filter(imo => aMap[imo]==null);
+      if (stillMissing.length > 0) {
+        const { data: cvd } = await supabase.from("client_vessel_details").select("imo,age").in("imo", stillMissing);
+        (cvd||[]).forEach(d => { const key = nImo(d.imo); if (d.age!=null && aMap[key]==null) aMap[key] = d.age; });
+      }
       setAgeMap(aMap);
       setTypeMap(tMap);
     })();
