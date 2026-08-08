@@ -152,7 +152,7 @@ export default function FleetVetting({ vessels = [] }) {
     setDestinationPort("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
-    const [inspections, dpp, mc, pi, mlc, cars, flagFindings] = await Promise.all([
+    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows] = await Promise.all([
       fetchAll("inspection_history", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("dpp_vetting_history", "*", q=>q.eq("imo", imoStr).order("created_date",{ascending:false})),
       fetchAll("vessel_casualty", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
@@ -160,9 +160,11 @@ export default function FleetVetting({ vessels = [] }) {
       fetchAll("mlc_complaints", "*", q=>q.eq("imo", imoStr).order("reported_date",{ascending:false})),
       fetchAll("car_status_report", "*", q=>q.eq("imo", imoStr).order("insp_date",{ascending:false})),
       fetchAll("flag_psc_findings", "*", q=>q.eq("imo", imoStr).order("insp_date",{ascending:false})),
+      fetchAll("psc_detention_summary", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
+      fetchAll("vessel_inspection_performance", "*", q=>q.eq("imo", imoStr).limit(1)),
     ]);
     const detentionHistory = detained.filter(v => String(v.imo)===imoStr).sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
-    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings });
+    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null });
     setIntelLoading(false);
   }
 
@@ -323,6 +325,15 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
+    // 12. Overdue ISI (Internal Safety Inspection) — straight from Fleet Roster, no extra query needed
+    const overdueIsiRaw = String(selected.overdue_isi||"").trim().toLowerCase();
+    const isOverdueIsi = overdueIsiRaw && overdueIsiRaw!=="no" && overdueIsiRaw!=="0" && overdueIsiRaw!=="false" && overdueIsiRaw!=="";
+    factors.push({
+      label: "Overdue ISI",
+      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Inspection status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Inspection status: ${selected.inspection_status}` : "No overdue ISI on file"),
+      score: isOverdueIsi ? 3 : 0, max: 3,
+    });
+
     const total = factors.reduce((s,f)=>s+f.score, 0);
     const maxTotal = factors.reduce((s,f)=>s+f.max, 0);
     const pct = Math.round(total/maxTotal*100);
@@ -341,6 +352,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
+    if (isOverdueIsi) { floor = maxLevel(floor, "Medium"); floorReasons.push("Overdue ISI (Internal Safety Inspection)"); }
 
     const floorApplied = floor && RISK_LEVEL_ORDER.indexOf(floor) > RISK_LEVEL_ORDER.indexOf(level);
     if (floor) level = maxLevel(level, floor);
@@ -356,7 +368,7 @@ export default function FleetVetting({ vessels = [] }) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
     }
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isOverdueIsi };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern]);
 
   return (
@@ -450,6 +462,15 @@ export default function FleetVetting({ vessels = [] }) {
                   <div style={{ fontSize: "13px", color: "var(--text3)" }}>No Flag inspection / CAR record on file for this vessel.</div>
                 )}
               </div>
+
+              {riskAssessment.isOverdueIsi && (
+                <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>⏰ Overdue ISI (Internal Safety Inspection)</div>
+                  <div style={{ fontSize: "13px", color: "var(--text2)" }}>
+                    {selected.overdue_isi} — this vessel's internal safety inspection is overdue, meaning its actual current condition hasn't been independently verified recently. Recommend scheduling before next PSC exposure.
+                  </div>
+                </div>
+              )}
 
               <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Risk Score Breakdown — every point explained</div>
@@ -580,7 +601,50 @@ export default function FleetVetting({ vessels = [] }) {
                     ))
                   )}
                 </div>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>DPP Vetting History ({intel.dpp.length})</div>
+                  {intel.dpp.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No vetting records on file.</div> : (
+                    intel.dpp.slice(0,10).map((d,i) => (
+                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                        <b>{d.created_date}</b> — <span style={{color:String(d.risk_level_at_time).toLowerCase().includes("high")?"var(--red2)":String(d.risk_level_at_time).toLowerCase().includes("medium")?"var(--amber2)":"var(--green2)",fontWeight:600}}>{d.risk_level_at_time||"—"}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>PSC Detention Summary ({intel.psc.length})</div>
+                  {intel.psc.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No PSC summary records on file.</div> : (
+                    intel.psc.slice(0,10).map((p,i) => (
+                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                        <b>{p.inspection_date}</b> — {p.port||"—"} · {p.num_findings||0} findings {p.was_detained && <span style={{color:"var(--red2)",fontWeight:700}}>· DETAINED</span>} {p.risk_level && <span style={{color:"var(--text3)"}}> · Risk: {p.risk_level}</span>}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
+
+              {intel.vip && (
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "10px" }}>Vessel Inspection Performance — rolling averages on file</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px", fontSize: "12px" }}>
+                    {[
+                      ["PSC Inspections", intel.vip.psc_insps],
+                      ["PSC Finding Avg", intel.vip.psc_finding_av!=null?Number(intel.vip.psc_finding_av).toFixed(1):null],
+                      ["Flag Inspections", intel.vip.flag_insps],
+                      ["Flag Finding Avg", intel.vip.flag_finding_av!=null?Number(intel.vip.flag_finding_av).toFixed(1):null],
+                      ["Vessel Insp. Performance", intel.vip.vsl_insp_perf!=null?Number(intel.vip.vsl_insp_perf).toFixed(1):null],
+                      ["Tech Dispensations (365d)", intel.vip.tech_disp_365],
+                      ["Flag Control/Detention (365d)", intel.vip.flag_control_det_365],
+                      ["US Trading", intel.vip.us_trading],
+                    ].filter(([,v])=>v!=null && v!=="").map(([label,val],i) => (
+                      <div key={i} style={{ background: "var(--bg3)", borderRadius: "6px", padding: "8px 10px" }}>
+                        <div style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>{label}</div>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>
