@@ -414,9 +414,24 @@ export default function FleetVetting({ vessels = [] }) {
     if (age!=null && age>=20) advisory.push(`🟡 Vessel age ${age} yrs — in the higher-risk age bracket (20+).`);
     if (latestDpp && dppScore>=2) advisory.push(`🔴 DPP Vetting Risk is currently "${latestDpp}".`);
     if (totalFindings>=8) advisory.push(`🟡 ${totalFindings} PSC findings on file across ${intel.inspections.length} inspections — significant deficiency history.`);
-    if (intel.mc.length>0) advisory.push(`🟡 ${intel.mc.length} Marine Casualty record${intel.mc.length!==1?"s":""} on file.`);
-    if (intel.pi.length>0) advisory.push(`🟡 ${intel.pi.length} Personal Incident record${intel.pi.length!==1?"s":""} on file.`);
-    if (intel.mlc.length>0) advisory.push(`🟡 ${intel.mlc.length} MLC complaint${intel.mlc.length!==1?"s":""} on file.`);
+    const isOpenStatus = (s) => { const t = String(s||"").toLowerCase(); return t && !t.includes("close")&&!t.includes("complete")&&!t.includes("resolved")&&!t.includes("approved"); };
+    const mcOpen = intel.mc.filter(r=>isOpenStatus(r.case_status)).length;
+    const piOpen = intel.pi.filter(r=>isOpenStatus(r.case_status)).length;
+    const mlcOpen = intel.mlc.filter(r=>isOpenStatus(r.mlc_status)).length;
+    if (mcOpen>0) advisory.push(`🔴 ${mcOpen} Marine Casualty case${mcOpen!==1?"s":""} still OPEN (${intel.mc.length} total on file).`);
+    else if (intel.mc.length>0) advisory.push(`🟡 ${intel.mc.length} Marine Casualty record${intel.mc.length!==1?"s":""} on file, all closed.`);
+    if (piOpen>0) advisory.push(`🔴 ${piOpen} Personal Incident case${piOpen!==1?"s":""} still OPEN (${intel.pi.length} total on file).`);
+    else if (intel.pi.length>0) advisory.push(`🟡 ${intel.pi.length} Personal Incident record${intel.pi.length!==1?"s":""} on file, all closed.`);
+    if (mlcOpen>0) advisory.push(`🔴 ${mlcOpen} MLC complaint${mlcOpen!==1?"s":""} still OPEN (${intel.mlc.length} total on file).`);
+    else if (intel.mlc.length>0) advisory.push(`🟡 ${intel.mlc.length} MLC complaint${intel.mlc.length!==1?"s":""} on file, all closed.`);
+
+    const latestDetentionWithDispensation = intel.detentionHistory.find(v => v.dispensationOpenAtDetention);
+    if (latestDetentionWithDispensation?.dispensationOpenAtDetention === "Yes") {
+      advisory.push(`🔴 Dispensation was OPEN during the ${latestDetentionWithDispensation.detentionDate} detention — check current status.`);
+    }
+    if (intel.vip?.tech_disp_365 > 0) {
+      advisory.push(`🟡 ${intel.vip.tech_disp_365} technical dispensation${intel.vip.tech_disp_365!==1?"s":""} in the last 365 days.`);
+    }
     if (cStat && cStat.rate!=null && cStat.rate>=25) advisory.push(`🟡 Managing company's fleet-wide detention rate is ${cStat.rate}%.`);
     if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
     if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
