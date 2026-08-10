@@ -45,7 +45,7 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
   const [selectedYear, setSelectedYear] = useState("All");
-  const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v), [vessels]);
   // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
   const detained = useMemo(() => {
@@ -170,8 +170,15 @@ export default function MouDetentionReport({ vessels = [] }) {
 
   // ---- All MoUs, totals ----
   const mouList = useMemo(() => {
-    const counts = {};
-    detained.forEach(v => { if (v.mou) { counts[v.mou] = counts[v.mou] || {mou:v.mou, count:0, defs:0}; counts[v.mou].count++; counts[v.mou].defs += v.defs||0; } });
+    const counts = {}; // lowercase trimmed key -> { mou (display), count, defs }
+    detained.forEach(v => {
+      const raw = (v.mou||"").trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      counts[key] = counts[key] || {mou:raw, count:0, defs:0};
+      counts[key].count++;
+      counts[key].defs += v.defs||0;
+    });
     return Object.values(counts).sort((a,b)=>b.count-a.count);
   }, [detained]);
 

@@ -18,11 +18,20 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const detained = useMemo(() => vessels.filter(v => v.detained), [vessels]);
-  const mouList = useMemo(() => [...new Set(detained.map(v=>v.mou).filter(Boolean))].sort(), [detained]);
+  const detained = useMemo(() => vessels.filter(v => v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v), [vessels]);
+  const mouList = useMemo(() => {
+    const seen = new Map(); // lowercase trimmed -> display value
+    detained.forEach(v => {
+      const raw = (v.mou||"").trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      if (!seen.has(key)) seen.set(key, raw);
+    });
+    return [...seen.values()].sort();
+  }, [detained]);
   const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
   const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>new Date(v.detentionDate).getFullYear()))].sort((a,b)=>b-a), [detained]);
-  const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => v.mou === scope), [detained, scope]);
+  const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => (v.mou||"").trim().toLowerCase() === scope.trim().toLowerCase()), [detained, scope]);
   const rows = useMemo(() => {
     let r = scopedRows;
     if (companyFilter.trim()) {

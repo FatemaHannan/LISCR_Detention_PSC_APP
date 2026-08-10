@@ -336,7 +336,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
   }, [vessels]);
 
   const detained = useMemo(() => {
-    const d = vessels.filter(v=>v.detained);
+    const d = vessels.filter(v=>v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v);
     if (selectedYear === "All") return d;
     return d.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
   }, [vessels, selectedYear]);
