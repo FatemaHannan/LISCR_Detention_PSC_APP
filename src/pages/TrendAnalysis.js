@@ -53,6 +53,15 @@ export function catDef(desc) {
   return "Other";
 }
 
+function normalizeMouValue(mou) {
+  if (!mou) return mou;
+  const trimmed = mou.trim();
+  // China MSA operates under the Tokyo MoU region — combine it in, same alias already
+  // used for benchmark comparison elsewhere in this app.
+  if (trimmed.toLowerCase() === "china msa") return "Tokyo MOU";
+  return trimmed;
+}
+
 function extractCountry(port) {
   if (!port || port === "—") return "Unknown";
   const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
@@ -444,7 +453,7 @@ export default function TrendAnalysis({ vessels = [], tasks = [], setPage, onNav
   }, [vessels]);
 
   const detained = useMemo(() => {
-    const d = vessels.filter(v=>v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v);
+    const d = vessels.filter(v=>v.detained).map(v=> v.mou ? {...v, mou: normalizeMouValue(v.mou)} : v);
     if (selectedYear === "All") return d;
     return d.filter(v => v.detentionDate && String(v.detentionDate).startsWith(selectedYear));
   }, [vessels, selectedYear]);

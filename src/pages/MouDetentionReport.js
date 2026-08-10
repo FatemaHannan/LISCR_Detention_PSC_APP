@@ -6,6 +6,15 @@ import { ageBracket, AGE_BRACKET_ORDER, catDef } from "./TrendAnalysis";
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+function normalizeMouValue(mou) {
+  if (!mou) return mou;
+  const trimmed = mou.trim();
+  // China MSA operates under the Tokyo MoU region — combine it in, same alias already
+  // used for benchmark comparison elsewhere in this app.
+  if (trimmed.toLowerCase() === "china msa") return "Tokyo MOU";
+  return trimmed;
+}
+
 function extractLocation(port) {
   if (!port || port === "—") return "Unknown";
   const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
@@ -45,7 +54,7 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
   const [selectedYear, setSelectedYear] = useState("All");
-  const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v), [vessels]);
+  const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained).map(v=> v.mou ? {...v, mou: normalizeMouValue(v.mou)} : v), [vessels]);
   // YTD cutoff = today's month-day, applied to every year for a fair apples-to-apples comparison
   const todayMD = useMemo(() => new Date().toISOString().slice(5,10), []);
   const detained = useMemo(() => {

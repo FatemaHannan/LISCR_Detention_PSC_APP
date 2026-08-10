@@ -2,6 +2,15 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { CombinationBuilder } from "./TrendAnalysis";
 
+function normalizeMouValue(mou) {
+  if (!mou) return mou;
+  const trimmed = mou.trim();
+  // China MSA operates under the Tokyo MoU region — combine it in, same alias already
+  // used for benchmark comparison elsewhere in this app.
+  if (trimmed.toLowerCase() === "china msa") return "Tokyo MOU";
+  return trimmed;
+}
+
 export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [ageMap, setAgeMap] = useState({});
   const [typeMap, setTypeMap] = useState({});
@@ -18,7 +27,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const detained = useMemo(() => vessels.filter(v => v.detained).map(v=> v.mou && v.mou.trim()!==v.mou ? {...v, mou:v.mou.trim()} : v), [vessels]);
+  const detained = useMemo(() => vessels.filter(v => v.detained).map(v=> v.mou ? {...v, mou: normalizeMouValue(v.mou)} : v), [vessels]);
   const mouList = useMemo(() => {
     const seen = new Map(); // lowercase trimmed -> display value
     detained.forEach(v => {
