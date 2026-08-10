@@ -10,6 +10,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
 
   const [scope, setScope] = useState("fleet");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("All");
   const [selected, setSelected] = useState([]);
   const [savedReports, setSavedReports] = useState([]);
   const [savedLoading, setSavedLoading] = useState(true);
@@ -20,12 +21,19 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const detained = useMemo(() => vessels.filter(v => v.detained), [vessels]);
   const mouList = useMemo(() => [...new Set(detained.map(v=>v.mou).filter(Boolean))].sort(), [detained]);
   const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
+  const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>new Date(v.detentionDate).getFullYear()))].sort((a,b)=>b-a), [detained]);
   const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => v.mou === scope), [detained, scope]);
   const rows = useMemo(() => {
-    if (!companyFilter.trim()) return scopedRows;
-    const q = companyFilter.trim().toLowerCase();
-    return scopedRows.filter(v => (v.company||"").toLowerCase().includes(q));
-  }, [scopedRows, companyFilter]);
+    let r = scopedRows;
+    if (companyFilter.trim()) {
+      const q = companyFilter.trim().toLowerCase();
+      r = r.filter(v => (v.company||"").toLowerCase().includes(q));
+    }
+    if (yearFilter !== "All") {
+      r = r.filter(v => v.detentionDate && new Date(v.detentionDate).getFullYear() === Number(yearFilter));
+    }
+    return r;
+  }, [scopedRows, companyFilter, yearFilter]);
 
   const userEmail = currentUser?.email || "unknown";
 
@@ -131,6 +139,14 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
                   Clear filter
                 </button>
               )}
+            </div>
+
+            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "11px", color: "var(--text3)", marginBottom: "6px", textTransform: "uppercase", letterSpacing: ".05em" }}>Year</div>
+              <select value={yearFilter} onChange={e=>setYearFilter(e.target.value)} style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "6px", color: "var(--text)", fontSize: "13px", padding: "8px 12px", minWidth: "160px" }}>
+                <option value="All">All Years</option>
+                {yearList.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
             </div>
           </div>
 
