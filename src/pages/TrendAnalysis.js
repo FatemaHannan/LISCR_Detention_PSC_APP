@@ -67,6 +67,82 @@ function extractLocation(port) {
   return parts[0] || "Unknown";
 }
 
+// Curated port -> country lookup, since raw port data is often stored as just the port
+// name ("SHENZHEN", "Xiamen Pt") with no country suffix, which extractCountry() alone can't
+// resolve. Normalizes case and strips common "Pt"/"Port" suffixes before matching.
+const PORT_COUNTRY_MAP = {
+  // China
+  "shanghai":"China","ningbo":"China","shenzhen":"China","guangzhou":"China","qingdao":"China",
+  "tianjin":"China","xiamen":"China","dalian":"China","yingkou":"China","zhoushan":"China",
+  "rizhao":"China","lianyungang":"China","fuzhou":"China","zhanjiang":"China","yantai":"China",
+  "nantong":"China","nanjing":"China","jiangyin":"China","zhangjiagang":"China","taicang":"China",
+  "haikou":"China","beihai":"China","weihai":"China","dongguan":"China","huangpu":"China",
+  "hong kong":"China","hongkong":"China","caofeidian":"China","jingtang":"China",
+  // Japan / Korea
+  "tokyo":"Japan","yokohama":"Japan","osaka":"Japan","kobe":"Japan","nagoya":"Japan",
+  "chiba":"Japan","yokkaichi":"Japan","kawasaki":"Japan","moji":"Japan","hakata":"Japan",
+  "busan":"South Korea","incheon":"South Korea","ulsan":"South Korea","gwangyang":"South Korea",
+  // SE Asia / South Asia
+  "singapore":"Singapore","port klang":"Malaysia","tanjung pelepas":"Malaysia","penang":"Malaysia",
+  "laem chabang":"Thailand","bangkok":"Thailand","manila":"Philippines","batangas":"Philippines",
+  "jakarta":"Indonesia","surabaya":"Indonesia","ho chi minh":"Vietnam","haiphong":"Vietnam",
+  "mumbai":"India","chennai":"India","kolkata":"India","cochin":"India","kandla":"India",
+  "colombo":"Sri Lanka","chittagong":"Bangladesh","karachi":"Pakistan",
+  // Middle East
+  "jebel ali":"United Arab Emirates","dubai":"United Arab Emirates","fujairah":"United Arab Emirates",
+  "abu dhabi":"United Arab Emirates","khor fakkan":"United Arab Emirates",
+  "jeddah":"Saudi Arabia","dammam":"Saudi Arabia","king abdullah":"Saudi Arabia",
+  "bandar abbas":"Iran","kuwait":"Kuwait","doha":"Qatar","sohar":"Oman","salalah":"Oman",
+  // Europe
+  "rotterdam":"Netherlands","amsterdam":"Netherlands","antwerp":"Belgium","zeebrugge":"Belgium",
+  "hamburg":"Germany","bremerhaven":"Germany","bremen":"Germany","wilhelmshaven":"Germany",
+  "le havre":"France","marseille":"France","fos":"France","dunkirk":"France","dunkerque":"France",
+  "felixstowe":"United Kingdom","southampton":"United Kingdom","london":"United Kingdom","tilbury":"United Kingdom",
+  "liverpool":"United Kingdom","immingham":"United Kingdom","teesport":"United Kingdom",
+  "valencia":"Spain","barcelona":"Spain","algeciras":"Spain","bilbao":"Spain",
+  "genoa":"Italy","genova":"Italy","gioia tauro":"Italy","trieste":"Italy","venezia":"Italy","venice":"Italy","la spezia":"Italy","livorno":"Italy","naples":"Italy",
+  "piraeus":"Greece","thessaloniki":"Greece",
+  "gdansk":"Poland","gdynia":"Poland","klaipeda":"Lithuania","riga":"Latvia","tallinn":"Estonia",
+  "st. petersburg":"Russia","st petersburg":"Russia","saint petersburg":"Russia","novorossiysk":"Russia","kaliningrad":"Russia",
+  "constanta":"Romania","varna":"Bulgaria","burgas":"Bulgaria","istanbul":"Turkiye","izmir":"Turkiye","mersin":"Turkiye","ambarli":"Turkiye",
+  "lisbon":"Portugal","leixoes":"Portugal","sines":"Portugal",
+  "gothenburg":"Sweden","aarhus":"Denmark","copenhagen":"Denmark","oslo":"Norway",
+  "gdynia":"Poland","koper":"Slovenia","rijeka":"Croatia",
+  // Americas
+  "new york":"United States","newark":"United States","savannah":"United States","charleston":"United States",
+  "houston":"United States","los angeles":"United States","long beach":"United States","oakland":"United States",
+  "seattle":"United States","tacoma":"United States","norfolk":"United States","baltimore":"United States",
+  "miami":"United States","jacksonville":"United States","new orleans":"United States","mobile":"United States",
+  "philadelphia":"United States","wilmington":"United States","portland":"United States",
+  "vancouver":"Canada","montreal":"Canada","halifax":"Canada","saint john":"Canada",
+  "veracruz":"Mexico","manzanillo":"Mexico","altamira":"Mexico","lazaro cardenas":"Mexico",
+  "santos":"Brazil","rio de janeiro":"Brazil","paranagua":"Brazil","itajai":"Brazil","itaguai":"Brazil",
+  "buenos aires":"Argentina","valparaiso":"Chile","san antonio":"Chile","callao":"Peru",
+  "cartagena":"Colombia","balboa":"Panama","colon":"Panama","kingston":"Jamaica",
+  // Oceania / Africa
+  "brisbane":"Australia","sydney":"Australia","melbourne":"Australia","fremantle":"Australia",
+  "auckland":"New Zealand","tauranga":"New Zealand",
+  "durban":"South Africa","cape town":"South Africa","richards bay":"South Africa",
+  "lagos":"Nigeria","tema":"Ghana","abidjan":"Ivory Coast","mombasa":"Kenya",
+  "alexandria":"Egypt","port said":"Egypt","damietta":"Egypt",
+  "tangier":"Morocco","casablanca":"Morocco","algiers":"Algeria",
+};
+function resolvePortCountry(port, dynamicMap) {
+  if (!port || port === "—") return "Unknown";
+  const parsed = extractCountry(port);
+  const location = extractLocation(port);
+  // If the raw value already had a real ", Country" suffix, use that
+  if (parsed.toLowerCase() !== location.toLowerCase()) return parsed;
+  // Otherwise resolve the bare port name via the static map, stripping common suffixes
+  const clean = location.toLowerCase().replace(/\s+(pt|port)\.?$/i, "").trim();
+  if (PORT_COUNTRY_MAP[clean]) return PORT_COUNTRY_MAP[clean];
+  if (PORT_COUNTRY_MAP[location.toLowerCase()]) return PORT_COUNTRY_MAP[location.toLowerCase()];
+  // Last resort: learn from any OTHER record in the fleet's own data where this same port
+  // name appears WITH a country suffix (e.g. another row stored as "Ningbo, China")
+  if (dynamicMap && dynamicMap[clean]) return dynamicMap[clean];
+  return location; // couldn't resolve — fall back to the port name itself, same as before
+}
+
 const normImoBuilder = (imo) => String(imo||"").replace(/\.0$/,"").trim();
 
 function gtBucket(gt) {
@@ -82,13 +158,27 @@ function gtBucket(gt) {
 // combination that actually occurs in the data, ranked by count, with drill-down to
 // the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
 export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou, selected: controlledSelected, onSelectedChange }) {
+  // Learn port->country from any records in this dataset that DO have a real ", Country"
+  // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
+  const dynamicPortCountryMap = useMemo(() => {
+    const map = {};
+    rows.forEach(v => {
+      const parsed = extractCountry(v.port);
+      const location = extractLocation(v.port);
+      if (location!=="Unknown" && parsed.toLowerCase()!==location.toLowerCase()) {
+        map[location.toLowerCase()] = parsed;
+      }
+    });
+    return map;
+  }, [rows]);
+
   const DIMENSIONS = useMemo(() => {
     const base = [
       { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null); return t; } },
       { id: "age", label: "Vessel Age", get: v => { const a = ageMap && ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; } },
       { id: "ro", label: "RO (Classification Society)", get: v => v.ro && v.ro!=="—" ? v.ro : null },
       { id: "port", label: "Location / Port", get: v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; } },
-      { id: "country", label: "Country", get: v => { const c = extractCountry(v.port); return c!=="Unknown" ? c : null; } },
+      { id: "country", label: "Country", get: v => { const c = resolvePortCountry(v.port, dynamicPortCountryMap); return c!=="Unknown" ? c : null; } },
       { id: "company", label: "Company", get: v => v.company && v.company!=="—" ? v.company : null },
       { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
@@ -101,7 +191,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
     ];
     if (includeMou) base.push({ id: "mou", label: "MoU", get: v => v.mou && v.mou!=="—" ? v.mou : null });
     return base;
-  }, [includeMou, ageMap, typeMap, riskMap]);
+  }, [includeMou, ageMap, typeMap, riskMap, dynamicPortCountryMap]);
 
   const [internalSelected, setInternalSelected] = useState([]);
   const selected = controlledSelected !== undefined ? controlledSelected : internalSelected;
