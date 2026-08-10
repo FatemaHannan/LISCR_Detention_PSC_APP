@@ -784,8 +784,19 @@ export default function WeeklyData({ currentUser }) {
   }
 
   async function handleExport(cfg) {
-    const {data, error} = await supabase.from(cfg.table).select("*").limit(100000);
-    if (error || !data?.length) { alert("No data to export."); return; }
+    // A large .limit() value alone doesn't override Supabase's server-side max-rows cap —
+    // must page through with .range() to guarantee every row is actually fetched.
+    let data = [], from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data: page, error } = await supabase.from(cfg.table).select("*").range(from, from + PAGE - 1);
+      if (error) { alert("Export failed: " + error.message); return; }
+      if (!page || page.length === 0) break;
+      data = data.concat(page);
+      if (page.length < PAGE) break;
+      from += PAGE;
+    }
+    if (!data.length) { alert("No data to export."); return; }
     const SKIP = new Set(["id","created_at","uploaded_at","created","cf_eta"]);
     const colMap = cfg.exportColumns || {};
     const renamed = data.map(row => {
