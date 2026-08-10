@@ -132,12 +132,30 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
     return Object.values(groups).sort((a,b)=>b.count-a.count).slice(0,25).map(g=>({ ...g, pct: Math.round(g.count/total*100) }));
   }, [rows, activeDims]);
 
+  // Sum across ALL matched combinations (not just the top 25 shown), so the total is accurate
+  // even when there are more than 25 distinct combinations.
+  const matchedTotal = useMemo(() => {
+    if (activeDims.length < 1) return 0;
+    let count = 0;
+    rows.forEach(v => {
+      const values = activeDims.map(d => d.get(v));
+      if (values.some(x => x==null)) return;
+      count++;
+    });
+    return count;
+  }, [rows, activeDims]);
+
   const chartData = useMemo(() => combos.slice(0,15).map(c => ({ label: c.values.join(" · "), count: c.count })), [combos]);
 
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>🧩 Build Your Own Report</div>
       <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick one or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
+      {activeDims.length >= 1 && (
+        <div style={{fontSize:"14px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>
+          Total: <span style={{color:"var(--blue)"}}>{matchedTotal}</span> record{matchedTotal!==1?"s":""} across <span style={{color:"var(--blue)"}}>{combos.length}</span> {combos.length!==1?"combinations":"combination"}
+        </div>
+      )}
 
       <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
         <div style={{position:"relative"}}>
