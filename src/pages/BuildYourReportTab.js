@@ -9,6 +9,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [loading, setLoading] = useState(true);
 
   const [scope, setScope] = useState("fleet");
+  const [companyFilter, setCompanyFilter] = useState("");
   const [selected, setSelected] = useState([]);
   const [savedReports, setSavedReports] = useState([]);
   const [savedLoading, setSavedLoading] = useState(true);
@@ -18,7 +19,13 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
 
   const detained = useMemo(() => vessels.filter(v => v.detained), [vessels]);
   const mouList = useMemo(() => [...new Set(detained.map(v=>v.mou).filter(Boolean))].sort(), [detained]);
-  const rows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => v.mou === scope), [detained, scope]);
+  const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
+  const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => v.mou === scope), [detained, scope]);
+  const rows = useMemo(() => {
+    if (!companyFilter.trim()) return scopedRows;
+    const q = companyFilter.trim().toLowerCase();
+    return scopedRows.filter(v => (v.company||"").toLowerCase().includes(q));
+  }, [scopedRows, companyFilter]);
 
   const userEmail = currentUser?.email || "unknown";
 
@@ -108,6 +115,23 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
               {mouList.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <span style={{ fontSize: "11px", color: "var(--text3)", marginLeft: "10px" }}>{rows.length} detention{rows.length!==1?"s":""} in this scope</span>
+
+            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "11px", color: "var(--text3)", marginBottom: "6px", textTransform: "uppercase", letterSpacing: ".05em" }}>Filter to one company (optional)</div>
+              <input
+                value={companyFilter} onChange={e=>setCompanyFilter(e.target.value)}
+                list="byr-company-list" placeholder="e.g. MSC Shipmanagement Limited"
+                style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "6px", color: "var(--text)", fontSize: "13px", padding: "8px 12px", minWidth: "280px" }}
+              />
+              <datalist id="byr-company-list">
+                {companyList.map(c => <option key={c} value={c} />)}
+              </datalist>
+              {companyFilter && (
+                <button onClick={()=>setCompanyFilter("")} style={{ marginLeft: "8px", background: "none", border: "1px solid var(--border2)", borderRadius: "6px", color: "var(--text3)", fontSize: "12px", padding: "7px 12px", cursor: "pointer" }}>
+                  Clear filter
+                </button>
+              )}
+            </div>
           </div>
 
           {loading ? (

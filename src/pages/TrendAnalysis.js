@@ -117,7 +117,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
   const activeDims = DIMENSIONS.filter(d => selected.includes(d.id));
 
   const combos = useMemo(() => {
-    if (activeDims.length < 2) return [];
+    if (activeDims.length < 1) return [];
     const groups = {};
     rows.forEach(v => {
       const values = activeDims.map(d => d.get(v));
@@ -136,7 +136,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>🧩 Build Your Own Report</div>
-      <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick 2 or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
+      <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick one or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
 
       <div style={{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
         <div style={{position:"relative"}}>
@@ -165,7 +165,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
             ))}
           </div>
         )}
-        {activeDims.length >= 2 && (
+        {activeDims.length >= 1 && (
           <div style={{display:"flex",gap:"4px",marginLeft:"auto"}}>
             <button onClick={()=>setView("graph")} style={{background:view==="graph"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="graph"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="graph"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>📊 Graph</button>
             <button onClick={()=>setView("table")} style={{background:view==="table"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="table"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="table"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>☰ Table</button>
@@ -173,8 +173,8 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
         )}
       </div>
 
-      {activeDims.length < 2 ? (
-        <div style={{fontSize:"12px",color:"var(--text3)"}}>Select at least 2 factors above to see combinations.</div>
+      {activeDims.length < 1 ? (
+        <div style={{fontSize:"12px",color:"var(--text3)"}}>Select at least 1 factor above to see combinations.</div>
       ) : combos.length === 0 ? (
         <div style={{fontSize:"12px",color:"var(--text3)"}}>No records have all of the selected factors filled in together.</div>
       ) : view === "graph" ? (
