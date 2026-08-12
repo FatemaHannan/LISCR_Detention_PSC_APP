@@ -286,6 +286,7 @@ export default function FleetVetting({ vessels = [] }) {
     let locationAlert = null;
     let topLocationCategories = [];
     let destCountryDisplay = null;
+    let overlap = [];
     if (destinationPort.trim()) {
       const rawInput = destinationPort.trim();
       const inputCountryRaw = extractCountryFV(rawInput);
@@ -326,7 +327,7 @@ export default function FleetVetting({ vessels = [] }) {
       // This vessel's own deficiency categories, from its detention history
       const ownCategories = new Set();
       intel.detentionHistory.forEach(v => (v.deficiencies||[]).forEach(d => ownCategories.add(catDef(d.desc))));
-      const overlap = topLocationCategories.filter(c => ownCategories.has(c.cat));
+      overlap = topLocationCategories.filter(c => ownCategories.has(c.cat));
 
       if (vesselPriorAtPort.length > 0 && overlap.length > 0) {
         locationAlert = `⚠️ This vessel has previously been cited for ${overlap.map(c=>c.cat).join(", ")} — which is also among the most common findings at ${destCountryDisplay}. Elevated risk of re-detention for the same category.`;
@@ -407,6 +408,12 @@ export default function FleetVetting({ vessels = [] }) {
     if (recentDetentions >= 1 && age!=null && age>=15) { floor = maxLevel(floor, "Very High"); floorReasons.push("Detention within 36 months + vessel age 15+"); }
     if (recentDetentions >= 2) { floor = maxLevel(floor, "Very High"); floorReasons.push("Multiple detentions within 36 months"); }
     if (carIsOpen && latestCar.days_open>60) { floor = maxLevel(floor, "Medium"); floorReasons.push("CAR overdue (60+ days open)"); }
+    // ---- Force-board scenario: this vessel's own deficiency history overlaps with the destination
+    // port/country's most commonly-cited category, AND it currently has an open CAR — meaning the
+    // same kind of issue that's common at this port was never confirmed fixed. This is the strongest
+    // combination of signals available and pushes straight to Very High regardless of point score. ----
+    const forceBoardScenario = overlap.length > 0 && carIsOpen;
+    if (forceBoardScenario) { floor = maxLevel(floor, "Very High"); floorReasons.push(`Open CAR + prior ${overlap.map(c=>c.cat).join("/")} history matches ${destCountryDisplay}'s common findings`); }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
     if (isFlagInspectionDue) { floor = maxLevel(floor, "Medium"); floorReasons.push("Flag inspection due"); }
     if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=24) { floor = maxLevel(floor, "Medium"); floorReasons.push("No PSC inspection in 24+ months"); }
@@ -423,6 +430,9 @@ export default function FleetVetting({ vessels = [] }) {
       : "Standard monitoring — no significant risk indicators found in the data on file.";
     if (carIsOpen) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
+    }
+    if (forceBoardScenario) {
+      recommendation = `⛔ FORCE BOARD — this vessel's own deficiency history includes ${overlap.map(c=>c.cat).join(", ")}, one of the most commonly cited categories at ${destCountryDisplay}, and its CAR from the last Flag inspection is still open. Recommend mandatory boarding for this call rather than a discretionary one.`;
     }
 
     // ---- Everything Considered — a single synthesized briefing pulling together every active
@@ -455,6 +465,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (cStat && cStat.rate!=null && cStat.rate>=25) advisory.push(`🟡 Managing company's fleet-wide detention rate is ${cStat.rate}%.`);
     if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
     if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
+    if (forceBoardScenario) advisory.push(`⛔ FORCE BOARD RECOMMENDED — this vessel's own history includes ${overlap.map(c=>c.cat).join(", ")}, which is also among the most commonly cited findings at ${destCountryDisplay}, AND its CAR from the last Flag inspection is still open. The corrective action for a category this port is likely to check was never confirmed resolved.`);
     if (isFlagInspectionDue) advisory.push(`🔴 Flag inspection due — "${selected.overdue_isi}".`);
     if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=12) advisory.push(`🟡 Last PSC inspection was ${monthsSinceLastPsc} months ago (${lastPscDate}) — condition not recently independently verified.`);
     if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
@@ -462,7 +473,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
     if (advisory.length===0) advisory.push(`🟢 No significant concerns identified across any factor — clean profile based on data currently on file.`);
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   return (
