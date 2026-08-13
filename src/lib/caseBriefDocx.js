@@ -96,7 +96,7 @@ export async function generateCaseBriefDocx(ctx) {
   const {
     v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
     lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
-    flagInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes,
+    flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes,
     daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
   } = ctx;
 
@@ -230,11 +230,11 @@ export async function generateCaseBriefDocx(ctx) {
     pairRow("Outstanding Conditions of Class?", v.roStatus?"Yes — "+v.roStatus:"No", "Other Outstanding Findings?", v.roNotes?"Yes":"No", !!v.roStatus, !!v.roNotes),
   ]));
 
-  // Full Flag Inspection History
-  children.push(spacer(), sectionTitle("Full Flag Inspection History", SEC_COLORS.flag));
-  children.push(table(flagInspsSorted.length
-    ? flagInspsSorted.map(f => singleRow(fmtDate(f.inspection_date), (f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")))
-    : [singleRow("Flag Inspections", "None on record")]));
+  // Full Flag and PSC Inspection History
+  children.push(spacer(), sectionTitle("Full Flag and PSC Inspection History", SEC_COLORS.flag));
+  children.push(table((allInspsSorted||[]).length
+    ? allInspsSorted.map(f => singleRow(fmtDate(f.inspection_date), (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")+" — Inspector: "+(f.auditor||"—")))
+    : [singleRow("Inspections", "None on record")]));
   if (flagInspsSorted.length > 0) {
     children.push(...barTable("Flag Inspection Findings Trend",
       flagInspsSorted.slice(0,8).reverse().map(f=>({l:fmtDate(f.inspection_date), v:f.num_findings??0})), SEC_COLORS.flag));
