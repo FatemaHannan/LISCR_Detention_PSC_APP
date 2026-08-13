@@ -81,6 +81,7 @@ function mapVessel(v) {
     finalRecommendations: v.final_recommendations||"",
     fsiNotes: v.fsi_notes||"",
     detentionNotes: v.detention_notes||"",
+    meetingMinutes: v.meeting_minutes||"",
     history: tryParse(v.history),
   };
 }
@@ -112,6 +113,7 @@ function toRow(vessel) {
     final_recommendations: vessel.finalRecommendations||null,
     fsi_notes: vessel.fsiNotes||null,
     detention_notes: vessel.detentionNotes||null,
+    meeting_minutes: vessel.meetingMinutes||null,
     history: vessel.history?.length ? JSON.stringify(vessel.history) : null,
     updated_at: new Date().toISOString(),
   };

@@ -2191,7 +2191,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const wasVetted = dppBeforeDet.length>0;
                   const asiDone = asiTask&&(asiTask.status==="Executed"||asiTask.status==="Completed");
                   const briefAlerts = getSmartAlerts(v, intel, vesselTasks);
-                  const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
+                  const cutoff36mo = new Date(); cutoff36mo.setMonth(cutoff36mo.getMonth()-36);
+                  const companyHistory = (dbVessels||[]).filter(c=>c.company&&c.company===v.company&&c.id!==v.id&&c.detentionDate&&new Date(c.detentionDate)>=cutoff36mo).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const openTasksForCase = vesselTasks.filter(t=>t.status!=="Executed"&&t.status!=="Completed");
                   const vesselAge = intel?.vessel?.age || ageMap[v.imo];
                   const priorDetentions = (dbVessels||[]).filter(c=>c.imo===v.imo&&c.id!==v.id&&c.detentionDate&&(!v.detentionDate||c.detentionDate<v.detentionDate)).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
@@ -2261,7 +2262,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           +"</tr>").join("");
                         return sec(kind+" Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+headerRow+dataRows+"</table>",SEC_COLORS.admin);
                       }).join("")
-                      +sec("Company Detention History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                      +sec("Company Detention History — Last 36 Months ("+companyHistory.length+" other case"+(companyHistory.length!==1?"s":"")+")","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""),c.detainable>0?true:null)).join(""):rows("Other Cases","None on record"))
                         +"</table>",SEC_COLORS.admin)
                       +(companyHistory.length>0?barChart("Deficiencies by Case — Company History",[{l:v.name+" (this case)",v:totalDefsCount},...companyHistory.slice(0,6).map(c=>({l:c.name,v:c.defs??0}))],SEC_COLORS.admin):"")
@@ -2311,17 +2312,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"</table>",SEC_COLORS.flag)
                       +(flagInspsSorted.length>0?sec("Flag and PSC Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
-                        +allInspsSorted.slice(0,15).map(f=>"<tr>"
+                        +allInspsSorted.filter(f=>(f.num_findings??0)>0).slice(0,15).map(f=>"<tr>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+(String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings?f.num_findings+" finding(s), names not on file":"None"))+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"))+"</td>"
                           +"</tr>").join("")
                         +"</table>",SEC_COLORS.flag):"")
                       +sec("Additional / FSI Inspections After Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
-                        +"</table>",SEC_COLORS.flag)
-                      +sec("Port History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
-                        +(portHistory.length?portHistory.map(p=>rows(fmtDate(p.inspection_date),p.port+" — "+(p.mou||"")+" — "+(p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"DETAINED":(p.num_findings??0)+" defs"),(p.was_detained===true||String(p.was_detained).toLowerCase()==="true")?true:null)).join(""):rows("Port History","None on record"))
                         +"</table>",SEC_COLORS.flag)
                       +sec("RO Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +rows("Last RO Survey Date",v.roSurveyDate)+rows("Findings",v.roFindings)+rows("Outstanding Conditions of Class",v.roStatus,v.roStatus?true:null)+rows("Other Findings / Notes",v.roNotes)
@@ -2416,7 +2414,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         </div>
                         {companyHistory.length>0&&(
                           <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
-                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Company Detention History ({companyHistory.length} other case{companyHistory.length>1?"s":""})</div>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Company Detention History — Last 36 Months ({companyHistory.length} other case{companyHistory.length>1?"s":""})</div>
                             {companyHistory.map((c,i)=>(
                               <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<companyHistory.length-1?"1px solid var(--border)":"none",fontSize:"13px"}}>
                                 <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(c.detentionDate)}</span>
@@ -2546,20 +2544,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             </div>
                           )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspections recorded after this detention.</div>}
                         </div>
-                      </div>
-
-                      {/* Port History */}
-                      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Port History ({portHistory.length} inspections)</div>
-                        {portHistory.length>0?portHistory.map((p,i)=>(
-                          <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<portHistory.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
-                            <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(p.inspection_date)}</span>
-                            <span style={{color:"var(--text2)"}}>{p.port}</span>
-                            <span style={{color:"var(--text3)"}}>{p.mou||""}</span>
-                            <span style={{color:"var(--text3)"}}>{p.flag_psc||""}</span>
-                            <span style={{color:p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"var(--red2)":"var(--text3)",marginLeft:"auto",flexShrink:0}}>{p.was_detained===true||String(p.was_detained).toLowerCase()==="true"?"DETAINED":(p.num_findings??0)+" defs"}</span>
-                          </div>
-                        )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No port history on record.</div>}
                       </div>
 
                       {/* RO Survey History */}
@@ -2800,7 +2784,52 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       )}
 
       {/* Edit modal */}
-      {editModal&&(
+      {editModal&&(()=>{
+        const NOTE_FIELDS = {
+          detentionNotes: {label:"Detention Notes", key:"detentionNotes"},
+          vetting: {label:"Vetting Notes", key:"vettingNotes"},
+          recommendations: {label:"Final Recommendations", key:"finalRecommendations"},
+          fsiNotes: {label:"FSI Notes", key:"fsiNotes"},
+          meetingMinutes: {label:"Meeting Minutes & Decisions", key:"meetingMinutes"},
+        };
+        // Simple text-note edits (Detention Notes, Vetting Notes, Recommendations, FSI Notes, Meeting Minutes)
+        // — all save directly to the vessel record via saveVesselEdit
+        if (typeof editModal === "string" && NOTE_FIELDS[editModal]) {
+          const nf = NOTE_FIELDS[editModal];
+          return (
+            <EditModal
+              title={"Edit — "+nf.label}
+              fields={[{key:nf.key, label:nf.label, type:"textarea"}]}
+              data={{[nf.key]: v?.[nf.key]||""}}
+              onSave={updates=>{saveVesselEdit(updates);setEditModal(null);}}
+              onClose={()=>setEditModal(null)}
+            />
+          );
+        }
+        // Individual deficiency edit — updates one entry inside v.deficiencies and saves the whole array
+        if (editModal && typeof editModal === "object" && editModal.type === "deficiency") {
+          return (
+            <EditModal
+              title={"Edit Deficiency #"+(editModal.index+1)}
+              fields={[
+                {key:"code", label:"Deficiency Code", type:"text"},
+                {key:"desc", label:"Description", type:"textarea"},
+                {key:"action", label:"Action Code", type:"text"},
+                {key:"detainable", label:"Detainable?", type:"select", options:["No","Yes"]},
+              ]}
+              data={{...editModal.data, detainable: editModal.data.detainable?"Yes":"No"}}
+              onSave={updates=>{
+                const list = [...(v.deficiencies||[])];
+                list[editModal.index] = {...list[editModal.index], ...updates, detainable: updates.detainable==="Yes"};
+                saveVesselEdit({deficiencies:list});
+                setEditModal(null);
+              }}
+              onClose={()=>setEditModal(null)}
+            />
+          );
+        }
+        // Default: full vessel-facts edit ("overview")
+        return (
         <EditModal
           title={"Edit — "+v?.name}
           fields={[
@@ -2829,7 +2858,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           onSave={updates=>{saveVesselEdit(updates);setEditModal(null);}}
           onClose={()=>setEditModal(null)}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }

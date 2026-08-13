@@ -170,7 +170,7 @@ export async function generateCaseBriefDocx(ctx) {
   ]));
 
   // Company Detention History
-  children.push(spacer(), sectionTitle("Company Detention History", SEC_COLORS.admin));
+  children.push(spacer(), sectionTitle("Company Detention History — Last 36 Months ("+companyHistory.length+" other case"+(companyHistory.length!==1?"s":"")+")", SEC_COLORS.admin));
   children.push(table(companyHistory.length
     ? companyHistory.map(c => singleRow(fmtDate(c.detentionDate), c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""), c.detainable>0))
     : [singleRow("Other Cases", "None on record")]));
@@ -242,11 +242,14 @@ export async function generateCaseBriefDocx(ctx) {
       if (!findingNamesByDate[f.insp_date]) findingNamesByDate[f.insp_date] = [];
       findingNamesByDate[f.insp_date].push(f.main_defect_text || f.full_description || f.defect_code || "Unspecified");
     });
-    children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
-    children.push(table((allInspsSorted||[]).slice(0,15).map(f => singleRow(
-      fmtDate(f.inspection_date),
-      (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings?f.num_findings+" finding(s), names not on file":"None"))
-    ))));
+    const trendRows = (allInspsSorted||[]).filter(f => (f.num_findings??0) > 0).slice(0,15);
+    if (trendRows.length > 0) {
+      children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
+      children.push(table(trendRows.map(f => singleRow(
+        fmtDate(f.inspection_date),
+        (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"))
+      ))));
+    }
   }
 
   // Additional / FSI Inspections After Detention
@@ -254,12 +257,6 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(table(postDetInspections.length
     ? postDetInspections.map(ins => singleRow(fmtDate(ins.inspection_date), (ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":"")))
     : [singleRow("Inspections", "None recorded after this detention")]));
-
-  // Port History
-  children.push(spacer(), sectionTitle("Port History", SEC_COLORS.flag));
-  children.push(table(portHistory.length
-    ? portHistory.map(p => singleRow(fmtDate(p.inspection_date), p.port+" — "+(p.mou||"")+" — "+((p.was_detained===true||String(p.was_detained).toLowerCase()==="true")?"DETAINED":(p.num_findings??0)+" defs"), (p.was_detained===true||String(p.was_detained).toLowerCase()==="true")))
-    : [singleRow("Port History", "None on record")]));
 
   // RO Survey History
   children.push(spacer(), sectionTitle("RO Survey History", SEC_COLORS.ro));
