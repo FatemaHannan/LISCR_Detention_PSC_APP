@@ -236,8 +236,17 @@ export async function generateCaseBriefDocx(ctx) {
     ? allInspsSorted.map(f => singleRow(fmtDate(f.inspection_date), (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")+" — Inspector: "+(f.auditor||"—")))
     : [singleRow("Inspections", "None on record")]));
   if (flagInspsSorted.length > 0) {
-    children.push(...barTable("Flag Inspection Findings Trend",
-      flagInspsSorted.slice(0,8).reverse().map(f=>({l:fmtDate(f.inspection_date), v:f.num_findings??0})), SEC_COLORS.flag));
+    const findingNamesByDate = {};
+    (intel?.findings||[]).forEach(f => {
+      if (!f.insp_date) return;
+      if (!findingNamesByDate[f.insp_date]) findingNamesByDate[f.insp_date] = [];
+      findingNamesByDate[f.insp_date].push(f.main_defect_text || f.full_description || f.defect_code || "Unspecified");
+    });
+    children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
+    children.push(table((allInspsSorted||[]).slice(0,15).map(f => singleRow(
+      fmtDate(f.inspection_date),
+      (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings?f.num_findings+" finding(s), names not on file":"None"))
+    ))));
   }
 
   // Additional / FSI Inspections After Detention

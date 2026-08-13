@@ -2162,6 +2162,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const flagInspsSorted = (intel?.inspections||[]).filter(i=>String(i.flag_psc||"").toUpperCase().includes("FLAG")).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
                   const lastFlagInsp = flagInspsSorted[0];
                   const allInspsSorted = (intel?.inspections||[]).slice().sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
+                  const findingNamesByDate = {};
+                  (intel?.findings||[]).forEach(f => {
+                    if (!f.insp_date) return;
+                    if (!findingNamesByDate[f.insp_date]) findingNamesByDate[f.insp_date] = [];
+                    findingNamesByDate[f.insp_date].push(f.main_defect_text || f.full_description || f.defect_code || "Unspecified");
+                  });
                   const portHistory = (intel?.inspections||[]).filter(i=>i.port).sort((a,b)=>new Date(b.inspection_date)-new Date(a.inspection_date));
                   const daysBeforeDet = lastFlagDate?Math.floor((detDate-new Date(lastFlagDate))/86400000):(lastFlagInsp?.inspection_date?Math.floor((detDate-new Date(lastFlagInsp.inspection_date))/86400000):null);
                   // simple code-overlap check between flag findings and this case's deficiencies
@@ -2303,7 +2309,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.auditor||"—")+"</td>"
                           +"</tr>").join(""):rows("Inspections","None on record"))
                         +"</table>",SEC_COLORS.flag)
-                      +(flagInspsSorted.length>0?barChart("Flag Inspection Findings Trend",flagInspsSorted.slice(0,8).reverse().map(f=>({l:fmtDate(f.inspection_date),v:f.num_findings??0})),SEC_COLORS.flag):"")
+                      +(flagInspsSorted.length>0?sec("Flag and PSC Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
+                        +allInspsSorted.slice(0,15).map(f=>"<tr>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings?f.num_findings+" finding(s), names not on file":"None"))+"</td>"
+                          +"</tr>").join("")
+                        +"</table>",SEC_COLORS.flag):"")
                       +sec("Additional / FSI Inspections After Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
                         +"</table>",SEC_COLORS.flag)
