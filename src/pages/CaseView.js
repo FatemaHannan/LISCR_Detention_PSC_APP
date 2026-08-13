@@ -2204,6 +2204,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const SEC_COLORS = {admin:"#1e3a5f",detention:"#8b2020",vetting:"#8a5a00",flag:"#0e6b7a",ro:"#5b3a8a",casualty:"#8b2020",mlc:"#8a5a00",disp:"#5b3a8a",flags:"#4a4a4a",rec:"#1e6b45"};
                   const rows = (label,value,alert)=>"<tr><td style='padding:7px 12px;border:1px solid #ccc;color:#222;width:32%;background:#f4f5f7;font-weight:600;'>"+label+"</td><td style='padding:7px 12px;border:1px solid #ccc;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
                   const sec = (title,bodyHtml,color)=>{ const c=color||"#333"; return "<div style='margin:0 0 18px;'><p style='font-weight:700;font-size:12.5pt;margin:0 0 8px;padding-left:9px;border-left:4px solid "+c+";color:"+c+";'>"+title+"</p>"+bodyHtml+"</div>"; };
+                  const typeLabel = (fp)=>{ const isFlag=String(fp||"").toUpperCase().includes("FLAG"); return "<span style='font-weight:700;color:"+(isFlag?"#0e6b7a":"#8a5a00")+";'>"+(isFlag?"Flag":"PSC")+"</span>"; };
                   const cell = (v,alert)=>"<td style='padding:7px 12px;border:1px solid #ccc;width:18%;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(v==null||v===""?"—":v)+"</td>";
                   const lbl = (l)=>"<td style='padding:7px 12px;border:1px solid #ccc;background:#f4f5f7;font-weight:600;color:#222;width:32%;'>"+l+"</td>";
                   const pair = (l1,v1,l2,v2,a1,a2)=>"<tr>"+lbl(l1)+cell(v1,a1)+(l2!=null?lbl(l2)+cell(v2,a2):"<td style='border:1px solid #ccc;'></td><td style='border:1px solid #ccc;'></td>")+"</tr>";
@@ -2265,7 +2266,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +sec("Company Detention History — Last 36 Months ("+companyHistory.length+" other case"+(companyHistory.length!==1?"s":"")+")","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""),c.detainable>0?true:null)).join(""):rows("Other Cases","None on record"))
                         +"</table>",SEC_COLORS.admin)
-                      +(companyHistory.length>0?barChart("Deficiencies by Case — Company History",[{l:v.name+" (this case)",v:totalDefsCount},...companyHistory.slice(0,6).map(c=>({l:c.name,v:c.defs??0}))],SEC_COLORS.admin):"")
+
                       +sec("Detention Details","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Date",v.detentionDate,"Port (Country)",v.port)
                         +pair("MoU",v.mou,"PSCO",v.psco)
@@ -2303,7 +2304,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"<tr>"+["Date","Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +(allInspsSorted.length?allInspsSorted.map(f=>"<tr>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+typeLabel(f.flag_psc)+"</td>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.port||"—")+"</td>"
                           +"<td style='padding:5px 8px;border:1px solid #999;"+(f.num_findings>=5?"color:#a30000;font-weight:bold;":"")+"'>"+(f.num_findings??0)+"</td>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.car_status||"—")+"</td>"
@@ -2314,7 +2315,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +allInspsSorted.filter(f=>(f.num_findings??0)>0).slice(0,15).map(f=>"<tr>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+typeLabel(f.flag_psc)+"</td>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"))+"</td>"
                           +"</tr>").join("")
                         +"</table>",SEC_COLORS.flag):"")

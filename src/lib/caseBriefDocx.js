@@ -48,6 +48,21 @@ function boxHeadRow(title, colorHex) {
   });
 }
 // 2-column "rows()" equivalent: label (32%) | value (68%)
+// 2-column row where the value starts with a colored "Flag"/"PSC" label, rest of the text normal color
+function typedRow(label, flagPsc, restText) {
+  const labelW = Math.round(PAGE_WIDTH_DXA * 0.32), valW = PAGE_WIDTH_DXA - labelW;
+  const isFlag = String(flagPsc||"").toUpperCase().includes("FLAG");
+  const valCell = new TableCell({
+    width: { size: valW, type: WidthType.DXA },
+    borders: CELL_BORDERS,
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ children: [
+      new TextRun({ text: isFlag?"Flag":"PSC", bold: true, size: 20, color: isFlag?"0E6B7A":"8A5A00" }),
+      new TextRun({ text: " — "+fmt(restText), size: 20, color: "111111" }),
+    ] })],
+  });
+  return new TableRow({ cantSplit: true, children: [labelCell(label, labelW), valCell] });
+}
 function singleRow(label, value, alert) {
   const labelW = Math.round(PAGE_WIDTH_DXA * 0.32), valW = PAGE_WIDTH_DXA - labelW;
   return new TableRow({ cantSplit: true, children: [labelCell(label, labelW), valueCell(value, valW, alert)] });
@@ -174,10 +189,6 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(table(companyHistory.length
     ? companyHistory.map(c => singleRow(fmtDate(c.detentionDate), c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""), c.detainable>0))
     : [singleRow("Other Cases", "None on record")]));
-  if (companyHistory.length > 0) {
-    children.push(...barTable("Deficiencies by Case — Company History",
-      [{l:v.name+" (this case)", v:totalDefsCount}, ...companyHistory.slice(0,6).map(c=>({l:c.name, v:c.defs??0}))], SEC_COLORS.admin));
-  }
 
   // Detention Details
   children.push(spacer(), sectionTitle("Detention Details", SEC_COLORS.detention));
@@ -233,7 +244,7 @@ export async function generateCaseBriefDocx(ctx) {
   // Full Flag and PSC Inspection History
   children.push(spacer(), sectionTitle("Full Flag and PSC Inspection History", SEC_COLORS.flag));
   children.push(table((allInspsSorted||[]).length
-    ? allInspsSorted.map(f => singleRow(fmtDate(f.inspection_date), (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+(f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")+" — Inspector: "+(f.auditor||"—")))
+    ? allInspsSorted.map(f => typedRow(fmtDate(f.inspection_date), f.flag_psc, (f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")+" — Inspector: "+(f.auditor||"—")))
     : [singleRow("Inspections", "None on record")]));
   if (flagInspsSorted.length > 0) {
     const findingNamesByDate = {};
@@ -245,9 +256,9 @@ export async function generateCaseBriefDocx(ctx) {
     const trendRows = (allInspsSorted||[]).filter(f => (f.num_findings??0) > 0).slice(0,15);
     if (trendRows.length > 0) {
       children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
-      children.push(table(trendRows.map(f => singleRow(
-        fmtDate(f.inspection_date),
-        (String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC")+" — "+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"))
+      children.push(table(trendRows.map(f => typedRow(
+        fmtDate(f.inspection_date), f.flag_psc,
+        (findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file")
       ))));
     }
   }
