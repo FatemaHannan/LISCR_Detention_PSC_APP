@@ -663,7 +663,42 @@ export default function FleetVetting({ vessels = [] }) {
                 </div>
               )}
 
+              {(() => {
+                const pscInsps = intel.inspections.filter(r => String(r.flag_psc||"").trim()==="PSC");
+                const flagInsps = intel.inspections.filter(r => ["Flag","Flag State Control","Flag State Detention"].includes(String(r.flag_psc||"").trim()));
+                const classInsps = intel.inspections.filter(r => String(r.flag_psc||"").trim()==="CLASS");
+                return (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>PSC Inspection History ({pscInsps.length})</div>
+                  {pscInsps.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No PSC inspections on file.</div> : (
+                    pscInsps.slice(0,10).map((r,i) => (
+                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                        <b>{r.inspection_date}</b> — {r.inspection_type||"—"} · {r.num_findings||0} findings
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Flag Inspection History ({flagInsps.length})</div>
+                  {flagInsps.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No Flag inspections on file.</div> : (
+                    flagInsps.slice(0,10).map((r,i) => (
+                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                        <b>{r.inspection_date}</b> — {r.flag_psc} · {r.inspection_type||"—"} · {r.num_findings||0} findings
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>RO / Class Survey History ({classInsps.length})</div>
+                  {classInsps.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No RO/Class surveys on file.</div> : (
+                    classInsps.slice(0,10).map((r,i) => (
+                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                        <b>{r.inspection_date}</b> — {r.inspection_type||"—"} · {r.num_findings||0} findings
+                      </div>
+                    ))
+                  )}
+                </div>
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
                   <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Detention History ({intel.detentionHistory.length})</div>
                   {intel.detentionHistory.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No detentions on file.</div> : (
@@ -675,18 +710,8 @@ export default function FleetVetting({ vessels = [] }) {
                   )}
                 </div>
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>PSC Inspection History ({intel.inspections.length})</div>
-                  {intel.inspections.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No inspections on file.</div> : (
-                    intel.inspections.slice(0,10).map((r,i) => (
-                      <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
-                        <b>{r.inspection_date}</b> — {r.inspection_type||"—"} · {r.num_findings||0} findings
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Flag Inspection & CAR History ({intel.cars.length})</div>
-                  {intel.cars.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No Flag inspections on file.</div> : (
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>CAR History ({intel.cars.length})</div>
+                  {intel.cars.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No CAR records on file.</div> : (
                     intel.cars.slice(0,10).map((c,i) => {
                       const closed = c.car_status && (c.car_status.toLowerCase().includes("complete")||c.car_status.toLowerCase().includes("closed")||c.car_status.toLowerCase().includes("approved"));
                       const open = c.car_status && !closed && c.car_status!=="No Deficiencies" && c.car_status.trim()!=="";
@@ -756,6 +781,8 @@ export default function FleetVetting({ vessels = [] }) {
                   )}
                 </div>
               </div>
+                );
+              })()}
 
               {intel.vip && (
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
