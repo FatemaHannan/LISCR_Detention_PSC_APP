@@ -594,17 +594,30 @@ export default function FleetVetting({ vessels = [] }) {
                 )}
               </div>
 
-              {riskAssessment.inspectionOverdue && (
-              <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>
-                  🔴 Inspection Overdue
+              {(intel.inspections?.length>0 || intel.due) && (
+              <div style={{ background: riskAssessment.inspectionOverdue?"var(--red-bg)":"var(--bg2)", border: "1px solid "+(riskAssessment.inspectionOverdue?"#3D1A1A":"var(--border)"), borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: riskAssessment.inspectionOverdue?"var(--red2)":"var(--text)", marginBottom: "8px" }}>
+                  {riskAssessment.inspectionOverdue ? "🔴 Last Inspection & Inspection Overdue" : "Last Inspection & Current Due Status"}
                 </div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--red2)" }}>
-                  {intel.due.earliest_due_status}{intel.due.earliest_due?` — due ${intel.due.earliest_due}`:""}
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--text2)", marginTop: "4px" }}>
-                  Recommend boarding to confirm compliance status before this call.
-                </div>
+                {intel.inspections?.length>0 ? (
+                  <div style={{ fontSize: "13px", color: "var(--text2)", marginBottom: "8px" }}>
+                    Last inspection: <b>{intel.inspections[0].inspection_date}</b> — {intel.inspections[0].flag_psc||"—"} · {intel.inspections[0].inspection_type||"—"}{intel.inspections[0].port?` · ${intel.inspections[0].port}`:""} · {intel.inspections[0].num_findings||0} findings
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "var(--text3)", marginBottom: "8px" }}>No inspection history on file.</div>
+                )}
+                {intel.due ? (
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: riskAssessment.inspectionOverdue?"var(--red2)":"var(--text2)" }}>
+                    Currently due: {intel.due.earliest_due_status||"—"}{intel.due.earliest_due?` — ${intel.due.earliest_due}`:""}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "var(--text3)" }}>No Inspection Due record on file for this vessel.</div>
+                )}
+                {riskAssessment.inspectionOverdue && (
+                  <div style={{ fontSize: "13px", color: "var(--text2)", marginTop: "4px" }}>
+                    Recommend boarding to confirm compliance status before this call.
+                  </div>
+                )}
               </div>
               )}
 
