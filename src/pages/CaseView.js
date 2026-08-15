@@ -2286,6 +2286,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Date",v.detentionDate,"Port (Country)",v.port)
                         +pair("MoU",v.mou,"PSCO",v.psco)
                         +pair("Total Deficiencies",totalDefsCount,"Total Detainable",totalDetainableCount,false,totalDetainableCount>0)
+                        +(intel?.due?pair("Inspection Due Status (current)",intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (was already due before this detention)":""),null,null,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")):"")
                         +"</table>",SEC_COLORS.detention)
                       +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
@@ -2475,6 +2476,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="PSCO" value={v.psco||"—"} />
                           <Row label="Total Deficiencies" value={totalDefsCount} />
                           <Row label="Total Detainable" value={totalDetainableCount} red={totalDetainableCount>0} />
+                          {intel?.due&&<Row label="Inspection Due (current)" value={intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (was already due before this detention)":"")} red={String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")} />}
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Main Detainable Deficiencies</div>

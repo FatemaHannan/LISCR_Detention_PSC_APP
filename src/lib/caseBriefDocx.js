@@ -196,6 +196,7 @@ export async function generateCaseBriefDocx(ctx) {
     pairRow("Date", v.detentionDate, "Port (Country)", v.port),
     pairRow("MoU", v.mou, "PSCO", v.psco),
     pairRow("Total Deficiencies", totalDefsCount, "Total Detainable", totalDetainableCount, false, totalDetainableCount>0),
+    ...(intel?.due ? [pairRow("Inspection Due (current)", intel.due.earliest_due_status+(intel.due.earliest_due?" — "+intel.due.earliest_due:"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (already due before this detention)":""), null, null, String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))] : []),
   ]));
 
   // Main Detainable Deficiencies
