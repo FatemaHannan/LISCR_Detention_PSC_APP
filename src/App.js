@@ -127,7 +127,7 @@ export default function App() {
       let all = [], from = 0;
       const PAGE = 1000;
       while (true) {
-        const { data, error } = await supabase.from("inspection_due").select("vessel,imo,earliest_due_status,earliest_due,asi_due_status").range(from, from+PAGE-1);
+        const { data, error } = await supabase.from("inspection_due").select("vessel,imo,earliest_due_status,earliest_due,asi_due,asi_due_status,bianl_due,bianl_due_status,quarterly_due,quarterly_due_status,ihm_due,ism,ism_window,isps,isps_window,mlc,mlc_window").range(from, from+PAGE-1);
         if (error) { console.error("[Home] inspection_due fetch error:", error.message); break; }
         if (!data || data.length === 0) break;
         all = all.concat(data);
@@ -279,8 +279,28 @@ export default function App() {
 
             const dueOverdue = inspectionDue.filter(r=>String(r.earliest_due_status||"").toLowerCase().includes("overdue"));
             const dueBadly = dueOverdue.filter(r=>{const s=String(r.earliest_due_status||"").toLowerCase(); return s.includes("2 yr")||s.includes("2 yrs")||s.includes("over 2");});
-            const dueSoon = inspectionDue.filter(r=>{const s=String(r.earliest_due_status||"").toLowerCase(); return s.includes("due")&&!s.includes("overdue");});
             const dueTop = [...dueOverdue].sort((a,b)=>new Date(a.earliest_due||0)-new Date(b.earliest_due||0)).slice(0,5);
+
+            // Overdue now, broken down by inspection type
+            const overdueByType = [
+              {label:"ASI", count: inspectionDue.filter(r=>String(r.asi_due_status||"").toLowerCase().includes("overdue")).length},
+              {label:"Bi-Annual", count: inspectionDue.filter(r=>String(r.bianl_due_status||"").toLowerCase().includes("overdue")).length},
+              {label:"Quarterly", count: inspectionDue.filter(r=>String(r.quarterly_due_status||"").toLowerCase().includes("overdue")).length},
+              {label:"IHM", count: inspectionDue.filter(r=>r.ihm_due&&String(r.ihm_due).trim()).length},
+              {label:"ISM", count: inspectionDue.filter(r=>r.ism&&String(r.ism).trim()).length},
+              {label:"ISPS", count: inspectionDue.filter(r=>r.isps&&String(r.isps).trim()).length},
+              {label:"MLC", count: inspectionDue.filter(r=>r.mlc&&String(r.mlc).trim()).length},
+            ].filter(t=>t.count>0);
+
+            // Due within the next 3 months (not yet overdue)
+            const today3 = new Date(); const in3mo = new Date(); in3mo.setMonth(in3mo.getMonth()+3);
+            const isUpcoming = (dateStr) => { if(!dateStr) return false; const d=new Date(dateStr); return d>=today3 && d<=in3mo; };
+            const dueSoonByType = [
+              {label:"ASI", rows: inspectionDue.filter(r=>isUpcoming(r.asi_due))},
+              {label:"Bi-Annual", rows: inspectionDue.filter(r=>isUpcoming(r.bianl_due))},
+              {label:"Quarterly", rows: inspectionDue.filter(r=>isUpcoming(r.quarterly_due))},
+            ].filter(t=>t.rows.length>0);
+            const dueSoonTotal = dueSoonByType.reduce((a,t)=>a+t.rows.length,0);
 
             const NAV_CARDS = [
               {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detainedAll.length+" detained vessels",color:"var(--blue)",badge:detainedAll.length},
@@ -398,8 +418,19 @@ export default function App() {
                     <div style={{display:"flex",gap:"16px",marginBottom:"10px"}}>
                       <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueOverdue.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Overdue</div></div>
                       <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueBadly.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>2+ Yrs Overdue</div></div>
-                      <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--amber2)"}}>{dueSoon.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Due Soon</div></div>
                     </div>
+                    {overdueByType.length>0 && (
+                      <div style={{marginBottom:"10px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Overdue by Type</div>
+                        {overdueByType.map(t=>(
+                          <div key={t.label} className="bar-r">
+                            <div className="bar-l">{t.label}</div>
+                            <div className="bar-t"><div className="bar-f" style={{width:`${(t.count/Math.max(...overdueByType.map(x=>x.count)))*100}%`,background:"var(--red)"}}></div></div>
+                            <div className="bar-v">{t.count}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {dueTop.length>0 && (
                       <div style={{borderTop:"1px solid var(--border)",paddingTop:"8px"}}>
                         <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Overdue</div>
@@ -414,6 +445,25 @@ export default function App() {
                   </>
                   )}
                 </div>
+
+                {/* Due in Next 3 Months */}
+                {dueSoonByType.length>0 && (
+                <div className="card">
+                  <div className="card-t">Due in Next 3 Months <span style={{fontWeight:400,color:"var(--text3)",fontSize:"12px"}}>({dueSoonTotal} vessels)</span></div>
+                  {dueSoonByType.map(t=>(
+                    <div key={t.label} style={{marginBottom:"10px"}}>
+                      <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"4px"}}>{t.label} ({t.rows.length})</div>
+                      {t.rows.slice(0,4).map((r,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"12px",padding:"2px 0"}}>
+                          <span style={{color:"var(--text3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
+                          <span style={{color:"var(--amber2)",flexShrink:0}}>{t.label==="ASI"?r.asi_due:t.label==="Bi-Annual"?r.bianl_due:r.quarterly_due}</span>
+                        </div>
+                      ))}
+                      {t.rows.length>4 && <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>+{t.rows.length-4} more</div>}
+                    </div>
+                  ))}
+                </div>
+                )}
 
                 {/* Top companies */}
                 <div className="card">
