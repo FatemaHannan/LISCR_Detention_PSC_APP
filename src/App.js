@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { supabase } from "./lib/supabase";
 import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
 import WeeklyData from "./pages/WeeklyData";
@@ -115,12 +116,26 @@ export default function App() {
   const [fleetVessels, setFleetVessels] = useState(VESSELS);
   const [fleetTasks, setFleetTasks] = useState(TASKS);
   const [fleetDataLoaded, setFleetDataLoaded] = useState(false);
+  const [inspectionDue, setInspectionDue] = useState([]);
 
   React.useEffect(() => {
     Promise.all([
       getVessels().then(v => setFleetVessels(v||[])),
       getTasks().then(t => setFleetTasks(t||[])),
     ]).then(() => setFleetDataLoaded(true));
+    (async () => {
+      let all = [], from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase.from("inspection_due").select("vessel,imo,earliest_due_status,earliest_due,asi_due_status").range(from, from+PAGE-1);
+        if (error) { console.error("[Home] inspection_due fetch error:", error.message); break; }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      setInspectionDue(all);
+    })();
   }, []);
   const [processing, setProcessing] = useState(false);
   const messagesEndRef = useRef(null);
@@ -262,6 +277,11 @@ export default function App() {
             const yearData=Object.entries(yearCounts).sort((a,b)=>a[0]>b[0]?1:-1);
             const maxYear=yearData.length?Math.max(...yearData.map(y=>y[1])):1;
 
+            const dueOverdue = inspectionDue.filter(r=>String(r.earliest_due_status||"").toLowerCase().includes("overdue"));
+            const dueBadly = dueOverdue.filter(r=>{const s=String(r.earliest_due_status||"").toLowerCase(); return s.includes("2 yr")||s.includes("2 yrs")||s.includes("over 2");});
+            const dueSoon = inspectionDue.filter(r=>{const s=String(r.earliest_due_status||"").toLowerCase(); return s.includes("due")&&!s.includes("overdue");});
+            const dueTop = [...dueOverdue].sort((a,b)=>new Date(a.earliest_due||0)-new Date(b.earliest_due||0)).slice(0,5);
+
             const NAV_CARDS = [
               {id:"case",icon:"ti-file-analytics",label:"Case View",desc:"All "+detainedAll.length+" detained vessels",color:"var(--blue)",badge:detainedAll.length},
               {id:"evp",icon:"ti-presentation",label:"EVP Briefing",desc:"Live executive summary",color:"var(--amber2)",badge:null},
@@ -366,6 +386,33 @@ export default function App() {
                       <div className="bar-v">{v}</div>
                     </div>
                   ))}
+                </div>
+
+                {/* Inspection Due */}
+                <div className="card">
+                  <div className="card-t">Inspection Due <span style={{fontWeight:400,color:"var(--text3)",fontSize:"12px"}}>(fleet-wide)</span></div>
+                  {inspectionDue.length===0 ? (
+                    <div style={{fontSize:"13px",color:"var(--text3)"}}>No Inspection Due data on file. Upload it in Weekly Data.</div>
+                  ) : (
+                  <>
+                    <div style={{display:"flex",gap:"16px",marginBottom:"10px"}}>
+                      <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueOverdue.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Overdue</div></div>
+                      <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueBadly.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>2+ Yrs Overdue</div></div>
+                      <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--amber2)"}}>{dueSoon.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Due Soon</div></div>
+                    </div>
+                    {dueTop.length>0 && (
+                      <div style={{borderTop:"1px solid var(--border)",paddingTop:"8px"}}>
+                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Overdue</div>
+                        {dueTop.map((r,i)=>(
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"12px",padding:"3px 0"}}>
+                            <span style={{color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
+                            <span style={{color:"var(--red2)",fontWeight:600,flexShrink:0}}>{r.earliest_due_status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                  )}
                 </div>
 
                 {/* Top companies */}
