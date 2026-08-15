@@ -165,7 +165,7 @@ export default function FleetVetting({ vessels = [] }) {
     setArrivalDate("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
-    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows] = await Promise.all([
+    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows, dueRows] = await Promise.all([
       fetchAll("inspection_history", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("dpp_vetting_history", "*", q=>q.eq("imo", imoStr).order("created_date",{ascending:false})),
       fetchAll("vessel_casualty", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
@@ -175,9 +175,10 @@ export default function FleetVetting({ vessels = [] }) {
       fetchAll("flag_psc_findings", "*", q=>q.eq("imo", imoStr).order("insp_date",{ascending:false})),
       fetchAll("psc_detention_summary", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("vessel_inspection_performance", "*", q=>q.eq("imo", imoStr).limit(1)),
+      fetchAll("inspection_due", "*", q=>q.eq("imo", imoStr).limit(1)),
     ]);
     const detentionHistory = detained.filter(v => String(v.imo)===imoStr).sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
-    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null });
+    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null, due: dueRows[0]||null });
     setIntelLoading(false);
   }
 
@@ -414,6 +415,14 @@ export default function FleetVetting({ vessels = [] }) {
     // combination of signals available and pushes straight to Very High regardless of point score. ----
     const forceBoardScenario = overlap.length > 0 && carIsOpen;
     if (forceBoardScenario) { floor = maxLevel(floor, "Very High"); floorReasons.push(`Open CAR + prior ${overlap.map(c=>c.cat).join("/")} history matches ${destCountryDisplay}'s common findings`); }
+    // ---- Overdue statutory inspection (ASI, IHM, etc.) — from the Inspection Due report ----
+    const dueStatus = String(intel?.due?.earliest_due_status||"").toLowerCase();
+    const inspectionOverdue = dueStatus.includes("overdue");
+    if (inspectionOverdue) {
+      const badly = dueStatus.includes("2 yr")||dueStatus.includes("2 yrs")||dueStatus.includes("over 2");
+      floor = maxLevel(floor, badly?"Very High":"High");
+      floorReasons.push(`Statutory inspection overdue (${intel.due.earliest_due_status})`);
+    }
     if (age!=null && age>=20 && totalFindings>0) { floor = maxLevel(floor, "Medium"); floorReasons.push("Age 20+ with deficiency history"); }
     if (isFlagInspectionDue) { floor = maxLevel(floor, "Medium"); floorReasons.push("Flag inspection due"); }
     if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=24) { floor = maxLevel(floor, "Medium"); floorReasons.push("No PSC inspection in 24+ months"); }
@@ -430,6 +439,9 @@ export default function FleetVetting({ vessels = [] }) {
       : "Standard monitoring — no significant risk indicators found in the data on file.";
     if (carIsOpen) {
       recommendation += ` An open CAR (${latestCar.car_status}${latestCar.days_open!=null?`, ${latestCar.days_open} days open`:""}) means outstanding corrective actions from the last Flag inspection have not been resolved — recommend following up before this vessel is boarded for PSC.`;
+    }
+    if (inspectionOverdue) {
+      recommendation += ` This vessel's statutory inspection is OVERDUE (${intel.due.earliest_due_status}) — recommend boarding to confirm compliance before this call.`;
     }
     if (forceBoardScenario) {
       recommendation = `⛔ FORCE BOARD — this vessel's own deficiency history includes ${overlap.map(c=>c.cat).join(", ")}, one of the most commonly cited categories at ${destCountryDisplay}, and its CAR from the last Flag inspection is still open. Recommend mandatory boarding for this call rather than a discretionary one.`;
@@ -466,6 +478,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (rStat && rStat.rate!=null && rStat.rate>=15) advisory.push(`🟡 RO's fleet-wide detention rate is ${rStat.rate}%.`);
     if (carIsOpen) advisory.push(`🔴 Open CAR ("${latestCar.car_status}"${latestCar.days_open!=null?`, ${latestCar.days_open}d open`:""}) from the last Flag inspection.`);
     if (forceBoardScenario) advisory.push(`⛔ FORCE BOARD RECOMMENDED — this vessel's own history includes ${overlap.map(c=>c.cat).join(", ")}, which is also among the most commonly cited findings at ${destCountryDisplay}, AND its CAR from the last Flag inspection is still open. The corrective action for a category this port is likely to check was never confirmed resolved.`);
+    if (inspectionOverdue) advisory.push(`🔴 Statutory inspection OVERDUE — ${intel.due.earliest_due_status}${intel.due.earliest_due?` (due ${intel.due.earliest_due})`:""}. Recommend boarding to confirm compliance status before this call.`);
     if (isFlagInspectionDue) advisory.push(`🔴 Flag inspection due — "${selected.overdue_isi}".`);
     if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=12) advisory.push(`🟡 Last PSC inspection was ${monthsSinceLastPsc} months ago (${lastPscDate}) — condition not recently independently verified.`);
     if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
@@ -473,7 +486,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
     if (advisory.length===0) advisory.push(`🟢 No significant concerns identified across any factor — clean profile based on data currently on file.`);
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap, inspectionOverdue };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   return (
@@ -580,6 +593,20 @@ export default function FleetVetting({ vessels = [] }) {
                   <div style={{ fontSize: "13px", color: "var(--text3)" }}>No Flag inspection / CAR record on file for this vessel.</div>
                 )}
               </div>
+
+              {riskAssessment.inspectionOverdue && (
+              <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--red2)", marginBottom: "4px" }}>
+                  🔴 Inspection Overdue
+                </div>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--red2)" }}>
+                  {intel.due.earliest_due_status}{intel.due.earliest_due?` — due ${intel.due.earliest_due}`:""}
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--text2)", marginTop: "4px" }}>
+                  Recommend boarding to confirm compliance status before this call.
+                </div>
+              </div>
+              )}
 
               {riskAssessment.isFlagInspectionDue && (
                 <div style={{ background: "var(--red-bg)", border: "1px solid #3D1A1A", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>

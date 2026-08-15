@@ -240,7 +240,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company, vesselOverride) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes, dueRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_vetting_history").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
@@ -250,9 +250,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("vessel_inspection_performance").select("*").eq("imo", String(imo)).limit(1).then(r=>r||{data:[]}),
       supabase.from("flag_psc_findings").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
       supabase.from("car_status_report").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
+      supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], loading:false});
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, loading:false});
 
     // Auto-backfill vessel facts from VIP if fields are empty
     const backfillTarget = vesselOverride || sel;
@@ -755,6 +756,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",marginBottom:"6px"}}>Release condition</div>
                   <div style={{fontSize:"13px",color:"var(--red2)",lineHeight:1.6}}>{v.release||"Upload PSC Form A+B to extract release conditions"}</div>
                 </div>
+                {intel?.due && (
+                  <div style={{background:String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")?"var(--red-bg)":"var(--bg2)",border:"1px solid "+(String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")?"#3D1A1A":"var(--border)"),borderRadius:"10px",padding:"13px",marginBottom:"10px"}}>
+                    <div style={{fontSize:"14px",fontWeight:700,marginBottom:"9px",color:String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")?"var(--red2)":"var(--text)"}}>Inspection Due</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:"5px",fontSize:"13px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>Earliest Due</span><span style={{color:String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")?"var(--red2)":"var(--text2)",fontWeight:700}}>{intel.due.earliest_due_status||"—"}{intel.due.earliest_due?" ("+fmtDate(intel.due.earliest_due)+")":""}</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>ASI Status</span><span style={{color:"var(--text2)",fontWeight:700}}>{intel.due.asi_due_status||intel.due.asi_status||"—"}</span></div>
+                      {intel.due.ihm_due&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>IHM</span><span style={{color:"var(--amber2)",fontWeight:700}}>{intel.due.ihm_due}</span></div>}
+                      {intel.due.ism&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>ISM</span><span style={{color:"var(--text2)",fontWeight:700}}>{intel.due.ism}</span></div>}
+                      {intel.due.isps&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>ISPS</span><span style={{color:"var(--text2)",fontWeight:700}}>{intel.due.isps}</span></div>}
+                      {intel.due.mlc&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"var(--text3)",fontWeight:700}}>MLC</span><span style={{color:"var(--text2)",fontWeight:700}}>{intel.due.mlc}</span></div>}
+                    </div>
+                  </div>
+                )}
                 <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
                   <div style={{fontSize:"13px",fontWeight:600,marginBottom:"9px",color:"var(--text)"}}>Open tasks ({vesselTasks.filter(t=>t.status!=="Executed").length})</div>
                   {vesselTasks.slice(0,4).map((t,i)=>(
