@@ -124,6 +124,34 @@ export default function PerformanceReview({ vessels = [] }) {
   const period1 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p1Start,p1End)), [detained,p1Start,p1End]);
   const period2 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p2Start,p2End)), [detained,p2Start,p2End]);
 
+  // ---- Live findings fetch — v.deficiencies (AI-extracted per case) is often incomplete for
+  // older cases whose PSC Form documents were never individually processed. flag_psc_findings
+  // (bulk weekly import) has much more complete coverage, so we use it here, matched precisely
+  // to each detention (imo + date) rather than the whole date range, to keep this table's meaning
+  // consistent with "deficiencies found during these detentions" specifically. ----
+  const [findingsByImoDate, setFindingsByImoDate] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set([...period1, ...period2].map(v=>v.imo).filter(Boolean))];
+    if (imos.length === 0) { setFindingsByImoDate({}); return; }
+    (async () => {
+      const map = {};
+      const CHUNK = 100;
+      for (let i=0; i<imos.length; i+=CHUNK) {
+        const chunk = imos.slice(i, i+CHUNK);
+        const { data, error } = await supabase.from("flag_psc_findings").select("imo,insp_date,main_defect_text,full_description,defect_code").in("imo", chunk);
+        if (error) { console.error("[PerformanceReview] flag_psc_findings fetch error:", error.message); continue; }
+        (data||[]).forEach(f => {
+          const key = f.imo+"|"+f.insp_date;
+          if (!map[key]) map[key] = [];
+          map[key].push(f);
+        });
+      }
+      if (!cancelled) setFindingsByImoDate(map);
+    })();
+    return () => { cancelled = true; };
+  }, [period1, period2]);
+
   // ---- Top 10 Companies by Year — Detentions, Casualty, MLC (two most recent years, side by side) ----
   const recentYears = useMemo(() => {
     const years = new Set();
@@ -281,11 +309,16 @@ export default function PerformanceReview({ vessels = [] }) {
   // ---- Major deficiency type comparison, P1 vs P2 ----
   const deficiencyTypeComparison = useMemo(() => {
     const byCat = {};
-    period1.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c1++; }));
-    period2.forEach(v => (v.deficiencies||[]).forEach(d => { const c=catDef(d.desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c2++; }));
+    const defsFor = (v) => {
+      if (v.deficiencies?.length) return v.deficiencies.map(d=>d.desc);
+      const findings = findingsByImoDate[v.imo+"|"+v.detentionDate] || [];
+      return findings.map(f=>f.main_defect_text||f.full_description||f.defect_code||"");
+    };
+    period1.forEach(v => defsFor(v).forEach(desc => { const c=catDef(desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c1++; }));
+    period2.forEach(v => defsFor(v).forEach(desc => { const c=catDef(desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c2++; }));
     return Object.values(byCat).map(c => ({ ...c, pct: pctChange(c.c1,c.c2) }))
       .sort((a,b)=>DEF_CATEGORY_ORDER.indexOf(a.cat)-DEF_CATEGORY_ORDER.indexOf(b.cat));
-  }, [period1, period2]);
+  }, [period1, period2, findingsByImoDate]);
 
   // ---- Highest single-inspection deficiency counts ----
   const worstInspections = useMemo(() => {
