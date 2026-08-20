@@ -118,6 +118,7 @@ export default function App() {
   const [fleetDataLoaded, setFleetDataLoaded] = useState(false);
   const [inspectionDue, setInspectionDue] = useState([]);
   const [dueSoonExpanded, setDueSoonExpanded] = useState({});
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
 
   React.useEffect(() => {
     Promise.all([
@@ -428,7 +429,7 @@ export default function App() {
                   ) : (
                   <>
                     <div style={{display:"flex",gap:"16px",marginBottom:"10px"}}>
-                      <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueOverdue.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>Overdue</div></div>
+                      <div onClick={()=>setOverdueExpanded(x=>!x)} style={{cursor:"pointer"}} title="Click to see full list"><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueOverdue.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",textDecoration:"underline"}}>Overdue</div></div>
                       <div><div style={{fontSize:"20px",fontWeight:700,color:"var(--red2)"}}>{dueBadly.length}</div><div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>2+ Yrs Overdue</div></div>
                     </div>
                     {overdueByType.length>0 && (
@@ -444,10 +445,13 @@ export default function App() {
                       </div>
                     )}
                     {dueTop.length>0 && (
-                      <div style={{borderTop:"1px solid var(--border)",paddingTop:"8px"}}>
-                        <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Overdue</div>
-                        {dueTop.map((r,i)=>(
-                          <div key={i} style={{padding:"4px 0",borderBottom:i<dueTop.length-1?"1px solid var(--border)":"none"}}>
+                      <div style={{borderTop:"1px solid var(--border)",paddingTop:"8px",maxHeight:overdueExpanded?"400px":"none",overflowY:overdueExpanded?"auto":"visible"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                          <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase"}}>{overdueExpanded?`All Overdue (${dueOverdue.length})`:"Most Overdue"}</div>
+                          <div onClick={()=>setOverdueExpanded(x=>!x)} style={{fontSize:"11px",color:"var(--blue)",cursor:"pointer",textDecoration:"underline"}}>{overdueExpanded?"Show less":`See all ${dueOverdue.length} →`}</div>
+                        </div>
+                        {(overdueExpanded?[...dueOverdue].sort((a,b)=>new Date(a.earliest_due||0)-new Date(b.earliest_due||0)):dueTop).map((r,i)=>(
+                          <div key={i} style={{padding:"4px 0",borderBottom:"1px solid var(--border)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px"}}>
                               <span style={{color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
                               <span style={{color:"var(--red2)",fontWeight:600,flexShrink:0}}>{r.earliest_due_status}</span>
