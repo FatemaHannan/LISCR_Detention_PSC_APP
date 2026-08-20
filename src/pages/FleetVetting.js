@@ -340,15 +340,21 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
-    // 12. Flag Inspection Status — from Fleet Roster's overdue-inspection field, covers whatever
-    // type it actually tracks (could be ISI/SSI/MLC/ISM/ISPS/ASI depending on what's due) — we
-    // display the field's own text rather than assuming a specific inspection type. Fixed a real
-    // bug here: "Not Due" contains the word "due" and was being misread as overdue.
+    // 12. Flag Inspection Status — combines Fleet Roster's overdue-inspection field (legacy,
+    // covers whatever type it tracks) with the more accurate/detailed Inspection Due report
+    // (real ASI due dates). The Inspection Due data wins when both are present, since it's the
+    // more current and specific source — Fleet Roster's field was showing stale/generic status
+    // in cases where Inspection Due had the real ASI due date on file.
     const flagStatusRaw = String(selected.overdue_isi||"").trim().toLowerCase();
-    const isFlagInspectionDue = flagStatusRaw.includes("overdue") || (flagStatusRaw.includes("due") && !flagStatusRaw.includes("not"));
+    const rosterFlagDue = flagStatusRaw.includes("overdue") || (flagStatusRaw.includes("due") && !flagStatusRaw.includes("not"));
+    const dueDataFlagDue = String(intel?.due?.asi_due_status||intel?.due?.earliest_due_status||"").toLowerCase().includes("overdue");
+    const isFlagInspectionDue = rosterFlagDue || dueDataFlagDue;
+    const flagStatusDetail = intel?.due
+      ? `${intel.due.asi_due_status||intel.due.earliest_due_status||"—"}${intel.due.asi_due?` — ASI Due Date: ${intel.due.asi_due}`:intel.due.earliest_due?` — Due: ${intel.due.earliest_due}`:""}`
+      : (selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Status: ${selected.inspection_status}` : "No data on file"));
     factors.push({
       label: "Flag Inspection Status",
-      detail: selected.overdue_isi ? `${selected.overdue_isi}${selected.inspection_status?` · Status: ${selected.inspection_status}`:""}` : (selected.inspection_status ? `Status: ${selected.inspection_status}` : "No data on file"),
+      detail: flagStatusDetail,
       score: isFlagInspectionDue ? 3 : 0, max: 3,
     });
 
