@@ -117,6 +117,7 @@ export default function App() {
   const [fleetTasks, setFleetTasks] = useState(TASKS);
   const [fleetDataLoaded, setFleetDataLoaded] = useState(false);
   const [inspectionDue, setInspectionDue] = useState([]);
+  const [dueSoonExpanded, setDueSoonExpanded] = useState({});
 
   React.useEffect(() => {
     Promise.all([
@@ -279,6 +280,17 @@ export default function App() {
 
             const dueOverdue = inspectionDue.filter(r=>String(r.earliest_due_status||"").toLowerCase().includes("overdue"));
             const dueBadly = dueOverdue.filter(r=>{const s=String(r.earliest_due_status||"").toLowerCase(); return s.includes("2 yr")||s.includes("2 yrs")||s.includes("over 2");});
+            const overdueTypes = (r) => {
+              const types = [];
+              if (String(r.asi_due_status||"").toLowerCase().includes("overdue")) types.push("ASI");
+              if (String(r.bianl_due_status||"").toLowerCase().includes("overdue")) types.push("Bi-Annual");
+              if (String(r.quarterly_due_status||"").toLowerCase().includes("overdue")) types.push("Quarterly");
+              if (r.ihm_due && String(r.ihm_due).trim()) types.push("IHM");
+              if (r.ism && String(r.ism).trim()) types.push("ISM");
+              if (r.isps && String(r.isps).trim()) types.push("ISPS");
+              if (r.mlc && String(r.mlc).trim()) types.push("MLC");
+              return types;
+            };
             const dueTop = [...dueOverdue].sort((a,b)=>new Date(a.earliest_due||0)-new Date(b.earliest_due||0)).slice(0,5);
 
             // Overdue now, broken down by inspection type
@@ -435,9 +447,12 @@ export default function App() {
                       <div style={{borderTop:"1px solid var(--border)",paddingTop:"8px"}}>
                         <div style={{fontSize:"11px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Overdue</div>
                         {dueTop.map((r,i)=>(
-                          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"12px",padding:"3px 0"}}>
-                            <span style={{color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
-                            <span style={{color:"var(--red2)",fontWeight:600,flexShrink:0}}>{r.earliest_due_status}</span>
+                          <div key={i} style={{padding:"4px 0",borderBottom:i<dueTop.length-1?"1px solid var(--border)":"none"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px"}}>
+                              <span style={{color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
+                              <span style={{color:"var(--red2)",fontWeight:600,flexShrink:0}}>{r.earliest_due_status}</span>
+                            </div>
+                            {overdueTypes(r).length>0 && <div style={{fontSize:"11px",color:"var(--amber2)",marginTop:"2px"}}>{overdueTypes(r).join(", ")} overdue</div>}
                           </div>
                         ))}
                       </div>
@@ -450,18 +465,26 @@ export default function App() {
                 {dueSoonByType.length>0 && (
                 <div className="card">
                   <div className="card-t">Due in Next 3 Months <span style={{fontWeight:400,color:"var(--text3)",fontSize:"12px"}}>({dueSoonTotal} vessels)</span></div>
-                  {dueSoonByType.map(t=>(
+                  {dueSoonByType.map(t=>{
+                    const isExpanded = !!dueSoonExpanded[t.label];
+                    const shown = isExpanded ? t.rows : t.rows.slice(0,4);
+                    return (
                     <div key={t.label} style={{marginBottom:"10px"}}>
                       <div style={{fontSize:"12px",fontWeight:600,color:"var(--text2)",marginBottom:"4px"}}>{t.label} ({t.rows.length})</div>
-                      {t.rows.slice(0,4).map((r,i)=>(
+                      {shown.map((r,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"12px",padding:"2px 0"}}>
                           <span style={{color:"var(--text3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"140px"}}>{r.vessel}</span>
                           <span style={{color:"var(--amber2)",flexShrink:0}}>{t.label==="ASI"?r.asi_due:t.label==="Bi-Annual"?r.bianl_due:r.quarterly_due}</span>
                         </div>
                       ))}
-                      {t.rows.length>4 && <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"2px"}}>+{t.rows.length-4} more</div>}
+                      {t.rows.length>4 && (
+                        <div onClick={()=>setDueSoonExpanded(p=>({...p,[t.label]:!p[t.label]}))} style={{fontSize:"11px",color:"var(--blue)",marginTop:"2px",cursor:"pointer",textDecoration:"underline"}}>
+                          {isExpanded ? "Show less" : `+${t.rows.length-4} more`}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 )}
 
