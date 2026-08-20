@@ -537,15 +537,39 @@ export default function PerformanceReview({ vessels = [] }) {
           return "<td style='border:1px solid #ccc;padding:5px 8px;"+color+bold+"'>"+esc(val)+"</td>";
         }).join("")+"</tr>").join("") + "</tbody></table>";
     const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;page-break-after:avoid;'>"+esc(t)+"</h3>";
-    const barChart = (rows, maxVal) => // rows: [{label, value, color}]
-      "<div style='margin:8px 0 16px;'>" + rows.map(r => {
-        const pct = maxVal>0 ? Math.max(2,Math.round(r.value/maxVal*100)) : 0;
-        return "<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:9pt;'>"
-          + "<div style='width:110px;flex-shrink:0;'>"+esc(r.label)+"</div>"
-          + "<div style='flex:1;background:#eee;border-radius:3px;height:14px;position:relative;'><div style='width:"+pct+"%;background:"+(r.color||"#3b82f6")+";height:14px;border-radius:3px;'></div></div>"
-          + "<div style='width:40px;text-align:right;font-weight:700;'>"+esc(r.value)+"</div>"
-          + "</div>";
-      }).join("") + "</div>";
+    // SVG-based bar chart — deliberately NOT using CSS background-color for the bars, since
+    // browsers disable printing background colors by default (Chrome's print dialog has
+    // "Background graphics" OFF unless the person manually enables it). SVG shape fills print
+    // correctly regardless of that setting, which is why the old div-background version was
+    // invisible in downloaded PDFs.
+    const barChart = (rows, maxVal) => { // rows: [{label, value, color}]
+      const rowH = 22, chartW = 560, barAreaX = 130, barAreaW = chartW - barAreaX - 50;
+      const h = rows.length * rowH + 10;
+      const bars = rows.map((r,i) => {
+        const y = i*rowH + 5;
+        const w = maxVal>0 ? Math.max(3, (r.value/maxVal)*barAreaW) : 0;
+        return "<text x='"+(barAreaX-8)+"' y='"+(y+11)+"' text-anchor='end' font-size='9' font-family='Calibri,Arial,sans-serif' fill='#222'>"+esc(r.label)+"</text>"
+          + "<rect x='"+barAreaX+"' y='"+y+"' width='"+w+"' height='14' rx='2' fill='"+(r.color||"#3b82f6")+"'/>"
+          + "<text x='"+(barAreaX+w+6)+"' y='"+(y+11)+"' font-size='9' font-weight='700' font-family='Calibri,Arial,sans-serif' fill='#111'>"+esc(r.value)+"</text>";
+      }).join("");
+      return "<svg viewBox='0 0 "+chartW+" "+h+"' width='100%' style='max-width:"+chartW+"px;margin:8px 0 16px;'>"+bars+"</svg>";
+    };
+    // Two-series comparison bar chart (e.g. Period 1 vs Period 2), grouped bars per label
+    const barChartCompare = (rows, maxVal, series1Label, series2Label) => { // rows: [{label, v1, v2}]
+      const rowH = 34, chartW = 560, barAreaX = 130, barAreaW = chartW - barAreaX - 50;
+      const h = rows.length * rowH + 24;
+      const legend = "<rect x='"+barAreaX+"' y='0' width='10' height='10' fill='#94a3b8'/><text x='"+(barAreaX+14)+"' y='9' font-size='8' font-family='Calibri,Arial,sans-serif' fill='#333'>"+esc(series1Label)+"</text>"
+        + "<rect x='"+(barAreaX+90)+"' y='0' width='10' height='10' fill='#3b82f6'/><text x='"+(barAreaX+104)+"' y='9' font-size='8' font-family='Calibri,Arial,sans-serif' fill='#333'>"+esc(series2Label)+"</text>";
+      const bars = rows.map((r,i) => {
+        const y = i*rowH + 20;
+        const w1 = maxVal>0 ? Math.max(2, (r.v1/maxVal)*barAreaW) : 0;
+        const w2 = maxVal>0 ? Math.max(2, (r.v2/maxVal)*barAreaW) : 0;
+        return "<text x='"+(barAreaX-8)+"' y='"+(y+15)+"' text-anchor='end' font-size='9' font-family='Calibri,Arial,sans-serif' fill='#222'>"+esc(r.label)+"</text>"
+          + "<rect x='"+barAreaX+"' y='"+y+"' width='"+w1+"' height='12' rx='2' fill='#94a3b8'/><text x='"+(barAreaX+w1+6)+"' y='"+(y+10)+"' font-size='8' font-family='Calibri,Arial,sans-serif' fill='#555'>"+esc(r.v1)+"</text>"
+          + "<rect x='"+barAreaX+"' y='"+(y+15)+"' width='"+w2+"' height='12' rx='2' fill='#3b82f6'/><text x='"+(barAreaX+w2+6)+"' y='"+(y+25)+"' font-size='8' font-weight='700' font-family='Calibri,Arial,sans-serif' fill='#111'>"+esc(r.v2)+"</text>";
+      }).join("");
+      return "<svg viewBox='0 0 "+chartW+" "+h+"' width='100%' style='max-width:"+chartW+"px;margin:8px 0 16px;'>"+legend+bars+"</svg>";
+    };
     const G="#16a34a", R="#dc2626", A="#d97706";
     const pctColor = (n) => n<0?G:n>0?R:"#666";
 
@@ -570,6 +594,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + table(["Month","Detentions","Avg Deficiencies"], currentYearMonthly.rows.map(r=>[r.month,r.count,r.avgDefs]))
 
       + sectionTitle("Quarter by Quarter — "+new Date().getFullYear()+" vs "+(new Date().getFullYear()-1))
+      + barChartCompare(quarterly.filter(q=>q.curCount!=null).map(q=>({label:q.q, v1:q.priorCount, v2:q.curCount})), Math.max(1,...quarterly.filter(q=>q.curCount!=null).map(q=>Math.max(q.priorCount,q.curCount))), String(new Date().getFullYear()-1), String(new Date().getFullYear()))
       + table(["Quarter",(new Date().getFullYear()-1)+" Det.",new Date().getFullYear()+" Det.","Change","Trend"],
           quarterly.map(q=>[q.q, q.priorCount, q.curCount!=null?q.curCount:"upcoming", {v:(q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—"),color:q.pct!=null?pctColor(q.pct):null}, q.qVerdict]))
 
@@ -580,6 +605,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))
 
       + sectionTitle("5. Top 10 Companies by Year — Detentions")
+      + (recentYears.length ? barChart((detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>({label:c.company, value:c.count})), Math.max(1,...(detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>c.count))) : "")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Detentions","Deficiencies"], (detentionsByYearCompany[yr]||[]).map(c=>[c.company,c.count,c.defs]))).join("")
 
       + sectionTitle("6. Top 10 Companies by Year — Casualty Reports")
@@ -599,9 +625,11 @@ export default function PerformanceReview({ vessels = [] }) {
       table(["IMO","Vessel","Status","Count","MoU(s)","Total Def.","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},statusMap[v.imo]||"—",v.count,v.mous,v.defs,v.dates.join(", ")])))
 
       + sectionTitle("10. MoU-Level Performance")
+      + barChartCompare(mouPerformance.slice(0,10).map(m=>({label:m.mou, v1:m.d1, v2:m.d2})), Math.max(1,...mouPerformance.slice(0,10).map(m=>Math.max(m.d1,m.d2))), "Period 1", "Period 2")
       + table(["MoU","P1 Det.","P2 Det.","% Change","Verdict"], mouPerformance.map(m=>[m.mou,m.d1,m.d2,{v:(m.detPct>0?"+":"")+m.detPct+"%",color:pctColor(m.detPct)},m.verdict]))
 
       + sectionTitle("11. RO Performance")
+      + barChartCompare(roPerformance.slice(0,10).map(r=>({label:r.ro, v1:r.d1, v2:r.d2})), Math.max(1,...roPerformance.slice(0,10).map(r=>Math.max(r.d1,r.d2))), "Period 1", "Period 2")
       + table(["RO","P1 Det.","P2 Det.","% Change","Verdict"], roPerformance.map(r=>[r.ro,r.d1,r.d2,{v:(r.detPct>0?"+":"")+r.detPct+"%",color:pctColor(r.detPct)},r.verdict]))
 
       + sectionTitle("12. Major Deficiency Type Comparison")
@@ -622,6 +650,7 @@ export default function PerformanceReview({ vessels = [] }) {
         ])
 
       + sectionTitle("15. Inspection Country")
+      + barChartCompare(countryPerformance.slice(0,12).map(c=>({label:c.country, v1:c.d1, v2:c.d2})), Math.max(1,...countryPerformance.slice(0,12).map(c=>Math.max(c.d1,c.d2))), "Period 1", "Period 2")
       + table(["Country","P1 Det.","P2 Det.","Change","P1 Def.","P2 Def."], countryPerformance.map(c=>[c.country,c.d1,c.d2,{v:((c.d2-c.d1)>0?"+":"")+(c.d2-c.d1),color:pctColor(c.d2-c.d1)},c.f1,c.f2]))
 
       + sectionTitle("16. Ports")
@@ -651,7 +680,7 @@ export default function PerformanceReview({ vessels = [] }) {
     const w = window.open("", "_blank", "width=900,height=1000");
     if (!w) { alert("Please allow pop-ups for this site to export the PDF."); return; }
     w.document.write("<html><head><meta charset='utf-8'><title>Performance Review</title>"
-      + "<style>@page{margin:0.75in} body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:10.5pt;color:#111;} table{page-break-inside:avoid;} h3{page-break-after:avoid;}</style>"
+      + "<style>@page{margin:0.75in} body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:10.5pt;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;} table{page-break-inside:avoid;} h3{page-break-after:avoid;} svg{page-break-inside:avoid;}</style>"
       + "</head><body>"+html+"</body></html>");
     w.document.close();
     w.onload = ()=>{ w.focus(); w.print(); };
