@@ -5,6 +5,25 @@ import { catDef, DEF_CATEGORY_ORDER } from "./TrendAnalysis";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+// Known MoU authorities, canonical display form. Raw data sometimes has case variants
+// ("Paris MoU" vs "Paris MOU"), trailing descriptive text ("Tokyo MOU (Asia-Pacific Region)"),
+// or China MSA (which operates under Tokyo MoU) — all folded into one canonical value here so
+// reports don't show the same authority as several separate rows.
+const MOU_CANONICAL = ["Tokyo MOU","Paris MOU","AMSA","USCG","US Coastguard","Black Sea MOU","Indian Ocean MOU","Med MOU","Vina Del Mar","Abuja MOU","Riyadh MOU","Canadian Port State Control"];
+function normalizeMouValue(mou) {
+  if (!mou) return mou;
+  const trimmed = String(mou).trim();
+  if (!trimmed || trimmed === "—") return null;
+  const lower = trimmed.toLowerCase();
+  if (lower === "china msa") return "Tokyo MOU";
+  if (lower.includes("tokyo")) return "Tokyo MOU";
+  if (lower.includes("paris")) return "Paris MOU";
+  if (lower.includes("vina")) return "Vina Del Mar";
+  const exact = MOU_CANONICAL.find(m => m.toLowerCase() === lower);
+  if (exact) return exact;
+  return trimmed;
+}
+
 function extractCountry(port) {
   if (!port || port === "—") return "Unknown";
   const parts = String(port).split(",").map(s=>s.trim()).filter(Boolean);
@@ -86,7 +105,8 @@ export default function PerformanceReview({ vessels = [] }) {
     const inRangeLocal = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
     const byCompany = {};
     casualtyRaw.forEach(r => {
-      const c = r.managing_company && r.managing_company.trim() ? r.managing_company.trim() : "Unknown";
+      if (!r.managing_company || !r.managing_company.trim() || r.managing_company.trim().toLowerCase()==="not specified") return;
+      const c = r.managing_company.trim();
       byCompany[c] = byCompany[c] || { company:c, p1:0, p2:0 };
       if (inRangeLocal(r.incident_date, p1Start, p1End)) byCompany[c].p1++;
       if (inRangeLocal(r.incident_date, p2Start, p2End)) byCompany[c].p2++;
@@ -105,7 +125,8 @@ export default function PerformanceReview({ vessels = [] }) {
     const inRangeLocal = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
     const byCompany = {};
     mlcRaw.forEach(r => {
-      const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+      if (!r.ism_client || !r.ism_client.trim() || r.ism_client.trim().toLowerCase()==="not specified") return;
+      const c = r.ism_client.trim();
       byCompany[c] = byCompany[c] || { company:c, p1:0, p2:0 };
       if (inRangeLocal(r.reported_date, p1Start, p1End)) byCompany[c].p1++;
       if (inRangeLocal(r.reported_date, p2Start, p2End)) byCompany[c].p2++;
@@ -119,7 +140,7 @@ export default function PerformanceReview({ vessels = [] }) {
     }).sort((a,b)=>(b.p1+b.p2)-(a.p1+a.p2)).slice(0,10);
   }, [mlcRaw, p1Start, p1End, p2Start, p2End]);
 
-  const detained = useMemo(()=>vessels.filter(v=>v.detained), [vessels]);
+  const detained = useMemo(()=>vessels.filter(v=>v.detained).map(v=> v.mou ? {...v, mou: normalizeMouValue(v.mou)} : v), [vessels]);
   const inRange = (dateStr, start, end) => dateStr && dateStr >= start && dateStr <= end;
   const period1 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p1Start,p1End)), [detained,p1Start,p1End]);
   const period2 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p2Start,p2End)), [detained,p2Start,p2End]);
@@ -174,13 +195,23 @@ export default function PerformanceReview({ vessels = [] }) {
     return [...years].sort((a,b)=>b.localeCompare(a)).slice(0,2).reverse(); // e.g. ["2025","2026"]
   }, [detained]);
 
+  // A "company" ranking exists to point at an actual accountable party — placeholder/missing
+  // values ("Unknown", "Not specified", blank) don't belong in a Top 10 list, so they're
+  // excluded here rather than shown as a ranked row.
+  const isRealCompany = (c) => {
+    if (!c) return false;
+    const t = String(c).trim().toLowerCase();
+    return t && t!=="—" && t!=="unknown" && t!=="not specified" && t!=="n/a";
+  };
+
   const detentionsByYearCompany = useMemo(() => {
     const result = {};
     recentYears.forEach(yr => {
       const counts = {};
       detained.forEach(v => {
         if (!v.detentionDate || String(v.detentionDate).slice(0,4)!==yr) return;
-        const c = v.company && v.company!=="—" ? v.company : "Unknown";
+        if (!isRealCompany(v.company)) return;
+        const c = v.company.trim();
         counts[c] = counts[c] || { company:c, count:0, defs:0 };
         counts[c].count++; counts[c].defs += v.defs||0;
       });
@@ -195,7 +226,8 @@ export default function PerformanceReview({ vessels = [] }) {
       const counts = {};
       casualtyRaw.forEach(r => {
         if (!r.incident_date || String(r.incident_date).slice(0,4)!==yr) return;
-        const c = r.managing_company && r.managing_company.trim() ? r.managing_company.trim() : "Unknown";
+        if (!isRealCompany(r.managing_company)) return;
+        const c = r.managing_company.trim();
         counts[c] = counts[c] || { company:c, count:0 };
         counts[c].count++;
       });
@@ -210,7 +242,8 @@ export default function PerformanceReview({ vessels = [] }) {
       const counts = {};
       mlcRaw.forEach(r => {
         if (!r.reported_date || String(r.reported_date).slice(0,4)!==yr) return;
-        const c = r.ism_client && r.ism_client.trim() ? r.ism_client.trim() : "Unknown";
+        if (!isRealCompany(r.ism_client)) return;
+        const c = r.ism_client.trim();
         counts[c] = counts[c] || { company:c, count:0 };
         counts[c].count++;
       });
@@ -369,7 +402,8 @@ export default function PerformanceReview({ vessels = [] }) {
   const worstCompany = (periodArr) => {
     const counts = {};
     periodArr.forEach(v => {
-      const c = v.company && v.company!=="—" ? v.company : "Unknown";
+      if (!v.company || v.company==="—" || v.company.trim().toLowerCase()==="not specified") return;
+      const c = v.company.trim();
       if (!counts[c]) counts[c] = { company:c, count:0, totalDefs:0 };
       counts[c].count++;
       counts[c].totalDefs += v.defs||0;
@@ -562,7 +596,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + sectionTitle("9. Repeat Detentions")
       + "<p style='font-size:9pt;color:#666;'>Vessels detained more than once across the two periods combined</p>"
       + (repeatVessels.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No repeat detentions found across the selected periods.</p>" :
-      table(["IMO","Vessel","Status","Count","MoU(s)","Total Def.","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},statusMap[v.imo]||"—",v.count,[...v.mous].join(", "),v.defs,v.dates.join(", ")])))
+      table(["IMO","Vessel","Status","Count","MoU(s)","Total Def.","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},statusMap[v.imo]||"—",v.count,v.mous,v.defs,v.dates.join(", ")])))
 
       + sectionTitle("10. MoU-Level Performance")
       + table(["MoU","P1 Det.","P2 Det.","% Change","Verdict"], mouPerformance.map(m=>[m.mou,m.d1,m.d2,{v:(m.detPct>0?"+":"")+m.detPct+"%",color:pctColor(m.detPct)},m.verdict]))
