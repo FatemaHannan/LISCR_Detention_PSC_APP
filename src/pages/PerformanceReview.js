@@ -124,6 +124,21 @@ export default function PerformanceReview({ vessels = [] }) {
   const period1 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p1Start,p1End)), [detained,p1Start,p1End]);
   const period2 = useMemo(()=>detained.filter(v=>inRange(v.detentionDate,p2Start,p2End)), [detained,p2Start,p2End]);
 
+  // ---- YTD repeat vessels/companies — Jan 1 of current year through today, independent of
+  // whatever Period 1/2 the user has selected ----
+  const ytdRepeats = useMemo(() => {
+    const yr = String(new Date().getFullYear());
+    const ytd = detained.filter(v=>v.detentionDate && v.detentionDate.startsWith(yr));
+    const byImo = {};
+    ytd.forEach(v => { if(!v.imo) return; byImo[v.imo]=byImo[v.imo]||{imo:v.imo,name:v.name,company:v.company,count:0,dates:[]}; byImo[v.imo].count++; byImo[v.imo].dates.push(v.detentionDate); });
+    const repeatVesselsYtd = Object.values(byImo).filter(v=>v.count>1).sort((a,b)=>b.count-a.count);
+    const byCompany = {};
+    ytd.forEach(v => { if(!v.company||v.company==="—") return; byCompany[v.company]=byCompany[v.company]||new Set(); byCompany[v.company].add(v.imo); });
+    const companiesWithRepeat = repeatVesselsYtd.filter(v=>v.company&&v.company!=="—").map(v=>v.company);
+    const repeatCompanySet = new Set(companiesWithRepeat);
+    return { repeatVesselsYtd, repeatCompanyCount: repeatCompanySet.size, repeatCompanies: [...repeatCompanySet] };
+  }, [detained]);
+
   // ---- Live findings fetch — v.deficiencies (AI-extracted per case) is often incomplete for
   // older cases whose PSC Form documents were never individually processed. flag_psc_findings
   // (bulk weekly import) has much more complete coverage, so we use it here, matched precisely
@@ -464,14 +479,15 @@ export default function PerformanceReview({ vessels = [] }) {
 
     if (repeatVessels.length===0) good.push("No vessel was detained more than once across the two periods.");
     else attention.push(repeatVessels.length+" vessel(s) detained more than once across the two periods — review for a pattern before the next port call.");
+    if (ytdRepeats.repeatVesselsYtd.length>0) attention.push(ytdRepeats.repeatVesselsYtd.length+" vessel(s) detained twice or more so far this year (Jan–YTD): "+ytdRepeats.repeatVesselsYtd.slice(0,5).map(v=>v.name+" ("+v.count+"x)").join(", ")+".");
 
-    if (worstInspections.length>0) attention.push("Highest single-inspection deficiency count: "+worstInspections[0].name+" at "+worstInspections[0].defs+" deficiencies — warrants a detailed root-cause review.");
+    if (worstInspections.length>0) attention.push("Highest single-inspection deficiency count: "+worstInspections[0].name+" ("+worstInspections[0].detentionDate+") at "+worstInspections[0].defs+" deficiencies — warrants a detailed root-cause review.");
     if (risingPorts.length>0) attention.push("Ports showing a rising trend: "+risingPorts.map(p=>p.port).join(", ")+".");
 
     good.push("Keep "+dominantMou+" as the primary operational focus — it remains the largest detention source, so improvement there moves the whole number.");
 
     return { good, attention };
-  }, [kpi, mouPerformance, roPerformance, deficiencyTypeComparison, repeatVessels, worstInspections, risingPorts, dominantMou, worseningMous]);
+  }, [kpi, mouPerformance, roPerformance, deficiencyTypeComparison, repeatVessels, worstInspections, risingPorts, dominantMou, worseningMous, ytdRepeats]);
 
   // ---- Export PDF: opens a clean popup window and prints, same pattern used for Case Brief exports ----
   const printReport = () => {
@@ -512,6 +528,7 @@ export default function PerformanceReview({ vessels = [] }) {
           ["Period 1", worstCompanyP1?worstCompanyP1.company:"—", worstCompanyP1?worstCompanyP1.count:"—", worstCompanyP1?worstCompanyP1.avgDefs:"—"],
           ["Period 2", worstCompanyP2?worstCompanyP2.company:"—", worstCompanyP2?worstCompanyP2.count:"—", worstCompanyP2?worstCompanyP2.avgDefs:"—"],
         ])
+      + (ytdRepeats.repeatVesselsYtd.length>0 ? "<p style='color:#dc2626;font-size:12px;margin:6px 0 0;'><b>Repeat Detentions This Year:</b> "+ytdRepeats.repeatVesselsYtd.map(v=>v.name+(v.company&&v.company!=="—"?" ("+v.company+")":"")+" — "+v.count+"x").join("; ")+"</p>" : "")
 
       + sectionTitle("Recommended Areas of Focus")
       + "<div style='display:flex;gap:16px;margin-top:8px;'>"
@@ -621,6 +638,17 @@ export default function PerformanceReview({ vessels = [] }) {
           ) : <div style={{fontSize:"12px",color:"var(--text3)"}}>No data in this period.</div>}
         </Card>
       </div>
+
+      {ytdRepeats.repeatVesselsYtd.length>0 && (
+        <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"8px",padding:"12px 16px",marginBottom:"20px"}}>
+          <div style={{fontSize:"12px",fontWeight:700,color:"var(--red2)",marginBottom:"6px"}}>⚠ Repeat Detentions This Year ({ytdRepeats.repeatVesselsYtd.length} vessel{ytdRepeats.repeatVesselsYtd.length!==1?"s":""}, {ytdRepeats.repeatCompanyCount} compan{ytdRepeats.repeatCompanyCount!==1?"ies":"y"})</div>
+          <div style={{fontSize:"12px",color:"var(--text2)"}}>
+            {ytdRepeats.repeatVesselsYtd.map((v,i)=>(
+              <span key={v.imo}>{v.name}{v.company&&v.company!=="—"?" ("+v.company+")":""} — {v.count}x{i<ytdRepeats.repeatVesselsYtd.length-1?"; ":""}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Clean current-year month-by-month */}
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. {currentYearMonthly.year} — Month by Month</div>
