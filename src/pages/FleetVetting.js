@@ -659,7 +659,7 @@ export default function FleetVetting({ vessels = [] }) {
                     {riskAssessment.factors.map((f,i) => (
                       <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={{ padding: "7px 8px", color: "var(--text2)", fontWeight: 600, width: "180px" }}>{f.label}</td>
-                        <td style={{ padding: "7px 8px", color: "var(--text3)" }}>{f.detail}</td>
+                        <td style={{ padding: "7px 8px", color: f.score>=2?"var(--red2)":f.score===1?"var(--amber2)":"var(--text3)", fontWeight: f.score>=2?600:400 }}>{f.detail}</td>
                         <td style={{ padding: "7px 8px", textAlign: "right", color: f.score>=2?"var(--red2)":f.score===1?"var(--amber2)":"var(--green2)", fontWeight: 700, width: "70px" }}>{f.score}/{f.max}</td>
                       </tr>
                     ))}
