@@ -633,7 +633,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + table(["RO","P1 Det.","P2 Det.","% Change","Verdict"], roPerformance.map(r=>[r.ro,r.d1,r.d2,{v:(r.detPct>0?"+":"")+r.detPct+"%",color:pctColor(r.detPct)},r.verdict]))
 
       + sectionTitle("12. Major Deficiency Type Comparison")
-      + barChart(deficiencyTypeComparison.map(c=>({label:c.cat, value:c.c2})), Math.max(1,...deficiencyTypeComparison.map(c=>Math.max(c.c1,c.c2))))
+      + barChartCompare(deficiencyTypeComparison.map(c=>({label:c.cat, v1:c.c1, v2:c.c2})), Math.max(1,...deficiencyTypeComparison.map(c=>Math.max(c.c1,c.c2))), "Period 1", "Period 2")
       + table(["Deficiency Type","Period 1","Period 2","% Change"], deficiencyTypeComparison.map(c=>[c.cat,c.c1,c.c2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)}]))
 
       + sectionTitle("13. Highest Number of Deficiencies (Single Inspection)")
