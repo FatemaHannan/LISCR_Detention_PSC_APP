@@ -166,10 +166,12 @@ export default function PerformanceReview({ vessels = [] }) {
   // to each detention (imo + date) rather than the whole date range, to keep this table's meaning
   // consistent with "deficiencies found during these detentions" specifically. ----
   const [findingsByImoDate, setFindingsByImoDate] = useState({});
+  const [findingsLoading, setFindingsLoading] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const imos = [...new Set([...period1, ...period2].map(v=>v.imo).filter(Boolean))];
-    if (imos.length === 0) { setFindingsByImoDate({}); return; }
+    if (imos.length === 0) { setFindingsByImoDate({}); setFindingsLoading(false); return; }
+    setFindingsLoading(true);
     (async () => {
       const map = {};
       const CHUNK = 100;
@@ -183,7 +185,7 @@ export default function PerformanceReview({ vessels = [] }) {
           map[key].push(f);
         });
       }
-      if (!cancelled) setFindingsByImoDate(map);
+      if (!cancelled) { setFindingsByImoDate(map); setFindingsLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [period1, period2]);
@@ -525,6 +527,7 @@ export default function PerformanceReview({ vessels = [] }) {
 
   // ---- Export PDF: opens a clean popup window and prints, same pattern used for Case Brief exports ----
   const printReport = () => {
+    if (findingsLoading) { alert("Deficiency data is still loading — please wait a moment and try again, otherwise the report may show incomplete deficiency counts."); return; }
     const esc = (s) => String(s==null?"":s);
     const table = (headers, rows) =>
       "<table style='border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:9.5pt;'>"
@@ -694,7 +697,7 @@ export default function PerformanceReview({ vessels = [] }) {
           <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>PSC Detention Performance Review</div>
           <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Period-over-period comparison — live from Supabase</div>
         </div>
-        <button onClick={printReport} style={{background:"var(--blue)",color:"#fff",border:"none",borderRadius:"6px",padding:"8px 16px",fontSize:"12px",fontWeight:600,cursor:"pointer"}}>⬇ Export PDF</button>
+        <button onClick={printReport} disabled={findingsLoading} style={{background:findingsLoading?"var(--text3)":"var(--blue)",color:"#fff",border:"none",borderRadius:"6px",padding:"8px 16px",fontSize:"12px",fontWeight:600,cursor:findingsLoading?"default":"pointer"}}>{findingsLoading?"Loading data…":"⬇ Export PDF"}</button>
       </div>
 
       {/* Performance Verdict */}
