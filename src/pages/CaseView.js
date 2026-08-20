@@ -93,7 +93,7 @@ function getYear(d) {
   return p.length >= 1 ? p[0] : "";
 }
 
-function VesselCard({v, onOpen, isChecked, onCheck}) {
+function VesselCard({v, onOpen, isChecked, onCheck, repeatCount}) {
   const isDet = v.detained;
   const now = new Date();
   const daysSince = v.detentionDate ? Math.floor((now - new Date(v.detentionDate)) / 86400000) : null;
@@ -110,7 +110,7 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
           {isChecked&&<span style={{color:"#fff",fontSize:"13px"}}>{"\u2713"}</span>}
         </div>}
         <div>
-          <div style={{fontSize:"13px",fontWeight:700,color:isDet?"var(--red2)":"var(--text)",lineHeight:1.3,paddingRight:onCheck?"22px":"0"}}>{v.name}</div>
+          <div style={{fontSize:"13px",fontWeight:700,color:isDet?"var(--red2)":"var(--text)",lineHeight:1.3,paddingRight:onCheck?"22px":"0"}}>{v.name}{repeatCount>1&&<span style={{marginLeft:"6px",fontSize:"11px",padding:"1px 6px",borderRadius:"10px",background:"var(--amber-bg)",color:"var(--amber2)",fontWeight:700,verticalAlign:"middle"}}>{repeatCount}x</span>}</div>
           <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginTop:"2px"}}>{v.imo}{v.mou?" · "+v.mou:""}</div>
         </div>
         {v.port&&<div style={{fontSize:"13px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.port}</div>}
@@ -137,6 +137,7 @@ function VesselCard({v, onOpen, isChecked, onCheck}) {
 export default function CaseView({canEdit, canDelete, canDownload, currentUser, importedVessels=[], preSelectImo, preSelectDate, onClearPreSelect}) {
   const [year, setYear] = useState("All");
   const [monthName, setMonthName] = useState("All");
+  const [repeatOnly, setRepeatOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -291,11 +292,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   const YEARS = ["All", ...Array.from(new Set(allVessels.map(v=>getYear(v.detentionDate)).filter(Boolean))).sort((a,b)=>b.localeCompare(a))];
 
+  // Vessels detained more than once, across the full case list (not affected by year/month filters —
+  // this determines WHICH vessels count as "repeated", so it has to look at everything)
+  const imoCounts = {};
+  allVessels.forEach(v => { if (v.imo) imoCounts[v.imo] = (imoCounts[v.imo]||0)+1; });
+  const repeatImoSet = new Set(Object.keys(imoCounts).filter(imo=>imoCounts[imo]>1));
+
   const filtered = allVessels.filter(v => {
     if (year !== "All" && getYear(v.detentionDate) !== year) return false;
     if (monthName !== "All" && getMonthName(v.detentionDate) !== monthName) return false;
     if (statusFilter === "Detained" && !v.detained) return false;
     if (statusFilter === "Active" && v.detained) return false;
+    if (repeatOnly && !repeatImoSet.has(v.imo)) return false;
     if (fromDate && v.detentionDate && v.detentionDate < fromDate) return false;
     if (toDate && v.detentionDate && v.detentionDate > toDate) return false;
     if (search && !v.name.toLowerCase().includes(search.toLowerCase()) && !v.imo.includes(search)) return false;
@@ -614,10 +622,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}}>
           {["All","Detained","Active"].map(s=><option key={s}>{s}</option>)}
         </select>
+        <button onClick={()=>{setRepeatOnly(x=>!x);setPage(1);}} title="Show only vessels detained more than once" style={{padding:"6px 14px",border:"1px solid "+(repeatOnly?"var(--amber)":"var(--border2)"),borderRadius:"6px",background:repeatOnly?"var(--amber-bg)":"var(--bg3)",color:repeatOnly?"var(--amber2)":"var(--text3)",cursor:"pointer",fontSize:"13px",fontWeight:repeatOnly?600:400}}>{repeatOnly?"✓ ":""}Repeated Vessels ({repeatImoSet.size})</button>
         <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search vessel or IMO..." style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none",width:"180px"}} />
         <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
         <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{padding:"6px 10px",border:"1px solid var(--border2)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text)",fontSize:"13px",outline:"none"}} />
-        {(search||fromDate||toDate||year!=="All"||monthName!=="All"||statusFilter!=="All")&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setYear("All");setMonthName("All");setStatusFilter("All");}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
+        {(search||fromDate||toDate||year!=="All"||monthName!=="All"||statusFilter!=="All"||repeatOnly)&&<button onClick={()=>{setSearch("");setFromDate("");setToDate("");setYear("All");setMonthName("All");setStatusFilter("All");setRepeatOnly(false);}} style={{padding:"6px 12px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer",fontSize:"13px"}}>Clear</button>}
         <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",marginLeft:"auto"}}>{filtered.length} vessels{detained.length>0&&<span style={{color:"var(--red2)"}}> · {detained.length} detained</span>}{loading&&" · Loading..."}{saving&&" · Saving..."}</span>
       </div>
 
@@ -643,7 +652,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{marginBottom:"10px"}}>
                   <div style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--red2)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Detained</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
-                    {pageDetained.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;})}
+                    {pageDetained.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} repeatCount={imoCounts[v.imo]} />;})}
                   </div>
                 </div>
               )}
@@ -651,7 +660,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 <div style={{marginBottom:"10px"}}>
                   <div style={{fontSize:"13px",fontFamily:"var(--mono)",color:"var(--text3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"6px"}}>Active / released</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"12px"}}>
-                    {pageActive.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} />;})}
+                    {pageActive.map(v=>{const key=v.imo+"__"+v.detentionDate;return <VesselCard key={key} v={v} onOpen={openModal} isChecked={selectedVessels.includes(key)} onCheck={selectMode?()=>setSelectedVessels(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]):null} repeatCount={imoCounts[v.imo]} />;})}
                   </div>
                 </div>
               )}
