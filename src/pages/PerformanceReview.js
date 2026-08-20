@@ -616,7 +616,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","MLC Complaints"], (mlcByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
       + sectionTitle("8. Detention Rate Trend by Month")
-      + barChart(monthlyBreakdown.map(r=>({label:r.month+" (P1)", value:r.c1, color:"#94a3b8"})).concat(monthlyBreakdown.map(r=>({label:r.month+" (P2)", value:r.c2, color:"#3b82f6"}))), Math.max(1,...monthlyBreakdown.map(r=>Math.max(r.c1,r.c2))))
+      + barChartCompare(monthlyBreakdown.map(r=>({label:r.month, v1:r.c1, v2:r.c2})), Math.max(1,...monthlyBreakdown.map(r=>Math.max(r.c1,r.c2))), "Period 1", "Period 2")
       + table(["Month","P1 Det.","P2 Det.","Change","% Change","P1 Def.","P2 Def.","Avg Def. P1","Avg Def. P2"], monthlyBreakdown.map(r=>[r.month,r.c1,r.c2,{v:(r.change>0?"+":"")+r.change,color:pctColor(r.change)},{v:(r.pct>0?"+":"")+r.pct+"%",color:pctColor(r.pct)},r.f1,r.f2,r.avg1,r.avg2]))
 
       + sectionTitle("9. Repeat Detentions")
