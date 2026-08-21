@@ -830,7 +830,7 @@ export default function PerformanceReview({ vessels = [] }) {
           <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
             <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase"}}>{label}</div>
             <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>{val}</div>
-            {pct!=null && !isNaN(pct) && <div style={{fontSize:"11px",color:pctColor(pct)}}>{pct>0?"+":""}{pct}%</div>}
+            {pct!=null && !isNaN(pct) && <div style={{fontSize:"11px",color:pct<0?"var(--green2)":pct>0?"var(--red2)":"var(--text3)"}}>{pct>0?"+":""}{pct}%</div>}
           </div>
         ))}
       </div>
