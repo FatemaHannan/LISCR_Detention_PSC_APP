@@ -346,8 +346,9 @@ export default function PerformanceReview({ vessels = [] }) {
   // ---- RO (Recognized Organization) performance, same pattern as MoU ----
   const roPerformance = useMemo(() => {
     const byRo = {};
-    period1.forEach(v => { const ro=v.ro&&v.ro!=="—"?v.ro:"Unknown"; byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d1++; byRo[ro].f1+=v.defs||0; });
-    period2.forEach(v => { const ro=v.ro&&v.ro!=="—"?v.ro:"Unknown"; byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d2++; byRo[ro].f2+=v.defs||0; });
+    const isRealRo = (ro) => ro && ro.trim() && ro.trim()!=="—" && ro.trim().toLowerCase()!=="unknown";
+    period1.forEach(v => { if (!isRealRo(v.ro)) return; const ro=v.ro.trim(); byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d1++; byRo[ro].f1+=v.defs||0; });
+    period2.forEach(v => { if (!isRealRo(v.ro)) return; const ro=v.ro.trim(); byRo[ro]=byRo[ro]||{ro,d1:0,d2:0,f1:0,f2:0}; byRo[ro].d2++; byRo[ro].f2+=v.defs||0; });
     return Object.values(byRo).map(r => {
       const a1 = r.d1?+(r.f1/r.d1).toFixed(1):0, a2 = r.d2?+(r.f2/r.d2).toFixed(1):0;
       const detPct = pctChange(r.d1,r.d2), defPct = pctChange(r.f1,r.f2);
@@ -362,7 +363,13 @@ export default function PerformanceReview({ vessels = [] }) {
     const defsFor = (v) => {
       if (v.deficiencies?.length) return v.deficiencies.map(d=>d.desc);
       const findings = findingsByImoDate[v.imo+"|"+v.detentionDate] || [];
-      return findings.map(f=>f.main_defect_text||f.full_description||f.defect_code||"");
+      if (findings.length) return findings.map(f=>f.main_defect_text||f.full_description||f.defect_code||"");
+      // Neither source has an itemized breakdown for this detention. If we still know a
+      // deficiency count (v.defs) for it, count those toward "Other" rather than letting
+      // them silently vanish from the comparison — the detention happened and had
+      // deficiencies, we just don't have the category breakdown for it.
+      if (v.defs>0) return Array(v.defs).fill("");
+      return [];
     };
     period1.forEach(v => defsFor(v).forEach(desc => { const c=catDef(desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c1++; }));
     period2.forEach(v => defsFor(v).forEach(desc => { const c=catDef(desc); byCat[c]=byCat[c]||{cat:c,c1:0,c2:0}; byCat[c].c2++; }));
@@ -541,6 +548,18 @@ export default function PerformanceReview({ vessels = [] }) {
           return "<td style='border:1px solid #ccc;padding:5px 8px;"+color+bold+"'>"+esc(val)+"</td>";
         }).join("")+"</tr>").join("") + "</tbody></table>";
     const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;page-break-after:avoid;'>"+esc(t)+"</h3>";
+    // Card matching the live view's Card component: bordered box, bold title, gray subtitle
+    const card = (title, subtitle, innerHtml) =>
+      "<div style='border:1px solid #ccc;border-radius:6px;padding:12px;page-break-inside:avoid;'>"
+      + "<div style='font-weight:700;font-size:10.5pt;'>"+esc(title)+"</div>"
+      + (subtitle ? "<div style='font-size:8pt;color:#777;margin-bottom:6px;'>"+esc(subtitle)+"</div>" : "")
+      + innerHtml + "</div>";
+    // Two cards side by side, matching the live view's grid layout
+    const twoCol = (leftHtml, rightHtml) =>
+      "<table style='width:100%;border-collapse:separate;border-spacing:8px 0;margin:8px 0 16px;'><tr>"
+      + "<td style='width:50%;vertical-align:top;padding:0;'>"+leftHtml+"</td>"
+      + "<td style='width:50%;vertical-align:top;padding:0;'>"+rightHtml+"</td>"
+      + "</tr></table>";
     // SVG-based bar chart — deliberately NOT using CSS background-color for the bars, since
     // browsers disable printing background colors by default (Chrome's print dialog has
     // "Background graphics" OFF unless the person manually enables it). SVG shape fills print
@@ -603,48 +622,48 @@ export default function PerformanceReview({ vessels = [] }) {
           quarterly.map(q=>[q.q, q.priorCount, q.curCount!=null?q.curCount:"upcoming", {v:(q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—"),color:q.pct!=null?pctColor(q.pct):null}, q.qVerdict]))
 
       + sectionTitle("4. Casualty & MLC by Company — Worst Performers (P1 vs P2)")
-      + "<b style='font-size:10pt;'>Casualty Reports</b>"
-      + table(["Company","P1","P2","% Change","Verdict"], casualtyByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))
-      + "<b style='font-size:10pt;'>MLC Complaints</b>"
-      + table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))
+      + twoCol(
+          card("Top 10 Companies — Casualty Reports", "From Consolidated Inspection History (VSL Casualty)",
+            casualtyByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No casualty records on file for either period.</p>" :
+            table(["Company","P1","P2","% Change","Verdict"], casualtyByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))),
+          card("Top 10 Companies — MLC Complaints", "From MLC Complaints",
+            mlcByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No MLC complaints on file for either period.</p>" :
+            table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}])))
+        )
 
       + sectionTitle("5. Top 10 Companies by Year — Detentions")
       + (recentYears.length ? barChart((detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>({label:c.company, value:c.count})), Math.max(1,...(detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>c.count))) : "")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Detentions","Deficiencies"], (detentionsByYearCompany[yr]||[]).map(c=>[c.company,c.count,c.defs]))).join("")
 
-      + sectionTitle("6. Top 10 Companies by Year — Casualty Reports")
-      + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Casualty Reports"], (casualtyByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
-      + "<p style='font-size:8pt;color:#888;'>Casualty company data is incomplete at the source: only ~12% of casualty records have a company on file — \"Unknown\" reflects that gap, not a lookup failure.</p>"
-
-      + sectionTitle("7. Top 10 Companies by Year — MLC Complaints")
+      + sectionTitle("6. Top 10 Companies by Year — MLC Complaints")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","MLC Complaints"], (mlcByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
-      + sectionTitle("8. Detention Rate Trend by Month")
+      + sectionTitle("7. Detention Rate Trend by Month")
       + barChartCompare(monthlyBreakdown.map(r=>({label:r.month, v1:r.c1, v2:r.c2})), Math.max(1,...monthlyBreakdown.map(r=>Math.max(r.c1,r.c2))), "Period 1", "Period 2")
       + table(["Month","P1 Det.","P2 Det.","Change","% Change","P1 Def.","P2 Def.","Avg Def. P1","Avg Def. P2"], monthlyBreakdown.map(r=>[r.month,r.c1,r.c2,{v:(r.change>0?"+":"")+r.change,color:pctColor(r.change)},{v:(r.pct>0?"+":"")+r.pct+"%",color:pctColor(r.pct)},r.f1,r.f2,r.avg1,r.avg2]))
 
-      + sectionTitle("9. Repeat Detentions")
+      + sectionTitle("8. Repeat Detentions")
       + "<p style='font-size:9pt;color:#666;'>Vessels detained more than once across the two periods combined</p>"
       + (repeatVessels.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No repeat detentions found across the selected periods.</p>" :
       table(["IMO","Vessel","Status","Count","MoU(s)","Total Def.","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},statusMap[v.imo]||"—",v.count,v.mous,v.defs,v.dates.join(", ")])))
 
-      + sectionTitle("10. MoU-Level Performance")
+      + sectionTitle("9. MoU-Level Performance")
       + barChartCompare(mouPerformance.slice(0,10).map(m=>({label:m.mou, v1:m.d1, v2:m.d2})), Math.max(1,...mouPerformance.slice(0,10).map(m=>Math.max(m.d1,m.d2))), "Period 1", "Period 2")
       + table(["MoU","P1 Det.","P2 Det.","% Change","Verdict"], mouPerformance.map(m=>[m.mou,m.d1,m.d2,{v:(m.detPct>0?"+":"")+m.detPct+"%",color:pctColor(m.detPct)},m.verdict]))
 
-      + sectionTitle("11. RO Performance")
+      + sectionTitle("10. RO Performance")
       + barChartCompare(roPerformance.slice(0,10).map(r=>({label:r.ro, v1:r.d1, v2:r.d2})), Math.max(1,...roPerformance.slice(0,10).map(r=>Math.max(r.d1,r.d2))), "Period 1", "Period 2")
       + table(["RO","P1 Det.","P2 Det.","% Change","Verdict"], roPerformance.map(r=>[r.ro,r.d1,r.d2,{v:(r.detPct>0?"+":"")+r.detPct+"%",color:pctColor(r.detPct)},r.verdict]))
 
-      + sectionTitle("12. Major Deficiency Type Comparison")
+      + sectionTitle("11. Major Deficiency Type Comparison")
       + barChartCompare(deficiencyTypeComparison.map(c=>({label:c.cat, v1:c.c1, v2:c.c2})), Math.max(1,...deficiencyTypeComparison.map(c=>Math.max(c.c1,c.c2))), "Period 1", "Period 2")
       + table(["Deficiency Type","Period 1","Period 2","% Change"], deficiencyTypeComparison.map(c=>[c.cat,c.c1,c.c2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)}]))
 
-      + sectionTitle("13. Highest Number of Deficiencies (Single Inspection)")
+      + sectionTitle("12. Highest Number of Deficiencies (Single Inspection)")
       + (worstInspections.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No deficiency data found.</p>" :
       table(["Period","IMO","Vessel","Inspection Date","Deficiencies","MoU","Port"], worstInspections.map(v=>[v.periodLabel,v.imo,{v:v.name,bold:true},v.detentionDate,{v:v.defs,color:R,bold:true},v.mou||"—",v.port||"—"])))
 
-      + sectionTitle("14. Registry Performance Assessment")
+      + sectionTitle("13. Registry Performance Assessment")
       + table(["Measure","Period 1","Period 2","Change","Verdict"], [
           ["Detained vessel records", kpi.d1, kpi.d2, {v:(kpi.detChange>0?"+":"")+kpi.detChange+" ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%)",color:kpi.detChange<=0?G:R}, {v:kpi.detChange<=0?"Improved":"Worsened",color:kpi.detChange<=0?G:R,bold:true}],
           ["Total deficiencies", kpi.f1, kpi.f2, {v:(kpi.defChange>0?"+":"")+kpi.defChange+" ("+(kpi.defPct>0?"+":"")+kpi.defPct+"%)",color:kpi.defChange<=0?G:R}, {v:kpi.defChange<=0?"Improved":"Worsened",color:kpi.defChange<=0?G:R,bold:true}],
@@ -653,15 +672,15 @@ export default function PerformanceReview({ vessels = [] }) {
           ["Dominant detention MoU", dominantMou, "", "—", {v:"Key risk area",color:A,bold:true}],
         ])
 
-      + sectionTitle("15. Inspection Country")
+      + sectionTitle("14. Inspection Country")
       + barChartCompare(countryPerformance.slice(0,12).map(c=>({label:c.country, v1:c.d1, v2:c.d2})), Math.max(1,...countryPerformance.slice(0,12).map(c=>Math.max(c.d1,c.d2))), "Period 1", "Period 2")
       + table(["Country","P1 Det.","P2 Det.","Change","P1 Def.","P2 Def."], countryPerformance.map(c=>[c.country,c.d1,c.d2,{v:((c.d2-c.d1)>0?"+":"")+(c.d2-c.d1),color:pctColor(c.d2-c.d1)},c.f1,c.f2]))
 
-      + sectionTitle("16. Ports")
+      + sectionTitle("15. Ports")
       + "<p style='font-size:9pt;color:#666;'>Ranked by Period 1, compared against Period 2</p>"
       + table(["Port (Period 1 rank)","P1 Det.","P2 Det.","Difference"], portsP1.map(p=>{const p2count=portsP2Map[p.port]||0; const diff=p2count-p.count; return [p.port,p.count,p2count,{v:(diff>0?"+":"")+diff,color:pctColor(diff)}];}))
 
-      + sectionTitle("17. Recommended Areas of Focus")
+      + sectionTitle("16. Recommended Areas of Focus")
       + "<div style='display:flex;gap:16px;margin-top:8px;'>"
       + "<div style='flex:1;border:1px solid #22c55e;border-radius:6px;padding:10px 14px;'>"
       + "<b style='color:"+G+";'>✓ Where We're Doing Well</b>"
@@ -671,7 +690,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;line-height:1.6;'>"+(focusAreas.attention.length?focusAreas.attention.map(a=>"<li>"+esc(a)+"</li>").join(""):"<li>No significant red flags this period.</li>")+"</ul></div>"
       + "</div>"
 
-      + sectionTitle("18. Conclusion")
+      + sectionTitle("17. Conclusion")
       + "<p style='font-size:9.5pt;line-height:1.7;'>"
       + "Period 2 was "+(kpi.detPct<0?"better than":kpi.detPct>0?"worse than":"in line with")+" Period 1 on the headline indicators: detentions "+(kpi.detChange<=0?"fell":"rose")+" by "+Math.abs(kpi.detChange)+" ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%) and total deficiencies "+(kpi.defChange<=0?"fell":"rose")+" by "+Math.abs(kpi.defChange)+" ("+(kpi.defPct>0?"+":"")+kpi.defPct+"%). "+(kpi.detPct<0&&kpi.defPct<0?"This is a meaningful improvement, but it should not be treated as fully resolved — ":"")
       + "Period 2 detained vessels carried an average of <b>"+kpi.a2+"</b> deficiencies per detention, <b>"+repeatVessels.length+"</b> repeat detention group(s) remain visible, and <b>"+esc(dominantMou)+"</b> continues to dominate exposure."
@@ -883,26 +902,7 @@ export default function PerformanceReview({ vessels = [] }) {
         ))}
       </div>
 
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Top 10 Companies by Year — Casualty Reports</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"8px"}}>
-        {recentYears.map(yr => (
-          <Card key={yr} title={yr}>
-            {(casualtyByYearCompany[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file for {yr}.</div>:
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-              <thead><tr><Th>Company</Th><Th>Casualty Reports</Th></tr></thead>
-              <tbody>{casualtyByYearCompany[yr].map(c=>(
-                <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-                  <Td style={{color:c.company==="Unknown"?"var(--text3)":"var(--text)",fontWeight:c.company==="Unknown"?400:600}}>{c.company}</Td>
-                  <Td>{c.count}</Td>
-                </tr>
-              ))}</tbody>
-            </table>}
-          </Card>
-        ))}
-      </div>
-      <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"20px"}}>Casualty company data is incomplete at the source: only ~12% of casualty records have a company on file — "Unknown" reflects that gap, not a lookup failure.</div>
-
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Top 10 Companies by Year — MLC Complaints</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Top 10 Companies by Year — MLC Complaints</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
@@ -921,7 +921,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 1. Detention Rate Trend by Month */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Detention Rate Trend by Month</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Detention Rate Trend by Month</div>
       <Card style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{top:20}}>
@@ -954,7 +954,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 2. Repeat Detentions */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Repeat Detentions</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Repeat Detentions</div>
       <Card subtitle="Vessels detained more than once across the two periods combined" style={{marginBottom:"20px"}}>
         {repeatVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No repeat detentions found across the selected periods.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -974,7 +974,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3. MOU-Level Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. MOU-Level Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. MOU-Level Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, mouPerformance.length*34)}>
           <BarChart data={mouPerformance.map(m=>({name:m.mou, [p1Label(p1Start,p1End)]:m.d1, [p2Label(p2Start,p2End)]:m.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -1008,7 +1008,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3b. RO (Recognized Organization) Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. RO Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. RO Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, roPerformance.length*34)}>
           <BarChart data={roPerformance.map(r=>({name:r.ro, [p1Label(p1Start,p1End)]:r.d1, [p2Label(p2Start,p2End)]:r.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -1042,7 +1042,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3c. Major Deficiency Type Comparison */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. Major Deficiency Type Comparison</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. Major Deficiency Type Comparison</div>
       {deficiencyTypeComparison.length>0 &&
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, deficiencyTypeComparison.length*34)}>
@@ -1077,7 +1077,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 4. Highest deficiency single inspections */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Highest Number of Deficiencies (Single Inspection)</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. Highest Number of Deficiencies (Single Inspection)</div>
       <Card style={{marginBottom:"20px"}}>
         {worstInspections.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No deficiency data found.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -1097,7 +1097,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 5. Registry Performance Assessment */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Registry Performance Assessment</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Registry Performance Assessment</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Measure</Th><Th>Period 1</Th><Th>Period 2</Th><Th>Change</Th><Th>Verdict</Th></tr></thead>
@@ -1137,7 +1137,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 6. Inspection Country */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>15. Inspection Country</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Inspection Country</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Country</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th></tr></thead>
@@ -1153,7 +1153,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 7. Ports */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>16. Ports</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>15. Ports</div>
       <Card subtitle="Ranked by Period 1, compared against Period 2" style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Port (Period 1 rank)</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Difference</Th></tr></thead>
@@ -1172,7 +1172,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 8. Recommended Areas of Focus */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>17. Recommended Areas of Focus</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>16. Recommended Areas of Focus</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
           <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
@@ -1190,7 +1190,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 9. Conclusion */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>18. Conclusion</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>17. Conclusion</div>
       <Card style={{marginBottom:"20px"}}>
         <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.75}}>
           Period 2 was {kpi.detPct<0?"better than":kpi.detPct>0?"worse than":"in line with"} Period 1 on the headline indicators: detentions {kpi.detChange<=0?"fell":"rose"} by {Math.abs(kpi.detChange)} ({kpi.detPct>0?"+":""}{kpi.detPct}%) and total deficiencies {kpi.defChange<=0?"fell":"rose"} by {Math.abs(kpi.defChange)} ({kpi.defPct>0?"+":""}{kpi.defPct}%). {kpi.detPct<0&&kpi.defPct<0?"This is a meaningful improvement, but it should not be treated as fully resolved — ":""}
