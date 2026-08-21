@@ -460,6 +460,53 @@ export default function PerformanceReview({ vessels = [] }) {
     return { rows, year: yr };
   }, [detained]);
 
+  // ---- KPI Snapshot — auto-generated highlight bullets across Detentions, Casualty, MLC,
+  // and Company/MoU patterns, built from data already computed elsewhere in this report ----
+  const kpiHighlights = useMemo(() => {
+    const bullets = [];
+    if (kpi.detPct!=null && !isNaN(kpi.detPct)) {
+      bullets.push({ icon: kpi.detPct<0?"✅":kpi.detPct>0?"⚠️":"➡️",
+        text: `Detentions ${kpi.detPct<0?"decreased":kpi.detPct>0?"increased":"stayed flat"} ${Math.abs(kpi.detPct)}% (${kpi.d1} → ${kpi.d2}) from Period 1 to Period 2.` });
+    }
+    if (kpi.a1!=null && kpi.a2!=null && !isNaN(kpi.a1) && !isNaN(kpi.a2)) {
+      bullets.push({ icon: kpi.a2<kpi.a1?"✅":kpi.a2>kpi.a1?"⚠️":"➡️",
+        text: `Average deficiencies per detention went from ${kpi.a1} to ${kpi.a2}.` });
+    }
+    if (currentYearMonthly.rows?.length) {
+      const withData = currentYearMonthly.rows.filter(r=>r.count>0);
+      if (withData.length) {
+        const sorted = [...withData].sort((a,b)=>b.count-a.count);
+        const highest = sorted[0], lowest = sorted[sorted.length-1];
+        bullets.push({ icon:"📈", text: `${highest.month} had the highest number of detentions so far in ${currentYearMonthly.year} (${highest.count}).` });
+        if (lowest.month!==highest.month) bullets.push({ icon:"📉", text: `${lowest.month} had the lowest number of detentions so far in ${currentYearMonthly.year} (${lowest.count}).` });
+      }
+    }
+    if (worstCompanyP2) {
+      bullets.push({ icon:"🏢", text: `${worstCompanyP2.company} was the worst-performing company this period — ${worstCompanyP2.count} detention${worstCompanyP2.count!==1?"s":""}, avg ${worstCompanyP2.avgDefs} deficiencies.` });
+    }
+    if (worseningMous.length) {
+      bullets.push({ icon:"⚠️", text: `${worseningMous.length} MoU authorit${worseningMous.length!==1?"ies":"y"} trending worse period over period: ${worseningMous.slice(0,3).map(m=>m.mou).join(", ")}${worseningMous.length>3?", …":""}.` });
+    }
+    if (repeatVessels.length) {
+      bullets.push({ icon:"🔁", text: `${repeatVessels.length} vessel${repeatVessels.length!==1?"s":""} detained more than once across the two periods combined.` });
+    }
+    const casTotal1 = casualtyByCompany.reduce((s,c)=>s+c.p1,0), casTotal2 = casualtyByCompany.reduce((s,c)=>s+c.p2,0);
+    if (casTotal1||casTotal2) {
+      const pct = pctChange(casTotal1,casTotal2);
+      bullets.push({ icon: pct>0?"⚠️":pct<0?"✅":"➡️", text: `Marine Casualty reports ${pct>0?"rose":pct<0?"fell":"held steady"} ${Math.abs(pct)}% (${casTotal1} → ${casTotal2}) among companies with data on file.` });
+    }
+    const mlcTotal1 = mlcByCompany.reduce((s,c)=>s+c.p1,0), mlcTotal2 = mlcByCompany.reduce((s,c)=>s+c.p2,0);
+    if (mlcTotal1||mlcTotal2) {
+      const pct = pctChange(mlcTotal1,mlcTotal2);
+      bullets.push({ icon: pct>0?"⚠️":pct<0?"✅":"➡️", text: `MLC complaints ${pct>0?"rose":pct<0?"fell":"held steady"} ${Math.abs(pct)}% (${mlcTotal1} → ${mlcTotal2}).` });
+    }
+    if (worstInspections?.length) {
+      const w = worstInspections[0];
+      bullets.push({ icon:"🔴", text: `Highest single-inspection deficiency count: ${w.name} (${w.detentionDate}) with ${w.defs} deficiencies at ${w.port||"—"}.` });
+    }
+    return bullets;
+  }, [kpi, currentYearMonthly, worstCompanyP2, worseningMous, repeatVessels, casualtyByCompany, mlcByCompany, worstInspections]);
+
   // ---- Quarterly (Q1-Q4) comparison: current year vs prior year, same quarter ----
   const quarterly = useMemo(() => {
     const curYr = new Date().getFullYear();
@@ -603,6 +650,27 @@ export default function PerformanceReview({ vessels = [] }) {
       + "<div style='border:2px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:14px;'>"
       + "<b style='font-size:13pt;'>"+esc(verdict.label)+"</b><br/>"
       + "Period 2 vs Period 1: "+kpi.d2+" vs "+kpi.d1+" detentions (<span style='color:"+pctColor(kpi.detPct)+";font-weight:700;'>"+(kpi.detPct>0?"+":"")+kpi.detPct+"%</span>)"
+      + "</div>"
+
+      + sectionTitle("📊 KPI Snapshot")
+      + "<table style='width:100%;border-collapse:separate;border-spacing:8px 0;margin:6px 0 12px;'><tr>"
+      + [
+          ["Detentions", kpi.d1+" → "+kpi.d2, kpi.detPct],
+          ["Total Deficiencies", kpi.f1+" → "+kpi.f2, kpi.defPct],
+          ["Avg Def./Detention", kpi.a1+" → "+kpi.a2, null],
+          ["Repeat Vessels", String(repeatVessels.length), null],
+        ].map(([label,val,pct]) =>
+          "<td style='width:25%;border:1px solid #ccc;border-radius:4px;padding:8px 10px;vertical-align:top;'>"
+          + "<div style='font-size:7.5pt;color:#888;text-transform:uppercase;'>"+esc(label)+"</div>"
+          + "<div style='font-size:12pt;font-weight:700;'>"+esc(val)+"</div>"
+          + (pct!=null && !isNaN(pct) ? "<div style='font-size:8.5pt;color:"+pctColor(pct)+";'>"+(pct>0?"+":"")+pct+"%</div>" : "")
+          + "</td>"
+        ).join("")
+      + "</tr></table>"
+      + "<div style='border:1px solid #ccc;border-radius:6px;padding:10px 12px;margin-bottom:16px;'>"
+      + "<b style='font-size:10pt;'>Highlights</b>"
+      + (kpiHighlights.length===0 ? "<p style='font-size:9pt;color:#888;'>Not enough data to generate highlights yet.</p>" :
+          "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;'>" + kpiHighlights.map(h=>"<li style='margin-bottom:4px;'>"+h.icon+" "+esc(h.text)+"</li>").join("") + "</ul>")
       + "</div>"
 
       + sectionTitle("1. Worst Performing Company")
@@ -749,6 +817,35 @@ export default function PerformanceReview({ vessels = [] }) {
           </div>
         </div>
       </Card>
+
+      {/* KPI Snapshot */}
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>📊 KPI Snapshot</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:"10px",marginBottom:"14px"}}>
+        {[
+          ["Detentions", kpi.d1+" → "+kpi.d2, kpi.detPct],
+          ["Total Deficiencies", kpi.f1+" → "+kpi.f2, kpi.defPct],
+          ["Avg Def./Detention", kpi.a1+" → "+kpi.a2, null],
+          ["Repeat Vessels", String(repeatVessels.length), null],
+        ].map(([label,val,pct],i) => (
+          <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"10px 12px"}}>
+            <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase"}}>{label}</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)"}}>{val}</div>
+            {pct!=null && !isNaN(pct) && <div style={{fontSize:"11px",color:pctColor(pct)}}>{pct>0?"+":""}{pct}%</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
+        <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Highlights</div>
+        {kpiHighlights.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>Not enough data to generate highlights yet.</div> : (
+          <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+            {kpiHighlights.map((h,i) => (
+              <div key={i} style={{fontSize:"12px",color:"var(--text2)",display:"flex",gap:"8px"}}>
+                <span>{h.icon}</span><span>{h.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Summary */}
       <Card title="Summary" style={{marginBottom:"14px"}}>
