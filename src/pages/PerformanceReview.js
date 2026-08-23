@@ -84,17 +84,28 @@ export default function PerformanceReview({ vessels = [] }) {
 
   useEffect(() => {
     let cancelled = false;
+    async function fetchAll(table, select) {
+      let all = [], from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase.from(table).select(select).range(from, from + PAGE - 1);
+        if (error) { console.error(`[PerformanceReview] ${table} fetch error:`, error.message); break; }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
+    }
     (async () => {
       setCompanyReportsLoading(true);
-      const [casRes, mlcRes] = await Promise.all([
-        supabase.from("vessel_casualty").select("managing_company,incident_date,casualty_type"),
-        supabase.from("mlc_complaints").select("ism_client,reported_date"),
+      const [casData, mlcData] = await Promise.all([
+        fetchAll("vessel_casualty", "managing_company,incident_date,casualty_type"),
+        fetchAll("mlc_complaints", "ism_client,reported_date"),
       ]);
       if (cancelled) return;
-      if (casRes.error) console.error("[CasualtyByCompany] fetch error:", casRes.error.message);
-      if (mlcRes.error) console.error("[MlcByCompany] fetch error:", mlcRes.error.message);
-      setCasualtyRaw(casRes.data||[]);
-      setMlcRaw(mlcRes.data||[]);
+      setCasualtyRaw(casData);
+      setMlcRaw(mlcData);
       setCompanyReportsLoading(false);
     })();
     return () => { cancelled = true; };
