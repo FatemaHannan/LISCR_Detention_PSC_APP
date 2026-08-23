@@ -693,10 +693,10 @@ export default function PerformanceReview({ vessels = [] }) {
       + twoCol(
           card("Top 10 Companies — Casualty Reports", "From Consolidated Inspection History (VSL Casualty)",
             casualtyByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No casualty records on file for either period.</p>" :
-            table(["Company","P1","P2","% Change","Verdict"], casualtyByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))),
+            table(["Company","P1","P2","% Change","Verdict"], casualtyByCompany.map(c=>[c.company,{v:c.p1,color:"#888"},{v:c.p2,bold:true},{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))),
           card("Top 10 Companies — MLC Complaints", "From MLC Complaints",
             mlcByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No MLC complaints on file for either period.</p>" :
-            table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,c.p1,c.p2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}])))
+            table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,{v:c.p1,color:"#888"},{v:c.p2,bold:true},{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}])))
         )
 
       + sectionTitle("5. Top 10 Companies by Year — Detentions")
@@ -954,7 +954,7 @@ export default function PerformanceReview({ vessels = [] }) {
             <tbody>{casualtyByCompany.map(c=>(
               <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
                 <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td>{c.p1}</Td><Td>{c.p2}</Td>
+                <Td style={{color:"var(--text3)"}}>{c.p1}</Td><Td style={{color:"var(--text)",fontWeight:700}}>{c.p2}</Td>
                 <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
                 <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
               </tr>
@@ -969,7 +969,7 @@ export default function PerformanceReview({ vessels = [] }) {
             <tbody>{mlcByCompany.map(c=>(
               <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
                 <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td>{c.p1}</Td><Td>{c.p2}</Td>
+                <Td style={{color:"var(--text3)"}}>{c.p1}</Td><Td style={{color:"var(--text)",fontWeight:700}}>{c.p2}</Td>
                 <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
                 <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
               </tr>
