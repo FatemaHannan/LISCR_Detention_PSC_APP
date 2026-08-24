@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import ReactDOM from "react-dom";
 import * as XLSX from "xlsx";
+import * as mammoth from "mammoth";
 import { DOC_TYPES } from "../data/masterData";
 import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
 import { fmtDate } from "../lib/utils";
@@ -400,7 +401,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             let docText = "";
             let extractError = null;
             try {
-              const mammoth = await import("mammoth");
               const result = await mammoth.extractRawText({arrayBuffer});
               docText = result.value || "";
             } catch(e) { extractError = e; docText = ""; }
