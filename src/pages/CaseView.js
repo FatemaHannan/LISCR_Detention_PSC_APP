@@ -398,11 +398,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
           } else if (isDocx) {
             const arrayBuffer = await blob.arrayBuffer();
             let docText = "";
+            let extractError = null;
             try {
               const mammoth = await import("mammoth");
               const result = await mammoth.extractRawText({arrayBuffer});
-              docText = result.value;
-            } catch(e) { docText = ""; }
+              docText = result.value || "";
+            } catch(e) { extractError = e; docText = ""; }
+            if (extractError || docText.trim().length < 20) {
+              alert("Could not extract readable text from \""+doc.file_name+"\"" + (extractError ? " (" + extractError.message + ")" : " — the document appears to be empty or unreadable") + ". Nothing was sent to the AI, so nothing was extracted. Try re-saving the document as a standard .docx file, or upload it as a PDF instead.");
+              setAnalyzing(prev=>({...prev,[doc.id]:false}));
+              return;
+            }
             messageContent = [{type:"text", text:(prompts[doc.doc_type]||prompts.other)+"\n\nDocument content:\n"+docText}];
           }
         }
@@ -446,6 +452,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         alert("Could not read the AI's response for this document — it may have been cut off or in an unexpected format. Nothing was extracted. Try Analyze again, or check the browser console for the raw response.");
         setAnalyzing(prev=>({...prev,[doc.id]:false}));
         return;
+      }
+      console.log("[analyzeDocument] doc_type:", doc.doc_type, "parsed result:", parsed);
+      if (doc.doc_type === "detentionAnalysis" && !parsed.vettingNotes && !parsed.detentionNotes && !parsed.finalRecommendations && !parsed.evpQA?.length) {
+        alert("The AI ran successfully but didn't find any of the expected sections (Vetting Details, Detention Notes, Final Recommendations, etc.) in this document. This usually means the document's content wasn't recognized as a Detention Analysis format, or its section headings don't match what's expected. Check the browser console (F12) for the raw AI response to see what it actually returned.");
       }
 
       // Auto-populate vessel fields from analysis
