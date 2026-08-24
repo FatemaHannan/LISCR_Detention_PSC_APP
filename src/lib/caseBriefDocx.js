@@ -313,6 +313,21 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(spacer(), sectionTitle("Final Recommendations", SEC_COLORS.rec));
   children.push(plainPara(v.finalRecommendations || "None recorded"));
 
+  // Action Items — AI-detected tasks from the Detention Analysis document
+  const actionItems = (openTasksForCase||[]).filter(t => t.source === "AI Detention Analysis");
+  if (actionItems.length) {
+    children.push(spacer(), sectionTitle("Action Items", SEC_COLORS.rec));
+    actionItems.forEach(t => {
+      children.push(new Paragraph({
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: "["+t.type+"] ", bold: true, size: 20, color: "5B7FAE" }),
+          new TextRun({ text: t.title + (t.priority ? "  (" + t.priority + " priority)" : ""), size: 20 }),
+        ],
+      }));
+    });
+  }
+
   // Sign-off block
   children.push(new Paragraph({ text: "", spacing: { before: 400 } }));
   children.push(new Paragraph({

@@ -117,6 +117,7 @@ export default function TaskBoard() {
       {key:'priority', label:'Priority', type:'select', options:['Critical','High','Medium','Low']},
       {key:'assigned_to', label:'Assigned to', type:'text'},
       {key:'due_date', label:'Due date', type:'text'},
+      {key:'task_type', label:'Task type', type:'select', options:['Rectification','RO Oversight','MLC','Investigation','Administrative','Client Oversight']},
       {key:'remark', label:'Remark / flags', type:'text'},
       {key:'actions_taken', label:'Actions taken', type:'textarea'},
     ]}
@@ -125,17 +126,7 @@ export default function TaskBoard() {
     onClose={() => setEditModalOpen(false)}
   />
 )}
-      {editModalOpen {editTask && <TaskModal task={editTask}{editTask && <TaskModal task={editTask} editingTask {editTask && <TaskModal task={editTask}{editTask && <TaskModal task={editTask} <EditModal title={'Edit Task — ' + editingTask.vessel_name} fields={[
-        {key:'title',label:'Task title',type:'textarea'},
-        {key:'status',label:'Status',type:'select',options:['To Do','In Progress','Executed']},
-        {key:'priority',label:'Priority',type:'select',options:['Critical','High','Medium','Low']},
-        {key:'assigned_to',label:'Assigned to',type:'text'},
-        {key:'due_date',label:'Due date',type:'text'},
-        {key:'task_type',label:'Task type',type:'select',options:['Rectification','RO Oversight','MLC','Investigation','Administrative']},
-        {key:'remark',label:'Remark / flags',type:'text'},
-        {key:'actions_taken',label:'Actions taken',type:'textarea'},
-      ]} data={editingTask} onSave={t => setTasks(prev => prev.map(x => x.id===editingTask.id ? {...x,...t} : x))} onClose={() => setEditModalOpen(false)} />
-      {editTask {editTask && <TaskModal task={editTask}{editTask && <TaskModal task={editTask} <TaskModal task={editTask} onClose={() => setEditTask(null)} onUpdate={(id, status) => { updateStatus(id, status); setEditTask(null); }} />}
+      {editTask && <TaskModal task={editTask} onClose={() => setEditTask(null)} onUpdate={(id, status) => { updateStatus(id, status); setEditTask(null); }} />}
       {showNewTask && <NewTaskModal onClose={() => setShowNewTask(false)} onSave={t => { setTasks(prev => [...prev, {...t, id:'new_'+Date.now()}]); setShowNewTask(false); }} />}
     </div>
   );
@@ -217,7 +208,7 @@ function NewTaskModal({ onClose, onSave }) {
             <div><div className="section-label">Priority</div><select className="select input" value={form.priority} onChange={e=>set('priority',e.target.value)}><option>High</option><option>Medium</option></select></div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginTop:'12px'}}>
-            <div><div className="section-label">Task type</div><select className="select input" value={form.task_type} onChange={e=>set('task_type',e.target.value)}><option>Rectification</option><option>RO Oversight</option><option>MLC</option><option>Investigation</option><option>Administrative</option></select></div>
+            <div><div className="section-label">Task type</div><select className="select input" value={form.task_type} onChange={e=>set('task_type',e.target.value)}><option>Rectification</option><option>RO Oversight</option><option>MLC</option><option>Investigation</option><option>Administrative</option><option>Client Oversight</option></select></div>
             <div><div className="section-label">Status</div><select className="select input" value={form.status} onChange={e=>set('status',e.target.value)}><option>To Do</option><option>In Progress</option><option>Executed</option></select></div>
           </div>
           <div style={{marginTop:'12px'}}><div className="section-label">Remark</div><input className="input" value={form.remark} onChange={e=>set('remark',e.target.value)} placeholder="Notes or flags" /></div>

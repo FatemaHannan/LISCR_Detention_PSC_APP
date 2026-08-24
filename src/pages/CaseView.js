@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import * as XLSX from "xlsx";
 import * as mammoth from "mammoth";
 import { DOC_TYPES } from "../data/masterData";
-import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields } from "../lib/db";
+import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields, upsertTasksBulk } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { generateCaseBriefDocx } from "../lib/caseBriefDocx";
 import { checkRateLimit } from "../lib/rateLimiter";
@@ -368,7 +368,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
     const prompts = {
       pscReport: "You are analyzing a PSC Port State Control inspection report for LISCR Liberia flag state. Extract ALL information. Return ONLY valid JSON: {vesselName, imo, port, mou, psco, grossTonnage, company, ro, classificationSociety, inspectionDate, detained, detentionDate, releaseConditions, deficiencies:[{n,code,desc,action,ro,detainable}], flags:[]}. Action codes: 30=detainable, 17=rectify before next port, 50=outstanding may sail.",
-      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], psco, vettingNotes, detentionNotes, finalRecommendations, fsiNotes, caseOwner}. vettingNotes=Vetting Details section. detentionNotes=Detention Notes section. finalRecommendations=Final Recommendations section. fsiNotes=Flag State Inspection notes. Generate evpQA for: What happened, When last onboard, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required.",
+      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], actionItems:[{title, type, priority, dueDate}], psco, vettingNotes, detentionNotes, finalRecommendations, fsiNotes, caseOwner}. vettingNotes=Vetting Details section. detentionNotes=Detention Notes section. finalRecommendations=Final Recommendations section. fsiNotes=Flag State Inspection notes. Generate evpQA for: What happened, When last onboard, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required. actionItems = concrete, assignable follow-up actions found anywhere in the document (especially in Final Recommendations) — e.g. 'Request RO survey records from class', 'Contact company re: recurring ISM deficiency', 'Schedule ASI before next port call'. Only include items that are genuinely actionable, not general commentary. For each: title = short imperative action (max ~15 words); type = one of exactly: Rectification, RO Oversight, MLC, Investigation, Administrative, Client Oversight (RO Oversight = anything requiring follow-up with the classification society; Client Oversight = anything requiring contacting/following up with the managing company/client); priority = High, Medium, or Low based on urgency/severity implied in the text; dueDate = YYYY-MM-DD if a specific date or clear timeframe is mentioned, otherwise omit. If no genuine action items are found, return an empty array — do not invent items.",
       roSurvey: "Analyze this RO Class survey report. Return ONLY valid JSON: {surveyDate, surveyorName, findingsCount, findings:[], certificatesIssued:[], outstandingConditions:[], vesselName, imo}",
       carDocument: "Analyze this Corrective Action Report. Return ONLY valid JSON: {submissionDate, submittedBy, actions:[{defCode,actionTaken}], acceptedByPSC, rejectionReason, vesselName, imo}",
       meetingMinutes: "Analyze these meeting minutes. Return ONLY valid JSON: {meetingDate, actionItems:[{vessel,imo,action,owner,dueDate,status}]}",
@@ -496,6 +496,29 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         if (parsed.psco) updates.psco = parsed.psco;
         if (parsed.recommendations?.length) {
           updates.gaps = [...(sel?.gaps||[]),...parsed.recommendations.map(r=>({severity:"High",title:r,desc:r,source:"Detention analysis"}))];
+        }
+        // Turn AI-detected action items (RO Oversight, Client Oversight, etc.) into real
+        // tasks, linked to this vessel/detention. Once created, refreshing the task list
+        // means they show up immediately in Overview, Summary, the Tasks tab, and Case Brief
+        // — all of which already read from the same shared task list, no separate wiring needed.
+        if (parsed.actionItems?.length) {
+          const validTypes = new Set(["Rectification","RO Oversight","MLC","Investigation","Administrative","Client Oversight"]);
+          const validPriorities = new Set(["High","Medium","Low"]);
+          const newTasks = parsed.actionItems.filter(a=>a && a.title).map(a => ({
+            vessel: sel.name, imo: sel.imo, detentionDate: sel.detentionDate,
+            title: a.title,
+            type: validTypes.has(a.type) ? a.type : "Administrative",
+            priority: validPriorities.has(a.priority) ? a.priority : "Medium",
+            status: "To Do",
+            due: a.dueDate || "",
+            caseOwner: parsed.caseOwner || sel.fsiCaseOwner || sel.pscOwner || "",
+            source: "AI Detention Analysis",
+          }));
+          if (newTasks.length) {
+            await upsertTasksBulk(newTasks);
+            const freshTasks = await getTasks();
+            setDbTasks(freshTasks);
+          }
         }
       }
       if (doc.doc_type === "roSurvey") {
@@ -2207,6 +2230,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     (v.gaps||[]).map((g,i)=>(<div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px"}}><span style={{color:"var(--amber2)",flexShrink:0}}>•</span><div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{g.title||g.desc}</div></div>))}
                   </div>
                 )}
+
+                {/* Action Items */}
+                {vesselTasks.filter(t=>t.source==="AI Detention Analysis").length>0&&(
+                  <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Action Items</div>
+                    {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
+                      <div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px",alignItems:"flex-start"}}>
+                        <span style={{fontSize:"10px",fontWeight:700,padding:"2px 6px",borderRadius:"4px",flexShrink:0,marginTop:"1px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg3)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{t.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 </div>)}
 
                 {reportView==="brief"&&(()=>{
@@ -2396,6 +2432,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"</table>",SEC_COLORS.disp)
                       +sec("Case Flags",(v.flags||[]).length?("<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+v.flags.map(f=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+f+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No flags on this case.</p>",SEC_COLORS.flags)
                       +sec("Final Recommendations","<p style='margin:0;'>"+(v.finalRecommendations||"None recorded")+"</p>",SEC_COLORS.rec)
+                      +(vesselTasks.filter(t=>t.source==="AI Detention Analysis").length>0 ? sec("Action Items",
+                          "<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                          +vesselTasks.filter(t=>t.source==="AI Detention Analysis").map(t=>"<tr><td style='padding:5px 10px;border:1px solid #999;width:120px;font-weight:bold;'>"+t.type+"</td><td style='padding:5px 10px;border:1px solid #999;'>"+t.title+"</td><td style='padding:5px 10px;border:1px solid #999;width:70px;'>"+t.priority+"</td></tr>").join("")
+                          +"</table>", SEC_COLORS.rec) : "")
                     );
                   };
                   const printBrief = ()=>{
@@ -2672,6 +2712,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
                         <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations||"None recorded"}</div>
                       </div>
+
+                      {/* Action Items */}
+                      {vesselTasks.filter(t=>t.source==="AI Detention Analysis").length>0&&(
+                        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginTop:"12px"}}>
+                          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Action Items</div>
+                          {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
+                            <div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px",alignItems:"flex-start"}}>
+                              <span style={{fontSize:"10px",fontWeight:700,padding:"2px 6px",borderRadius:"4px",flexShrink:0,marginTop:"1px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg3)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
+                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{t.title}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -2751,6 +2804,27 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   </div>
                 </div>
               </div>
+
+              {/* Action Items — from AI Detention Analysis, linked to the Tasks tab */}
+              {vesselTasks.filter(t=>t.source==="AI Detention Analysis").length>0 && (
+                <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                    <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Action Items (from Detention Analysis)</div>
+                    <button onClick={()=>setTab("tasks")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>View in Tasks →</button>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+                    {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
+                      <div key={i} onClick={()=>setTab("tasks")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid var(--border)",cursor:"pointer"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                          <span style={{fontSize:"11px",fontWeight:700,padding:"2px 7px",borderRadius:"4px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg2)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
+                          <span style={{fontSize:"13px",color:"var(--text2)"}}>{t.title}</span>
+                        </div>
+                        <span style={{fontSize:"11px",color:t.priority==="High"?"var(--red2)":t.priority==="Medium"?"var(--amber2)":"var(--text3)",fontWeight:600}}>{t.priority}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Meeting Minutes */}
               <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"10px",padding:"13px"}}>
