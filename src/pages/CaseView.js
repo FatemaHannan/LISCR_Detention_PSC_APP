@@ -456,6 +456,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       console.log("[analyzeDocument] doc_type:", doc.doc_type, "parsed result:", parsed);
       if (doc.doc_type === "detentionAnalysis" && !parsed.vettingNotes && !parsed.detentionNotes && !parsed.finalRecommendations && !parsed.evpQA?.length) {
         alert("The AI ran successfully but didn't find any of the expected sections (Vetting Details, Detention Notes, Final Recommendations, etc.) in this document. This usually means the document's content wasn't recognized as a Detention Analysis format, or its section headings don't match what's expected. Check the browser console (F12) for the raw AI response to see what it actually returned.");
+      } else if (doc.doc_type === "detentionAnalysis" && !parsed.evpQA?.length) {
+        alert("Other sections were extracted, but the AI didn't generate any EVP Q&A pairs for this document — so the EVP Q&A tab will stay empty for this analysis run. This can happen if the document doesn't have enough detail for the AI to confidently answer the standard questions (What happened, Company history, Fleet pattern, etc.). Try Analyze again, or check the console (F12) for the raw response.");
       }
 
       // Auto-populate vessel fields from analysis
