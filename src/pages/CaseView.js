@@ -412,17 +412,41 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
         messageContent = [{type:"text", text:(prompts[doc.doc_type]||prompts.other)+"\n\nDocument: "+doc.file_name+"\nVessel: "+sel?.name+" IMO:"+sel?.imo}];
       }
 
+      // Detention Analysis generates far more content than other doc types (10 detailed
+      // EVP Q&A pairs plus several notes fields) — 3000 tokens was frequently not enough,
+      // causing Claude's response to get cut off mid-JSON and fail to parse (silently,
+      // with nothing shown on screen — that's the bug behind "everything comes back empty").
+      const maxTokensForType = doc.doc_type === "detentionAnalysis" ? 8000 : 4000;
+
       const apiResp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`},
-        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:3000,messages:[{role:"user",content:messageContent}]})
+        body:JSON.stringify({model:"claude-sonnet-5",max_tokens:maxTokensForType,messages:[{role:"user",content:messageContent}]})
       });
       const data = await apiResp.json();
-      const text = data.content?.map(b=>b.text||"").join("")||"{}";
+
+      // If the AI call itself failed (bad model name, auth issue, rate limit, etc.), data.content
+      // won't exist. Previously this silently fell through to parsing "{}" as if it succeeded,
+      // which is why analysis could fail with nothing shown on screen — surface it instead.
+      if (!data.content) {
+        console.error("Claude API error response:", data);
+        alert("The AI analysis call failed: " + (data.error?.message || JSON.stringify(data)) + "\n\nNothing was extracted from this document.");
+        setAnalyzing(prev=>({...prev,[doc.id]:false}));
+        return;
+      }
+
+      const text = data.content.map(b=>b.text||"").join("")||"{}";
       const clean = text.replace(/```json|```/g,"").trim();
 
       let parsed = {};
-      try { parsed = JSON.parse(clean); } catch(e) { console.error("Parse error:", e); }
+      try {
+        parsed = JSON.parse(clean);
+      } catch(e) {
+        console.error("Parse error:", e, "Raw response:", clean);
+        alert("Could not read the AI's response for this document — it may have been cut off or in an unexpected format. Nothing was extracted. Try Analyze again, or check the browser console for the raw response.");
+        setAnalyzing(prev=>({...prev,[doc.id]:false}));
+        return;
+      }
 
       // Auto-populate vessel fields from analysis
       const updates = {};
