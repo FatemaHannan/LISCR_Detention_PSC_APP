@@ -237,6 +237,10 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(table(vetting60.length
     ? vetting60.map(d => singleRow(d.created_date?fmtDate(d.created_date):"—", (d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||"")))
     : [singleRow("Vetting Activity", "None in the 60 days before detention")]));
+  if (v.vettingNotes) {
+    children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Vetting Notes: ", bold: true, size: 20, color: "111111" })] }));
+    children.push(...multiLinePara(v.vettingNotes));
+  }
 
   // Inspection / Survey History
   children.push(spacer(), sectionTitle("Inspection / Survey History", SEC_COLORS.flag));

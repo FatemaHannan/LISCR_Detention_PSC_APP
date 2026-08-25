@@ -2390,7 +2390,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"</table>",SEC_COLORS.vetting)
                       +sec("Vetting Activity — 60 Days Before Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
-                        +"</table>",SEC_COLORS.vetting)
+                        +"</table>"
+                        +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : ""),SEC_COLORS.vetting)
                       +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
@@ -2613,6 +2614,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                               <span style={{color:"var(--text3)"}}>{d.case_file_port||""}</span>
                             </div>
                           )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No vetting activity recorded in the 60 days before detention.</div>}
+                          {v.vettingNotes && (
+                            <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+                              <b style={{color:"var(--text)"}}>Vetting Notes:</b> {v.vettingNotes}
+                            </div>
+                          )}
                         </div>
                       </div>
 
