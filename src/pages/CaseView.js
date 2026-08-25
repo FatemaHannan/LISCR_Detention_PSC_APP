@@ -602,7 +602,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
   }
 
   const allTasks = dbTasks;
-  const vesselTasks = sel ? allTasks.filter(t => t.imo === sel.imo) : [];
+  const vesselTasks = sel ? allTasks.filter(t => String(t.imo) === String(sel.imo)) : [];
   const docsByType = {};
   dbDocs.forEach(d => { if (!docsByType[d.doc_type]) docsByType[d.doc_type] = []; docsByType[d.doc_type].push(d); });
 
