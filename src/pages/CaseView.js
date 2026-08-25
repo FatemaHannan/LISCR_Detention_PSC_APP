@@ -2430,6 +2430,17 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
                         +"</table>",SEC_COLORS.flag)
+                      +sec("Full Flag and PSC Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +"<tr>"+["Date","Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
+                        +(allInspsSorted.length?allInspsSorted.map(f=>"<tr>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+typeLabel(f.flag_psc)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.port||"—")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+(f.num_findings>=5?"color:#a30000;font-weight:bold;":"")+"'>"+(f.num_findings??0)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.car_status||"—")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.auditor||"—")+"</td>"
+                          +"</tr>").join(""):rows("Inspections","None on record"))
+                        +"</table>",SEC_COLORS.flag)
                       +(flagInspsSorted.length>0?sec("Flag and PSC Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +allInspsSorted.filter(f=>(f.num_findings??0)>0).slice(0,15).map(f=>"<tr>"
@@ -2645,6 +2656,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
                         ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag and PSC Inspection History ({allInspsSorted.length})</div>
+                          {allInspsSorted.length>0?allInspsSorted.map((f,i)=>(
+                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<allInspsSorted.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap",alignItems:"center"}}>
+                              <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(f.inspection_date)}</span>
+                              <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue-bg)":"var(--amber-bg)",color:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue)":"var(--amber2)",fontWeight:600,flexShrink:0}}>{String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC"}</span>
+                              <span style={{color:"var(--text2)"}}>{f.port||"—"}</span>
+                              <span style={{color:f.num_findings>=5?"var(--red2)":"var(--text3)"}}>{f.num_findings??0} findings</span>
+                              <span style={{color:"var(--text3)"}}>{f.auditor||"—"}</span>
+                              <span style={{color:"var(--text3)",marginLeft:"auto"}}>{f.car_status||"—"}</span>
+                            </div>
+                          )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No inspections on record.</div>}
+                        </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Additional / FSI Inspections After Detention ({postDetInspections.length})</div>
                           {postDetInspections.length>0?postDetInspections.map((ins,i)=>(
