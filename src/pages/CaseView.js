@@ -2415,6 +2415,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
                         +"</table>"
                         +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : ""),SEC_COLORS.vetting)
+                      +(intel?.due ? sec("Inspection Highlights","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +pair("Last Inspection",intel.inspections?.length?fmtDate(intel.inspections[0].inspection_date)+" — "+(intel.inspections[0].flag_psc||"—")+(intel.inspections[0].inspection_type?" ("+intel.inspections[0].inspection_type+")":""):"—","Earliest Due"+(earliestDueType(intel.due)?" ("+earliestDueType(intel.due)+")":""),(intel.due.earliest_due_status||"—")+(intel.due.earliest_due?" ("+fmtDate(intel.due.earliest_due)+")":""),false,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))
+                        +pair("ASI Status",intel.due.asi_due_status||intel.due.asi_status||"—","IHM",intel.due.ihm_due||"—")
+                        +pair("ISM",intel.due.ism||"—","ISPS",intel.due.isps||"—")
+                        +pair("MLC",intel.due.mlc||"—",null,null)
+                        +"</table>",SEC_COLORS.vetting) : "")
                       +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
@@ -2644,6 +2650,22 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           )}
                         </div>
                       </div>
+
+                      {/* Inspection Highlights */}
+                      {intel?.due && (
+                        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
+                          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Inspection Highlights</div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                            <Row label="Last Inspection" value={intel.inspections?.length?fmtDate(intel.inspections[0].inspection_date)+" — "+(intel.inspections[0].flag_psc||"—")+(intel.inspections[0].inspection_type?" ("+intel.inspections[0].inspection_type+")":""):"—"} />
+                            <Row label={"Earliest Due"+(earliestDueType(intel.due)?" ("+earliestDueType(intel.due)+")":"")} value={(intel.due.earliest_due_status||"—")+(intel.due.earliest_due?" ("+fmtDate(intel.due.earliest_due)+")":"")} red={String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")} />
+                            <Row label="ASI Status" value={intel.due.asi_due_status||intel.due.asi_status||"—"} />
+                            <Row label="IHM" value={intel.due.ihm_due||"—"} />
+                            <Row label="ISM" value={intel.due.ism||"—"} />
+                            <Row label="ISPS" value={intel.due.isps||"—"} />
+                            <Row label="MLC" value={intel.due.mlc||"—"} />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Flag Inspection History */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>

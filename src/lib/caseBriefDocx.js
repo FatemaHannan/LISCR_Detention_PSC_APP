@@ -114,6 +114,20 @@ function barTable(title, items, colorHex) {
   const rows = items.map(i => singleRow(i.l, String(i.v)));
   return [spacer(), sectionTitle(title, colorHex), table(rows)];
 }
+// The inspection_due table has an earliest_due date but no column naming which inspection
+// category it belongs to — derive it by comparing against each individual due-date field.
+function earliestDueType(due, fmtDate) {
+  if (!due?.earliest_due) return null;
+  const target = fmtDate(due.earliest_due);
+  if (due.asi_due && fmtDate(due.asi_due) === target) return "ASI";
+  if (due.bianl_due && fmtDate(due.bianl_due) === target) return "Biennial";
+  if (due.quarterly_due && fmtDate(due.quarterly_due) === target) return "Quarterly";
+  const leadingDate = (text) => { const m = String(text||"").match(/^(\d{1,2}-[A-Za-z]{3}-\d{4})/); return m ? m[1] : null; };
+  if (leadingDate(due.ism) === target) return "ISM Renewal";
+  if (leadingDate(due.isps) === target) return "ISPS Renewal";
+  if (leadingDate(due.mlc) === target) return "MLC Renewal";
+  return null;
+}
 
 export async function generateCaseBriefDocx(ctx) {
   const {
@@ -240,6 +254,20 @@ export async function generateCaseBriefDocx(ctx) {
   if (v.vettingNotes) {
     children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Vetting Notes: ", bold: true, size: 20, color: "111111" })] }));
     children.push(...multiLinePara(v.vettingNotes));
+  }
+
+  // Inspection Highlights — forward-looking: what's due next, not historical records
+  if (intel?.due) {
+    const due = intel.due;
+    const dueType = earliestDueType(due, fmtDate);
+    children.push(spacer(), sectionTitle("Inspection Highlights", SEC_COLORS.vetting));
+    children.push(table([
+      pairRow("Last Inspection", intel.inspections?.length ? fmtDate(intel.inspections[0].inspection_date)+" — "+(intel.inspections[0].flag_psc||"—")+(intel.inspections[0].inspection_type?" ("+intel.inspections[0].inspection_type+")":"") : "—",
+              "Earliest Due"+(dueType?" ("+dueType+")":""), (due.earliest_due_status||"—")+(due.earliest_due?" ("+fmtDate(due.earliest_due)+")":""), false, String(due.earliest_due_status||"").toLowerCase().includes("overdue")),
+      pairRow("ASI Status", due.asi_due_status||due.asi_status||"—", "IHM", due.ihm_due||"—"),
+      pairRow("ISM", due.ism||"—", "ISPS", due.isps||"—"),
+      pairRow("MLC", due.mlc||"—", null, null),
+    ]));
   }
 
   // Inspection / Survey History
