@@ -2562,28 +2562,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         )}
                       </div>
 
-                      {/* Flag & PSC Inspection History (separate) */}
-                      {["Flag","PSC"].map(kind=>{
-                        const rows = (intel?.inspections||[]).filter(h=>String(h.flag_psc||"").toUpperCase().includes(kind.toUpperCase()));
-                        if (rows.length===0) return null;
-                        return (
-                          <div key={kind} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
-                            <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>{kind} Inspection History</div>
-                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-                              <thead><tr>{["Date","Port","Inspector","Findings"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"11px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-                              <tbody>{rows.map((h,i)=>(
-                                <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
-                                  <td style={{padding:"6px 8px",color:"var(--text2)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{h.inspection_date||"—"}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{h.port||"—"}</td>
-                                  <td style={{padding:"6px 8px",color:"var(--text2)"}}>{h.auditor||"—"}</td>
-                                  <td style={{padding:"6px 8px",color:h.num_findings>=5?"var(--red2)":"var(--text2)",fontWeight:h.num_findings>=5?600:400}}>{h.num_findings??0}</td>
-                                </tr>
-                              ))}</tbody>
-                            </table>
-                          </div>
-                        );
-                      })}
-
                       {/* Detention Details */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Details</div>
