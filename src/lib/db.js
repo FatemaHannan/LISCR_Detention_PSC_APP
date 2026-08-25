@@ -21,6 +21,18 @@ export async function getVessels() {
   return allData.map(mapVessel);
 }
 
+// Fetches one vessel/detention record fresh from the database, bypassing whatever the app
+// loaded into memory when the page first opened. Used when opening a case, so a long-lived
+// browser tab always shows current data instead of a stale snapshot from page-load time —
+// e.g. another team member's edit, or an upload that ran after this tab was opened.
+export async function getVessel(imo, detentionDate) {
+  let q = supabase.from("vessels").select("*").eq("imo", imo);
+  if (detentionDate) q = q.eq("detention_date", detentionDate);
+  const { data, error } = await q.order("created_at", {ascending:false}).limit(1);
+  if (error) { console.error("getVessel:", error); return null; }
+  return data?.[0] ? mapVessel(data[0]) : null;
+}
+
 export async function upsertVessel(vessel) {
   const row = toRow(vessel);
   // If vessel has an id, update by id to prevent duplicates when detention_date is null

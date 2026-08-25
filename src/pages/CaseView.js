@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import * as XLSX from "xlsx";
 import * as mammoth from "mammoth";
 import { DOC_TYPES } from "../data/masterData";
-import { getVessels, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields, upsertTasksBulk } from "../lib/db";
+import { getVessels, getVessel, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields, upsertTasksBulk } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { generateCaseBriefDocx } from "../lib/caseBriefDocx";
 import { checkRateLimit } from "../lib/rateLimiter";
@@ -636,6 +636,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     setModalVessel(vessel);
     setModalFull(false);
     setDbDocs([]);
+    // Refresh this specific vessel's data from the database right when the case is opened,
+    // rather than relying solely on the bulk load from whenever this page/tab first loaded.
+    // A long-lived tab can otherwise show stale values (another team member's edit, or an
+    // upload that ran after this session started) until a full page refresh.
+    getVessel(vessel.imo, vessel.detentionDate).then(fresh => {
+      if (fresh) { setSel(fresh); setModalVessel(fresh); }
+    });
     loadIntelligence(vessel.imo, vessel.company, vessel);
     const docs = await getDocuments(vessel.imo, vessel.detentionDate);
     setDbDocs(docs);
