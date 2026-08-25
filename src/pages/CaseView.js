@@ -368,7 +368,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
     const prompts = {
       pscReport: "You are analyzing a PSC Port State Control inspection report for LISCR Liberia flag state. Extract ALL information. Return ONLY valid JSON: {vesselName, imo, port, mou, psco, grossTonnage, company, ro, classificationSociety, inspectionDate, detained, detentionDate, releaseConditions, deficiencies:[{n,code,desc,action,ro,detainable}], flags:[]}. Action codes: 30=detainable, 17=rectify before next port, 50=outstanding may sail.",
-      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], actionItems:[{title, type, priority, dueDate}], psco, vettingNotes, detentionNotes, finalRecommendations, fsiNotes, caseOwner}. vettingNotes=Vetting Details section. detentionNotes=Detention Notes section. finalRecommendations=Final Recommendations section. fsiNotes=Flag State Inspection notes. Generate evpQA for: What happened, When last onboard, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required. actionItems = derive these SPECIFICALLY from the Final Recommendations section (this is the primary source — the Final Recommendations text is what needs to become trackable tasks). Read the Final Recommendations carefully and convert each distinct recommendation or follow-up point into a task, even if it's phrased as a narrative sentence rather than a literal instruction — e.g. a recommendation that says the company should be asked to explain a survey gap becomes a Client Oversight task like 'Contact company for explanation of RO survey gap'; a recommendation about verifying class records becomes an RO Oversight task. Be generous, not conservative — if Final Recommendations contains 3 distinct points, aim for 3 action items, not fewer. For each: title = short imperative action (max ~15 words); type = one of exactly: Rectification, RO Oversight, MLC, Investigation, Administrative, Client Oversight (RO Oversight = anything requiring follow-up with the classification society; Client Oversight = anything requiring contacting/following up with the managing company/client); priority = High, Medium, or Low based on urgency/severity implied in the text; dueDate = YYYY-MM-DD if a specific date or clear timeframe is mentioned, otherwise omit. Only return an empty array if Final Recommendations is genuinely empty or contains no distinct points at all.",
+      detentionAnalysis: "You are analyzing a LISCR internal detention analysis document. Return ONLY valid JSON: {appealRecommendation, appealNotes, company, companyDetentions, companyFleetSize, flags:[], evpQA:[{q,a}], recommendations:[], actionItems:[{title, type, priority, dueDate}], psco, vettingNotes, detentionNotes, finalRecommendations, fsiNotes, caseOwner}. vettingNotes=Vetting Details section. detentionNotes=Detention Notes section. finalRecommendations=Final Recommendations section, but rewritten as a concise bullet-point list (one line per point, each starting with \"• \"), summarizing each distinct recommendation in your own words rather than copying the full original paragraph verbatim — short and scannable, not a wall of text. fsiNotes=Flag State Inspection notes. Generate evpQA for: What happened, When last onboard, 24-month history, Company history, Appeal recommendation, Notification compliance, What did we learn, Could we have acted earlier, Fleet pattern, Decisions required. actionItems = derive these SPECIFICALLY from the Final Recommendations section (this is the primary source — the Final Recommendations text is what needs to become trackable tasks). Read the Final Recommendations carefully and convert each distinct recommendation or follow-up point into a task, even if it's phrased as a narrative sentence rather than a literal instruction — e.g. a recommendation that says the company should be asked to explain a survey gap becomes a Client Oversight task like 'Contact company for explanation of RO survey gap'; a recommendation about verifying class records becomes an RO Oversight task. Be generous, not conservative — if Final Recommendations contains 3 distinct points, aim for 3 action items, not fewer. For each: title = short imperative action (max ~15 words); type = one of exactly: Rectification, RO Oversight, MLC, Investigation, Administrative, Client Oversight (RO Oversight = anything requiring follow-up with the classification society; Client Oversight = anything requiring contacting/following up with the managing company/client); priority = High, Medium, or Low based on urgency/severity implied in the text; dueDate = YYYY-MM-DD if a specific date or clear timeframe is mentioned, otherwise omit. Only return an empty array if Final Recommendations is genuinely empty or contains no distinct points at all.",
       roSurvey: "Analyze this RO Class survey report. Return ONLY valid JSON: {surveyDate, surveyorName, findingsCount, findings:[], certificatesIssued:[], outstandingConditions:[], vesselName, imo}",
       carDocument: "Analyze this Corrective Action Report. Return ONLY valid JSON: {submissionDate, submittedBy, actions:[{defCode,actionTaken}], acceptedByPSC, rejectionReason, vesselName, imo}",
       meetingMinutes: "Analyze these meeting minutes. Return ONLY valid JSON: {meetingDate, actionItems:[{vessel,imo,action,owner,dueDate,status}]}",
@@ -2242,9 +2242,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
                     <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Action Items</div>
                     {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
-                      <div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px",alignItems:"flex-start"}}>
-                        <span style={{fontSize:"10px",fontWeight:700,padding:"2px 6px",borderRadius:"4px",flexShrink:0,marginTop:"1px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg3)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
-                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{t.title}</div>
+                      <div key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,marginBottom:"4px"}}>
+                        <b style={{color:"var(--text)"}}>{i+1}) {t.type}</b> — {t.title}
                       </div>
                     ))}
                   </div>
@@ -2437,11 +2436,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +rows("Related to This Detention",v.dispensationRelatedToDetention||"Unknown",v.dispensationRelatedToDetention==="Yes"?true:null)+rows("Details",v.dispensation)
                         +"</table>",SEC_COLORS.disp)
                       +sec("Case Flags",(v.flags||[]).length?("<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+v.flags.map(f=>"<tr><td style='padding:5px 10px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+f+"</td></tr>").join("")+"</table>"):"<p style='margin:0;color:#555;'>No flags on this case.</p>",SEC_COLORS.flags)
-                      +sec("Final Recommendations","<p style='margin:0;'>"+(v.finalRecommendations||"None recorded")+"</p>",SEC_COLORS.rec)
+                      +sec("Final Recommendations","<p style='margin:0;white-space:pre-wrap;'>"+(v.finalRecommendations||"None recorded")+"</p>",SEC_COLORS.rec)
                       +(vesselTasks.filter(t=>t.source==="AI Detention Analysis").length>0 ? sec("Action Items",
-                          "<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
-                          +vesselTasks.filter(t=>t.source==="AI Detention Analysis").map(t=>"<tr><td style='padding:5px 10px;border:1px solid #999;width:120px;font-weight:bold;'>"+t.type+"</td><td style='padding:5px 10px;border:1px solid #999;'>"+t.title+"</td><td style='padding:5px 10px;border:1px solid #999;width:70px;'>"+t.priority+"</td></tr>").join("")
-                          +"</table>", SEC_COLORS.rec) : "")
+                          vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>"<p style='margin:0 0 6px;'><b>"+(i+1)+") "+t.type+"</b> — "+t.title+"</p>").join("")
+                          , SEC_COLORS.rec) : "")
                     );
                   };
                   const printBrief = ()=>{
@@ -2716,7 +2714,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       {/* Final Recommendations */}
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Final Recommendations</div>
-                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7}}>{v.finalRecommendations||"None recorded"}</div>
+                        <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{v.finalRecommendations||"None recorded"}</div>
                       </div>
 
                       {/* Action Items */}
@@ -2724,9 +2722,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginTop:"12px"}}>
                           <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Action Items</div>
                           {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
-                            <div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px",alignItems:"flex-start"}}>
-                              <span style={{fontSize:"10px",fontWeight:700,padding:"2px 6px",borderRadius:"4px",flexShrink:0,marginTop:"1px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg3)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
-                              <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6}}>{t.title}</div>
+                            <div key={i} style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.7,marginBottom:"4px"}}>
+                              <b style={{color:"var(--text)"}}>{i+1}) {t.type}</b> — {t.title}
                             </div>
                           ))}
                         </div>
@@ -2822,6 +2819,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     {vesselTasks.filter(t=>t.source==="AI Detention Analysis").map((t,i)=>(
                       <div key={i} onClick={()=>setTab("tasks")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:"var(--bg3)",borderRadius:"6px",border:"1px solid var(--border)",cursor:"pointer"}}>
                         <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                          <span style={{fontSize:"13px",fontWeight:700,color:"var(--text3)"}}>{i+1})</span>
                           <span style={{fontSize:"11px",fontWeight:700,padding:"2px 7px",borderRadius:"4px",background:t.type==="RO Oversight"?"var(--blue-bg)":t.type==="Client Oversight"?"var(--amber-bg)":"var(--bg2)",color:t.type==="RO Oversight"?"var(--blue)":t.type==="Client Oversight"?"var(--amber2)":"var(--text3)"}}>{t.type}</span>
                           <span style={{fontSize:"13px",color:"var(--text2)"}}>{t.title}</span>
                         </div>

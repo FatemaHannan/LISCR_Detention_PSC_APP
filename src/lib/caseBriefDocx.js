@@ -97,6 +97,14 @@ function sectionTitle(title, colorHex) {
 function plainPara(text) {
   return new Paragraph({ children: [new TextRun({ text: fmt(text), size: 20, color: "111111" })] });
 }
+// Splits text on newlines into separate Word paragraphs, so bullet-point-formatted text
+// (e.g. "• point one\n• point two") renders as actual separate lines instead of collapsing
+// onto one line (a single TextRun in docx doesn't respect \n as a line break).
+function multiLinePara(text) {
+  const lines = fmt(text).split("\n").filter(l => l.trim());
+  if (lines.length <= 1) return [plainPara(text)];
+  return lines.map(line => new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: line, size: 20, color: "111111" })] }));
+}
 function spacer() {
   return new Paragraph({ text: "", spacing: { before: 220 } });
 }
@@ -311,17 +319,17 @@ export async function generateCaseBriefDocx(ctx) {
 
   // Final Recommendations
   children.push(spacer(), sectionTitle("Final Recommendations", SEC_COLORS.rec));
-  children.push(plainPara(v.finalRecommendations || "None recorded"));
+  children.push(...multiLinePara(v.finalRecommendations || "None recorded"));
 
   // Action Items — AI-detected tasks from the Detention Analysis document
   const actionItems = (openTasksForCase||[]).filter(t => t.source === "AI Detention Analysis");
   if (actionItems.length) {
     children.push(spacer(), sectionTitle("Action Items", SEC_COLORS.rec));
-    actionItems.forEach(t => {
+    actionItems.forEach((t, i) => {
       children.push(new Paragraph({
         spacing: { after: 80 },
         children: [
-          new TextRun({ text: "["+t.type+"] ", bold: true, size: 20, color: "5B7FAE" }),
+          new TextRun({ text: (i+1)+") "+t.type+" — ", bold: true, size: 20, color: "5B7FAE" }),
           new TextRun({ text: t.title + (t.priority ? "  (" + t.priority + " priority)" : ""), size: 20 }),
         ],
       }));
