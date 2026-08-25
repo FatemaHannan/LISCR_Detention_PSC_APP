@@ -2457,8 +2457,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
                   };
                   const downloadWordBrief = async ()=>{
+                    const resolvedType = typeMap[v.imo]||(v.type&&v.type!=="—"?v.type:null)||"—";
                     const blob = await generateCaseBriefDocx({
-                      v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
+                      v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
                       lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
                       flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
