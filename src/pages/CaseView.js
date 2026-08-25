@@ -2373,18 +2373,6 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Task Owners",v.taskOwners?.join(", "),"Open Tasks",openTasksForCase.length,false,openTasksForCase.length>0)
                         +pair("FSI Case Owner",v.fsiCaseOwner,"PSC Case Owner",v.pscOwner)
                         +"</table>",SEC_COLORS.admin)
-                      +["Flag","PSC"].map(kind=>{
-                        const insRows = (intel?.inspections||[]).filter(h=>String(h.flag_psc||"").toUpperCase().includes(kind.toUpperCase()));
-                        if (insRows.length===0) return "";
-                        const headerRow = "<tr>"+["Date","Port","Inspector","Findings"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>";
-                        const dataRows = insRows.map(h=>"<tr>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(h.inspection_date||"—")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(h.port||"—")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(h.auditor||"—")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;"+(h.num_findings>=5?"color:#a30000;font-weight:bold;":"")+"'>"+(h.num_findings??0)+"</td>"
-                          +"</tr>").join("");
-                        return sec(kind+" Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"+headerRow+dataRows+"</table>",SEC_COLORS.admin);
-                      }).join("")
                       +sec("Company Detention History — Last 36 Months ("+companyHistory.length+" other case"+(companyHistory.length!==1?"s":"")+")","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(companyHistory.length?companyHistory.map(c=>rows(fmtDate(c.detentionDate),c.name+" — "+(c.port||"—")+" — "+(c.defs??0)+" defs"+(c.detainable?" ("+c.detainable+" detainable)":""),c.detainable>0?true:null)).join(""):rows("Other Cases","None on record"))
                         +"</table>",SEC_COLORS.admin)
