@@ -21,6 +21,9 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [scope, setScope] = useState("fleet");
   const [companyFilter, setCompanyFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("All");
+  const [vesselFilter, setVesselFilter] = useState([]); // array of selected IMOs
+  const [vesselDropdownOpen, setVesselDropdownOpen] = useState(false);
+  const [vesselSearch, setVesselSearch] = useState("");
   const [selected, setSelected] = useState([]);
   const [savedReports, setSavedReports] = useState([]);
   const [savedLoading, setSavedLoading] = useState(true);
@@ -41,6 +44,13 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   }, [detained]);
   const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
   const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>Number(String(v.detentionDate).slice(0,4))))].sort((a,b)=>b-a), [detained]);
+  // Every distinct vessel (by IMO) across all detentions, for the vessel picker — a vessel can
+  // be selected here regardless of which port(s) it was detained at.
+  const vesselList = useMemo(() => {
+    const seen = new Map(); // imo -> {imo, name}
+    detained.forEach(v => { if (v.imo && !seen.has(v.imo)) seen.set(v.imo, { imo: v.imo, name: v.name||v.imo }); });
+    return [...seen.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  }, [detained]);
   const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => (v.mou||"").trim().toLowerCase() === scope.trim().toLowerCase()), [detained, scope]);
   const rows = useMemo(() => {
     let r = scopedRows;
@@ -51,8 +61,12 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
     if (yearFilter !== "All") {
       r = r.filter(v => v.detentionDate && Number(String(v.detentionDate).slice(0,4)) === Number(yearFilter));
     }
+    if (vesselFilter.length > 0) {
+      const set = new Set(vesselFilter);
+      r = r.filter(v => set.has(v.imo));
+    }
     return r;
-  }, [scopedRows, companyFilter, yearFilter]);
+  }, [scopedRows, companyFilter, yearFilter, vesselFilter]);
 
   const userEmail = currentUser?.email || "unknown";
 
@@ -168,6 +182,54 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
                 <option value="All">All Years</option>
                 {yearList.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
+            </div>
+
+            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", position: "relative" }}>
+              <div style={{ fontSize: "11px", color: "var(--text3)", marginBottom: "6px", textTransform: "uppercase", letterSpacing: ".05em" }}>Filter to specific vessel(s) — any port (optional)</div>
+              <button onClick={()=>setVesselDropdownOpen(o=>!o)} style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "6px", color: "var(--text)", fontSize: "13px", padding: "8px 12px", minWidth: "260px", textAlign: "left", cursor: "pointer" }}>
+                {vesselFilter.length===0 ? "All vessels" : vesselFilter.length+" vessel"+(vesselFilter.length!==1?"s":"")+" selected"} ▾
+              </button>
+              {vesselFilter.length>0 && (
+                <button onClick={()=>setVesselFilter([])} style={{ marginLeft: "8px", background: "none", border: "1px solid var(--border2)", borderRadius: "6px", color: "var(--text3)", fontSize: "12px", padding: "7px 12px", cursor: "pointer" }}>
+                  Clear
+                </button>
+              )}
+              {vesselDropdownOpen && (
+                <div style={{ position: "absolute", top: "100%", left: 0, marginTop: "4px", background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: "8px", zIndex: 20, width: "320px", maxHeight: "360px", display: "flex", flexDirection: "column" }}>
+                  <input
+                    autoFocus value={vesselSearch} onChange={e=>setVesselSearch(e.target.value)}
+                    placeholder="Search vessel name…"
+                    style={{ margin: "8px", padding: "7px 10px", border: "1px solid var(--border2)", borderRadius: "5px", background: "var(--bg2)", color: "var(--text)", fontSize: "12px", outline: "none" }}
+                  />
+                  <div style={{ overflowY: "auto", padding: "0 4px 8px" }}>
+                    {vesselList.filter(v=>v.name.toLowerCase().includes(vesselSearch.trim().toLowerCase())).map(v => (
+                      <label key={v.imo} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 8px", fontSize: "12px", color: "var(--text2)", cursor: "pointer", borderRadius: "5px" }}>
+                        <input
+                          type="checkbox" checked={vesselFilter.includes(v.imo)}
+                          onChange={()=>setVesselFilter(prev => prev.includes(v.imo) ? prev.filter(x=>x!==v.imo) : [...prev, v.imo])}
+                        />
+                        {v.name} <span style={{ color: "var(--text3)" }}>· {v.imo}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ borderTop: "1px solid var(--border)", padding: "8px", textAlign: "right" }}>
+                    <button onClick={()=>setVesselDropdownOpen(false)} style={{ background: "var(--blue)", border: "none", borderRadius: "5px", color: "#fff", fontSize: "12px", fontWeight: 600, padding: "6px 14px", cursor: "pointer" }}>Done</button>
+                  </div>
+                </div>
+              )}
+              {vesselFilter.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
+                  {vesselFilter.map(imo => {
+                    const vessel = vesselList.find(v=>v.imo===imo);
+                    return (
+                      <span key={imo} style={{ background: "var(--blue-bg)", color: "var(--blue)", fontSize: "11px", fontWeight: 600, padding: "3px 8px", borderRadius: "5px", display: "flex", alignItems: "center", gap: "5px" }}>
+                        {vessel?.name||imo}
+                        <span onClick={()=>setVesselFilter(prev=>prev.filter(x=>x!==imo))} style={{ cursor: "pointer" }}>✕</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
