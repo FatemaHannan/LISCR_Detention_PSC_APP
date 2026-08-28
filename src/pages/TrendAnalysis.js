@@ -385,9 +385,9 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       + "<tbody>" + rowsArr.map(r=>"<tr>"+r.map(c=>"<td style='border:1px solid #ccc;padding:5px 8px;'>"+esc(c)+"</td>").join("")+"</tr>").join("") + "</tbody></table>";
     const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;page-break-after:avoid;'>"+esc(t)+"</h3>";
 
-    let html = "<h1 style='font-size:15pt;margin-bottom:2px;'>Build Your Report</h1>"
+    let html = "<h1 style='font-size:15pt;margin-bottom:2px;'>Detention Report — By " + activeDims.map(d=>d.label).join(" · ") + "</h1>"
       + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
-      + sectionTitle("All Combinations")
+      + sectionTitle("By " + activeDims.map(d=>d.label).join(" · "))
       + table([...activeDims.map(d=>d.label), "Count", "% of Total"], combos.map(c=>[...c.values, c.count, c.pct+"%"]));
 
     if (expandedKey) {
@@ -432,7 +432,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const blob = new Blob(['\ufeff', doc], { type: "application/msword" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "BuildYourReport_"+new Date().toISOString().slice(0,10)+".doc";
+    a.download = "DetentionReport_By_"+activeDims.map(d=>d.label.replace(/[^a-zA-Z0-9]+/g,"")).join("_")+"_"+new Date().toISOString().slice(0,10)+".doc";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
