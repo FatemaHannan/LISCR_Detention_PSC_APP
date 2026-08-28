@@ -146,6 +146,14 @@ const PORT_COUNTRY_MAP = {
   "alexandria":"Egypt","port said":"Egypt","damietta":"Egypt",
   "tangier":"Morocco","casablanca":"Morocco","algiers":"Algeria",
 };
+// Strips accents/diacritics so "Trois-Rivières" matches "trois-rivieres", etc.
+function stripAccents(s) {
+  return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+const PORT_COUNTRY_MAP_NORM = Object.fromEntries(
+  Object.entries(PORT_COUNTRY_MAP).map(([k,v]) => [stripAccents(k), v])
+);
+
 function resolvePortCountry(port, dynamicMap) {
   if (!port || port === "—") return "Unknown";
   const parsed = extractCountry(port);
@@ -154,20 +162,21 @@ function resolvePortCountry(port, dynamicMap) {
   // like an actual country name, not a 2-3 letter state/province code ("Halifax, NS",
   // "Houston, TX"), which would otherwise get wrongly treated as the "country".
   if (parsed.toLowerCase() !== location.toLowerCase() && parsed.length > 2) return parsed;
-  // Otherwise resolve the bare port name via the static map, stripping common suffixes
-  const clean = location.toLowerCase().replace(/\s+(pt|port)\.?$/i, "").trim();
-  if (PORT_COUNTRY_MAP[clean]) return PORT_COUNTRY_MAP[clean];
-  if (PORT_COUNTRY_MAP[location.toLowerCase()]) return PORT_COUNTRY_MAP[location.toLowerCase()];
+  // Otherwise resolve the bare port name via the static map, stripping common suffixes and accents
+  const clean = stripAccents(location.toLowerCase().replace(/\s+(pt|port)\.?$/i, "").trim());
+  const locNorm = stripAccents(location.toLowerCase());
+  if (PORT_COUNTRY_MAP_NORM[clean]) return PORT_COUNTRY_MAP_NORM[clean];
+  if (PORT_COUNTRY_MAP_NORM[locNorm]) return PORT_COUNTRY_MAP_NORM[locNorm];
   // Last resort: learn from any OTHER record in the fleet's own data where this same port
   // name appears WITH a country suffix (e.g. another row stored as "Ningbo, China")
   if (dynamicMap && dynamicMap[clean]) return dynamicMap[clean];
   // Fuzzy fallback: real port fields often have extra text ("Halifax, NS", "Port of Halifax",
-  // "HALIFAX TERMINAL") that won't exact-match. Check if any known port name appears anywhere
-  // in the string, longest match first so "hong kong" wins over any shorter false positive.
-  const lowerFull = location.toLowerCase();
-  const keys = Object.keys(PORT_COUNTRY_MAP).sort((a,b)=>b.length-a.length);
+  // "Trois-Rivieres (Three Rivers)") that won't exact-match. Check if any known port name
+  // appears anywhere in the string, longest match first so "hong kong" wins over any shorter
+  // false positive.
+  const keys = Object.keys(PORT_COUNTRY_MAP_NORM).sort((a,b)=>b.length-a.length);
   for (const key of keys) {
-    if (key.length >= 4 && lowerFull.includes(key)) return PORT_COUNTRY_MAP[key];
+    if (key.length >= 4 && locNorm.includes(key)) return PORT_COUNTRY_MAP_NORM[key];
   }
   return location; // couldn't resolve — fall back to the port name itself, same as before
 }
