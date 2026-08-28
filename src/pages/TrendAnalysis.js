@@ -322,6 +322,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
       { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
+      { id: "psco", label: "Inspector (PSCO)", get: v => v.psco && v.psco!=="—" ? v.psco : null },
       { id: "defCategory", label: "Major Deficiency Category", get: v => { const first = (v.deficiencies||[])[0]; return first ? catDef(first.desc) : null; } },
       { id: "gt", label: "Gross Tonnage Range", get: v => gtBucket(v.gt) },
       { id: "caseStatus", label: "Case Status", get: v => v.caseStatus && v.caseStatus!=="—" ? v.caseStatus : null },
