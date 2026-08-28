@@ -150,8 +150,10 @@ function resolvePortCountry(port, dynamicMap) {
   if (!port || port === "—") return "Unknown";
   const parsed = extractCountry(port);
   const location = extractLocation(port);
-  // If the raw value already had a real ", Country" suffix, use that
-  if (parsed.toLowerCase() !== location.toLowerCase()) return parsed;
+  // If the raw value already had a real ", Country" suffix, use that — but only if it looks
+  // like an actual country name, not a 2-3 letter state/province code ("Halifax, NS",
+  // "Houston, TX"), which would otherwise get wrongly treated as the "country".
+  if (parsed.toLowerCase() !== location.toLowerCase() && parsed.length > 2) return parsed;
   // Otherwise resolve the bare port name via the static map, stripping common suffixes
   const clean = location.toLowerCase().replace(/\s+(pt|port)\.?$/i, "").trim();
   if (PORT_COUNTRY_MAP[clean]) return PORT_COUNTRY_MAP[clean];
@@ -159,6 +161,14 @@ function resolvePortCountry(port, dynamicMap) {
   // Last resort: learn from any OTHER record in the fleet's own data where this same port
   // name appears WITH a country suffix (e.g. another row stored as "Ningbo, China")
   if (dynamicMap && dynamicMap[clean]) return dynamicMap[clean];
+  // Fuzzy fallback: real port fields often have extra text ("Halifax, NS", "Port of Halifax",
+  // "HALIFAX TERMINAL") that won't exact-match. Check if any known port name appears anywhere
+  // in the string, longest match first so "hong kong" wins over any shorter false positive.
+  const lowerFull = location.toLowerCase();
+  const keys = Object.keys(PORT_COUNTRY_MAP).sort((a,b)=>b.length-a.length);
+  for (const key of keys) {
+    if (key.length >= 4 && lowerFull.includes(key)) return PORT_COUNTRY_MAP[key];
+  }
   return location; // couldn't resolve — fall back to the port name itself, same as before
 }
 
