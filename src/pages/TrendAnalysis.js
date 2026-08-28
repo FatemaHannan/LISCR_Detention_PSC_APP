@@ -166,6 +166,85 @@ function gtBucket(gt) {
 // ---- Build Your Own Report — lets the person pick any 2+ factors and see every
 // combination that actually occurs in the data, ranked by count, with drill-down to
 // the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
+function DrillDownPanel({ combo, drill, onClose }) {
+  const [openSub, setOpenSub] = useState(null); // e.g. "type:Bulk Carrier"
+  const Bar = ({ groupKey, label, count, max, vessels }) => {
+    const isOpen = openSub === groupKey;
+    return (
+      <div style={{marginBottom:"4px"}}>
+        <div onClick={()=>setOpenSub(isOpen?null:groupKey)} style={{display:"flex",alignItems:"center",gap:"8px",fontSize:"11px",cursor:"pointer"}}>
+          <div style={{width:"110px",flexShrink:0,color:isOpen?"var(--blue)":"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:isOpen?"underline":"none"}}>{label}</div>
+          <div style={{flex:1,background:"var(--bg2)",borderRadius:"3px",height:"12px",position:"relative"}}>
+            <div style={{width:Math.max(3,Math.round(count/max*100))+"%",background:isOpen?"#3b82f6":"#8b5cf6",height:"12px",borderRadius:"3px"}}></div>
+          </div>
+          <div style={{width:"28px",textAlign:"right",fontWeight:700,color:"var(--text)"}}>{count}</div>
+        </div>
+        {isOpen && (
+          <div style={{marginLeft:"118px",marginTop:"4px",marginBottom:"6px",background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px"}}>
+            {vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
+              <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
+                <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
+                <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+  const Section = ({ title, prefix, list }) => {
+    if (!list.length) return null;
+    const max = Math.max(...list.map(([,c])=>c));
+    return (
+      <div style={{marginBottom:"10px"}}>
+        <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>{title}</div>
+        {list.slice(0,6).map(([label,count,vessels])=><Bar key={label} groupKey={prefix+":"+label} label={label} count={count} max={max} vessels={vessels} />)}
+      </div>
+    );
+  };
+  return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:"8px",padding:"14px",marginTop:"10px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px"}}>
+        <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)"}}>{combo.values.join(" · ")} <span style={{color:"var(--text3)",fontWeight:400}}>({drill.n} record{drill.n!==1?"s":""})</span></div>
+        {onClose && <span onClick={onClose} style={{cursor:"pointer",color:"var(--text3)",fontSize:"12px"}}>✕</span>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px",marginBottom:"12px"}}>
+        <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase"}}>Avg Age</div>
+          <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{drill.avgAge!=null?drill.avgAge+" yrs":"—"}</div>
+        </div>
+        <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase"}}>Detainable Deficiency</div>
+          <div style={{fontSize:"16px",fontWeight:700,color:drill.detainablePct>=50?"var(--red2)":"var(--text)",fontFamily:"var(--mono)"}}>{drill.detainableCount} ({drill.detainablePct}%)</div>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}}>
+        <div>
+          <Section title="Ship Type" prefix="type" list={drill.byType} />
+          <Section title="RO / Class" prefix="ro" list={drill.byRo} />
+          <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
+        </div>
+        <div>
+          <Section title="Company" prefix="company" list={drill.byCompany} />
+          <Section title="Ports" prefix="port" list={drill.byPort} />
+        </div>
+      </div>
+      {drill.detCatByPortTop.length>0 && (
+        <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Port</div>
+          {drill.detCatByPortTop.slice(0,6).map(d=>(
+            <div key={d.port} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{d.port}</span>
+              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"10px"}}>Note: Inspector name isn't tracked on individual case records yet, so it can't be broken down here.</div>
+    </div>
+  );
+}
+
 export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou, selected: controlledSelected, onSelectedChange }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
@@ -244,7 +323,42 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
     return count;
   }, [rows, activeDims]);
 
-  const chartData = useMemo(() => combos.slice(0,15).map(c => ({ label: c.values.join(" · "), count: c.count })), [combos]);
+  const chartData = useMemo(() => combos.slice(0,15).map(c => ({ label: c.values.join(" · "), count: c.count, key: c.values.join("|") })), [combos]);
+
+  // ---- Drill-down analytics for a selected combination — age, ship type, RO, company, ports,
+  // detainable rate, year trend, and most common detainable deficiency category by port ----
+  function computeDrillDown(vessels) {
+    const n = vessels.length || 1;
+    const ages = vessels.map(v => ageMap[normImoBuilder(v.imo)]).filter(a=>a!=null);
+    const avgAge = ages.length ? (ages.reduce((a,b)=>a+b,0)/ages.length).toFixed(1) : null;
+    const detainableCount = vessels.filter(v=>v.detainable>0).length;
+    const countBy = (getter) => {
+      const m = {};
+      vessels.forEach(v => { const k = getter(v); if (!k) return; m[k]=m[k]||{count:0,vessels:[]}; m[k].count++; m[k].vessels.push(v); });
+      return Object.entries(m).map(([label,d])=>[label,d.count,d.vessels]).sort((a,b)=>b[1]-a[1]);
+    };
+    const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
+    const byRo = countBy(v => v.ro && v.ro!=="—" ? v.ro : null);
+    const byCompany = countBy(v => v.company && v.company!=="—" ? v.company : null);
+    const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
+    const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
+    // Most common detainable-deficiency category, broken down by port
+    const detCatByPort = {};
+    vessels.forEach(v => {
+      const port = extractLocation(v.port);
+      if (port==="Unknown") return;
+      (v.deficiencies||[]).filter(d=>d.detainable).forEach(d => {
+        const cat = catDef(d.desc);
+        detCatByPort[port] = detCatByPort[port] || {};
+        detCatByPort[port][cat] = (detCatByPort[port][cat]||0)+1;
+      });
+    });
+    const detCatByPortTop = Object.entries(detCatByPort).map(([port,cats]) => {
+      const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+      return { port, cat: top?.[0], count: top?.[1] };
+    }).sort((a,b)=>b.count-a.count);
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, detCatByPortTop };
+  }
 
   return (
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
@@ -298,17 +412,22 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
       ) : view === "graph" ? (
         <>
           <ResponsiveContainer width="100%" height={Math.max(200, chartData.length*34)}>
-            <BarChart data={chartData} layout="vertical" margin={{left:10,right:60}}>
+            <BarChart data={chartData} layout="vertical" margin={{left:10,right:60}} onClick={(e)=>{ const k = e?.activePayload?.[0]?.payload?.key; if (k) setExpandedKey(x=>x===k?null:k); }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" tick={{fontSize:10,fill:"var(--text3)"}} allowDecimals={false} />
               <YAxis type="category" dataKey="label" width={220} tick={{fontSize:10,fill:"var(--text2)"}} />
               <Tooltip contentStyle={{background:"var(--bg2)",border:"1px solid var(--border)",fontSize:11}} />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]}>
+              <Bar dataKey="count" fill="#8b5cf6" radius={[0,3,3,0]} style={{cursor:"pointer"}}>
                 <LabelList dataKey="count" position="right" style={{fontSize:11,fill:"var(--text2)",fontWeight:600}} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"6px"}}>Showing top {chartData.length} of {combos.length} combinations. Switch to Table view for % of total and vessel drill-down.</div>
+          <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"6px"}}>Showing top {chartData.length} of {combos.length} combinations. Click a bar to drill in — average age, ship type, RO, company, ports, and most common detainable deficiency by port.</div>
+          {expandedKey && (() => {
+            const combo = combos.find(c=>c.values.join("|")===expandedKey);
+            if (!combo) return null;
+            return <DrillDownPanel combo={combo} drill={computeDrillDown(combo.vessels)} onClose={()=>setExpandedKey(null)} />;
+          })()}
         </>
       ) : (
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -330,14 +449,15 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
                     <td style={{padding:"6px 8px",color:"var(--text2)",textAlign:"right"}}>{c.pct}%</td>
                     <td style={{padding:"6px 8px"}}>
                       <button onClick={()=>setExpandedKey(isExpanded?null:key)} style={{background:"none",border:"1px solid var(--border2)",borderRadius:"5px",color:"var(--text2)",fontSize:"11px",padding:"4px 8px",cursor:"pointer"}}>
-                        {isExpanded?"Hide":"View vessels"}
+                        {isExpanded?"Hide":"Drill in"}
                       </button>
                     </td>
                   </tr>
                   {isExpanded && (
                     <tr>
                       <td colSpan={activeDims.length+3} style={{padding:"10px",background:"var(--bg3)"}}>
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                        <DrillDownPanel combo={c} drill={computeDrillDown(c.vessels)} />
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",marginTop:"10px"}}>
                           <thead><tr>{["Vessel","IMO","Detention Date"].map(h=><th key={h} style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                           <tbody>
                             {c.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,k)=>(
