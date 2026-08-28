@@ -252,6 +252,17 @@ function DrillDownPanel({ combo, drill, onClose }) {
           ))}
         </div>
       )}
+      {drill.detCatByComboTop.length>0 && (
+        <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency — Ship Type · Age · Port Combination</div>
+          {drill.detCatByComboTop.slice(0,8).map(d=>(
+            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{d.key}</span>
+              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -355,22 +366,27 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
     const byInspector = countBy(v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null);
-    // Most common detainable-deficiency category, broken down by port AND by ship type
-    const detCatByPort = {}, detCatByType = {};
+    // Most common detainable-deficiency category, broken down by port, by ship type, and by
+    // the combined Ship Type + Age + Port grouping (the most specific view)
+    const detCatByPort = {}, detCatByType = {}, detCatByCombo = {};
     vessels.forEach(v => {
       const port = extractLocation(v.port);
       const shipType = (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null);
+      const ageVal = ageMap[normImoBuilder(v.imo)];
+      const ageBrk = ageVal!=null ? ageBracket(ageVal) : null;
+      const comboKey = (shipType&&ageBrk&&port!=="Unknown") ? shipType+" · "+ageBrk+" · "+port : null;
       (v.deficiencies||[]).filter(d=>d.detainable).forEach(d => {
         const cat = catDef(d.desc);
         if (port!=="Unknown") { detCatByPort[port] = detCatByPort[port] || {}; detCatByPort[port][cat] = (detCatByPort[port][cat]||0)+1; }
         if (shipType) { detCatByType[shipType] = detCatByType[shipType] || {}; detCatByType[shipType][cat] = (detCatByType[shipType][cat]||0)+1; }
+        if (comboKey) { detCatByCombo[comboKey] = detCatByCombo[comboKey] || {}; detCatByCombo[comboKey][cat] = (detCatByCombo[comboKey][cat]||0)+1; }
       });
     });
     const topCatFrom = (obj) => Object.entries(obj).map(([key,cats]) => {
       const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
       return { key, cat: top?.[0], count: top?.[1] };
     }).sort((a,b)=>b.count-a.count);
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType) };
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo) };
   }
 
   return (
