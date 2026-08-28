@@ -348,6 +348,67 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
 
   const chartData = useMemo(() => combos.slice(0,15).map(c => ({ label: c.values.join(" · "), count: c.count, key: c.values.join("|") })), [combos]);
 
+  function buildReportHtml() {
+    const esc = (s) => String(s==null?"":s);
+    const table = (headers, rowsArr) =>
+      "<table style='border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:9.5pt;'>"
+      + "<thead><tr>" + headers.map(h=>"<th style='border:1px solid #999;padding:5px 8px;background:#eee;text-align:left;'>"+esc(h)+"</th>").join("") + "</tr></thead>"
+      + "<tbody>" + rowsArr.map(r=>"<tr>"+r.map(c=>"<td style='border:1px solid #ccc;padding:5px 8px;'>"+esc(c)+"</td>").join("")+"</tr>").join("") + "</tbody></table>";
+    const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;page-break-after:avoid;'>"+esc(t)+"</h3>";
+
+    let html = "<h1 style='font-size:15pt;margin-bottom:2px;'>Build Your Report</h1>"
+      + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + sectionTitle("All Combinations")
+      + table([...activeDims.map(d=>d.label), "Count", "% of Total"], combos.map(c=>[...c.values, c.count, c.pct+"%"]));
+
+    if (expandedKey) {
+      const combo = combos.find(c=>c.values.join("|")===expandedKey);
+      if (combo) {
+        const drill = computeDrillDown(combo.vessels);
+        const listRows = (list) => list.slice(0,10).map(([label,count])=>[label,count]);
+        html += sectionTitle("Drill-Down — "+esc(combo.values.join(" · ")))
+          + "<p style='font-size:9.5pt;'>"+drill.n+" record(s) &nbsp;|&nbsp; Avg Age: "+esc(drill.avgAge??"—")+" yrs &nbsp;|&nbsp; Detainable: "+drill.detainableCount+" ("+drill.detainablePct+"%)</p>"
+          + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+table(["Type","Count"], listRows(drill.byType)) : "")
+          + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+table(["RO","Count"], listRows(drill.byRo)) : "")
+          + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+table(["Company","Count"], listRows(drill.byCompany)) : "")
+          + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+table(["Port","Count"], listRows(drill.byPort)) : "")
+          + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+table(["Year","Count"], listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0])))) : "")
+          + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
+          + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
+          + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
+          + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Count"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "");
+      }
+    }
+    return html;
+  }
+
+  function exportReportPDF() {
+    const html = buildReportHtml();
+    const w = window.open("", "_blank", "width=900,height=1000");
+    if (!w) { alert("Please allow pop-ups for this site to export the PDF."); return; }
+    w.document.write("<html><head><meta charset='utf-8'><title>Build Your Report</title>"
+      + "<style>@page{margin:0.75in} body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:10.5pt;color:#111;} table{page-break-inside:avoid;} h3{page-break-after:avoid;}</style>"
+      + "</head><body>"+html+"</body></html>");
+    w.document.close();
+    w.onload = ()=>{ w.focus(); w.print(); };
+    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
+  }
+
+  function exportReportWord() {
+    const html = buildReportHtml();
+    const doc = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>"
+      + "<head><meta charset='utf-8'><title>Build Your Report</title>"
+      + "<style>body{font-family:Calibri,Arial,sans-serif;font-size:10.5pt;color:#111;}</style>"
+      + "</head><body>"+html+"</body></html>";
+    const blob = new Blob(['\ufeff', doc], { type: "application/msword" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "BuildYourReport_"+new Date().toISOString().slice(0,10)+".doc";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   // ---- Drill-down analytics for a selected combination — age, ship type, RO, company, ports,
   // detainable rate, year trend, and most common detainable deficiency category by port ----
   function computeDrillDown(vessels) {
@@ -430,6 +491,8 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
           <div style={{display:"flex",gap:"4px",marginLeft:"auto"}}>
             <button onClick={()=>setView("graph")} style={{background:view==="graph"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="graph"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="graph"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>📊 Graph</button>
             <button onClick={()=>setView("table")} style={{background:view==="table"?"var(--blue)":"var(--bg3)",border:"1px solid "+(view==="table"?"var(--blue)":"var(--border2)"),borderRadius:"6px",color:view==="table"?"#fff":"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>☰ Table</button>
+            <button onClick={exportReportPDF} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",color:"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>⬇ PDF</button>
+            <button onClick={exportReportWord} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:"6px",color:"var(--text2)",fontSize:"11px",padding:"6px 12px",cursor:"pointer"}}>⬇ Word</button>
           </div>
         )}
       </div>
