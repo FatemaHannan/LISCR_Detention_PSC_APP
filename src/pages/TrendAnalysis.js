@@ -448,7 +448,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const detainableCount = vessels.filter(v=>v.detainable>0).length;
     const countBy = (getter) => {
       const m = {};
-      vessels.forEach(v => { const k = getter(v); if (!k) return; m[k]=m[k]||{count:0,vessels:[]}; m[k].count++; m[k].vessels.push(v); });
+      vessels.forEach(v => { const k = getter(v) || "Unknown"; m[k]=m[k]||{count:0,vessels:[]}; m[k].count++; m[k].vessels.push(v); });
       return Object.entries(m).map(([label,d])=>[label,d.count,d.vessels]).sort((a,b)=>b[1]-a[1]);
     };
     const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
