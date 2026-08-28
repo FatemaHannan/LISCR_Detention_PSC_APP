@@ -39,7 +39,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
     return [...seen.values()].sort();
   }, [detained]);
   const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
-  const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>new Date(v.detentionDate).getFullYear()))].sort((a,b)=>b-a), [detained]);
+  const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>Number(String(v.detentionDate).slice(0,4))))].sort((a,b)=>b-a), [detained]);
   const scopedRows = useMemo(() => scope === "fleet" ? detained : detained.filter(v => (v.mou||"").trim().toLowerCase() === scope.trim().toLowerCase()), [detained, scope]);
   const rows = useMemo(() => {
     let r = scopedRows;
@@ -48,7 +48,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       r = r.filter(v => (v.company||"").toLowerCase().includes(q));
     }
     if (yearFilter !== "All") {
-      r = r.filter(v => v.detentionDate && new Date(v.detentionDate).getFullYear() === Number(yearFilter));
+      r = r.filter(v => v.detentionDate && Number(String(v.detentionDate).slice(0,4)) === Number(yearFilter));
     }
     return r;
   }, [scopedRows, companyFilter, yearFilter]);
