@@ -15,6 +15,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [ageMap, setAgeMap] = useState({});
   const [typeMap, setTypeMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
+  const [inspectorMap, setInspectorMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   const [scope, setScope] = useState("fleet");
@@ -63,13 +64,14 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
     (async () => {
       setLoading(true);
       const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
-      const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date").in("imo", imos)
+      const { data } = await supabase.from("inspection_history").select("imo,age,vessel_type,inspection_date,auditor").in("imo", imos)
         .order("inspection_date", { ascending: false });
-      const aMap = {}, tMap = {};
+      const aMap = {}, tMap = {}, iMap = {};
       (data||[]).forEach(d => {
         const key = nImo(d.imo);
         if (d.age!=null && aMap[key]==null) aMap[key] = d.age;
         if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
+        if (d.auditor && d.inspection_date) iMap[key+"|"+d.inspection_date] = d.auditor;
       });
       const stillMissing = imos.map(nImo).filter(imo => aMap[imo]==null);
       if (stillMissing.length > 0) {
@@ -79,6 +81,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       if (cancelled) return;
       setAgeMap(aMap);
       setTypeMap(tMap);
+      setInspectorMap(iMap);
 
       const { data: vetting } = await supabase.from("dpp_vetting_history").select("imo,risk_level_at_time,created_date").in("imo", imos)
         .not("risk_level_at_time", "is", null).order("created_date", { ascending: false });
@@ -172,7 +175,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
             <div style={{ fontSize: "12px", color: "var(--text3)", padding: "20px" }}>Loading age/type/risk data…</div>
           ) : (
             <CombinationBuilder
-              rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} includeMou={scope==="fleet"}
+              rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} inspectorMap={inspectorMap} includeMou={scope==="fleet"}
               selected={selected} onSelectedChange={setSelected}
             />
           )}

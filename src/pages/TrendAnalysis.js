@@ -223,6 +223,7 @@ function DrillDownPanel({ combo, drill, onClose }) {
           <Section title="Ship Type" prefix="type" list={drill.byType} />
           <Section title="RO / Class" prefix="ro" list={drill.byRo} />
           <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
+          <Section title="Inspector Name" prefix="inspector" list={drill.byInspector} />
         </div>
         <div>
           <Section title="Company" prefix="company" list={drill.byCompany} />
@@ -233,19 +234,29 @@ function DrillDownPanel({ combo, drill, onClose }) {
         <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Port</div>
           {drill.detCatByPortTop.slice(0,6).map(d=>(
-            <div key={d.port} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
-              <span style={{color:"var(--text2)"}}>{d.port}</span>
+            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{d.key}</span>
               <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
             </div>
           ))}
         </div>
       )}
-      <div style={{fontSize:"9px",color:"var(--text3)",marginTop:"10px"}}>Note: Inspector name isn't tracked on individual case records yet, so it can't be broken down here.</div>
+      {drill.detCatByTypeTop.length>0 && (
+        <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Ship Type</div>
+          {drill.detCatByTypeTop.slice(0,6).map(d=>(
+            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{d.key}</span>
+              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou, selected: controlledSelected, onSelectedChange }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
   const dynamicPortCountryMap = useMemo(() => {
@@ -276,10 +287,11 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
       { id: "caseStatus", label: "Case Status", get: v => v.caseStatus && v.caseStatus!=="—" ? v.caseStatus : null },
       { id: "carStatus", label: "CAR Status", get: v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null },
       { id: "detainable", label: "Detainable Deficiency", get: v => v.detainable!=null ? (v.detainable>0 ? "Yes" : "No") : null },
+      { id: "inspector", label: "Inspector Name", get: v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null },
     ];
     if (includeMou) base.push({ id: "mou", label: "MoU", get: v => v.mou && v.mou!=="—" ? v.mou : null });
     return base;
-  }, [includeMou, ageMap, typeMap, riskMap, dynamicPortCountryMap]);
+  }, [includeMou, ageMap, typeMap, riskMap, inspectorMap, dynamicPortCountryMap]);
 
   const [internalSelected, setInternalSelected] = useState([]);
   const selected = controlledSelected !== undefined ? controlledSelected : internalSelected;
@@ -342,22 +354,23 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, includeMou,
     const byCompany = countBy(v => v.company && v.company!=="—" ? v.company : null);
     const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
-    // Most common detainable-deficiency category, broken down by port
-    const detCatByPort = {};
+    const byInspector = countBy(v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null);
+    // Most common detainable-deficiency category, broken down by port AND by ship type
+    const detCatByPort = {}, detCatByType = {};
     vessels.forEach(v => {
       const port = extractLocation(v.port);
-      if (port==="Unknown") return;
+      const shipType = (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null);
       (v.deficiencies||[]).filter(d=>d.detainable).forEach(d => {
         const cat = catDef(d.desc);
-        detCatByPort[port] = detCatByPort[port] || {};
-        detCatByPort[port][cat] = (detCatByPort[port][cat]||0)+1;
+        if (port!=="Unknown") { detCatByPort[port] = detCatByPort[port] || {}; detCatByPort[port][cat] = (detCatByPort[port][cat]||0)+1; }
+        if (shipType) { detCatByType[shipType] = detCatByType[shipType] || {}; detCatByType[shipType][cat] = (detCatByType[shipType][cat]||0)+1; }
       });
     });
-    const detCatByPortTop = Object.entries(detCatByPort).map(([port,cats]) => {
+    const topCatFrom = (obj) => Object.entries(obj).map(([key,cats]) => {
       const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
-      return { port, cat: top?.[0], count: top?.[1] };
+      return { key, cat: top?.[0], count: top?.[1] };
     }).sort((a,b)=>b.count-a.count);
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, detCatByPortTop };
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType) };
   }
 
   return (
