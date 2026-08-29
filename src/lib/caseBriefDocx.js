@@ -133,7 +133,7 @@ export async function generateCaseBriefDocx(ctx) {
   const {
     v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
     lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
-    flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, matchingCategories,
+    flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
     daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
   } = ctx;
 
@@ -276,20 +276,29 @@ export async function generateCaseBriefDocx(ctx) {
     boxHeadRow("FLAG INSPECTION HISTORY", SEC_COLORS.flag),
     pairRow("Last Flag State Inspection (Previous to Detention)", lastFlagDate||lastFlagInsp?.inspection_date||"—", "Days Before Detention", daysBeforeDet, false, daysBeforeDet!=null&&daysBeforeDet<90),
     pairRow("Findings During Last Flag Inspection?", lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No", "Matching Deficiency Codes", matchingCodes.length?matchingCodes.join(", "):"No exact code matches", lastFlagInsp?.num_findings>0, matchingCodes.length>0),
-    pairRow("Matching Deficiency Themes", (matchingCategories||[]).length?matchingCategories.join(", "):"No matching themes", null, null, (matchingCategories||[]).length>0),
-    pairRow("Recommend Follow-up Regarding Flag Inspections?", (matchingCodes.length>0||(matchingCategories||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No", null, null, (matchingCodes.length>0||(matchingCategories||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))),
+    pairRow("Recommend Follow-up Regarding Flag Inspections?", (matchingCodes.length>0||(recurringDeficiencies||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No", null, null, (matchingCodes.length>0||(recurringDeficiencies||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))),
     boxHeadRow("RECOGNIZED ORGANIZATION SURVEY HISTORY", SEC_COLORS.ro),
     pairRow("Last RO Survey (Previous to Detention)", v.roSurveyDate, "Findings", v.roFindings),
     pairRow("Outstanding Conditions of Class?", v.roStatus?"Yes — "+v.roStatus:"No", "Other Outstanding Findings?", v.roNotes?"Yes":"No", !!v.roStatus, !!v.roNotes),
   ]));
-  if ((matchingCategories||[]).length > 0) {
-    children.push(new Paragraph({
-      spacing: { before: 100 },
-      children: [
-        new TextRun({ text: "⚠ Recurring deficiency theme"+(matchingCategories.length!==1?"s":"")+": ", bold: true, size: 20, color: "A30000" }),
-        new TextRun({ text: matchingCategories.join(", ")+" — flagged in both the last Flag inspection and this detention, even though the exact defect codes differ.", size: 20, color: "111111" }),
-      ],
-    }));
+
+  // Matching / Recurring Deficiency Codes — cross-references EVERY Flag inspection, EVERY
+  // PSC inspection, and this detention itself, labeled by which types are involved
+  if ((recurringDeficiencies||[]).length > 0) {
+    children.push(spacer(), sectionTitle("Matching / Recurring Deficiency Codes", SEC_COLORS.flag));
+    children.push(table([
+      new TableRow({ cantSplit: true, children: [
+        labelCell("Deficiency", 4500), labelCell("Match Type", 2600), labelCell("Occurrences", 1900),
+      ]}),
+      ...recurringDeficiencies.map(r => new TableRow({ cantSplit: true, children: [
+        new TableCell({ width:{size:4500,type:WidthType.DXA}, borders:CELL_BORDERS, children:[
+          new Paragraph({ children:[ new TextRun({ text: r.cat, bold:true, size:20, color:"111111" }) ] }),
+          new Paragraph({ children:[ new TextRun({ text: r.names.join(" · "), size:18, color:"666666" }) ] }),
+        ]}),
+        valueCell(r.matchType, 2600, true),
+        valueCell(r.occurrenceCount+"x", 1900, false),
+      ]})),
+    ]));
   }
 
   // Full Flag and PSC Inspection History

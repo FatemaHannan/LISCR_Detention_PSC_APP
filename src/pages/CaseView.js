@@ -2303,6 +2303,41 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const flagDefCats = new Set(lastFlagGroup.map(f=>catDef(f.main_defect_text||f.full_description)).filter(c=>c && c!=="Other"));
                   const caseDefCats = new Set((v.deficiencies||[]).map(d=>catDef(d.desc)).filter(c=>c && c!=="Other"));
                   const matchingCategories = [...flagDefCats].filter(c=>caseDefCats.has(c));
+                  // ---- Matching / Recurring Deficiency Codes — cross-references EVERY Flag
+                  // inspection, EVERY PSC inspection, and this detention itself (not just the
+                  // last Flag inspection vs. this detention), labeling each match by which
+                  // inspection type(s) it spans and showing the deficiency's actual name(s). ----
+                  const allTaggedFindings = [];
+                  (intel?.findings||[]).forEach(f => {
+                    if (!f.insp_date) return;
+                    const type = String(f.flag_psc||"").toUpperCase().includes("FLAG") ? "Flag" : "PSC";
+                    const desc = f.main_defect_text || f.full_description || f.defect_code || "Unspecified";
+                    allTaggedFindings.push({ type, date: f.insp_date, desc, cat: catDef(desc) });
+                  });
+                  (v.deficiencies||[]).forEach(d => {
+                    allTaggedFindings.push({ type: "Detention", date: v.detentionDate, desc: d.desc||"Unspecified", cat: catDef(d.desc) });
+                  });
+                  const recurringByCat = {};
+                  allTaggedFindings.forEach(f => {
+                    if (!f.cat || f.cat==="Other") return;
+                    recurringByCat[f.cat] = recurringByCat[f.cat] || { cat: f.cat, occurrences: [], names: new Set() };
+                    recurringByCat[f.cat].occurrences.push(f);
+                    recurringByCat[f.cat].names.add(f.desc);
+                  });
+                  const recurringDeficiencies = Object.values(recurringByCat)
+                    .filter(g => new Set(g.occurrences.map(o=>o.type+"|"+o.date)).size >= 2)
+                    .map(g => {
+                      const types = [...new Set(g.occurrences.map(o=>o.type))];
+                      const matchType = types.length===1 ? types[0]+" → "+types[0] : types.sort().join(" ↔ ");
+                      return {
+                        cat: g.cat,
+                        names: [...g.names].slice(0,3),
+                        matchType,
+                        occurrenceCount: g.occurrences.length,
+                        dates: [...new Set(g.occurrences.map(o=>o.date))].sort(),
+                      };
+                    })
+                    .sort((a,b)=>b.occurrenceCount-a.occurrenceCount);
                   const latestDpp = (intel?.dpp||[])[0];
                   const dppBeforeDet = (intel?.dpp||[]).filter(d=>!v.detentionDate||!d.created_date||d.created_date<=v.detentionDate);
                   const vettingAtDetention = dppBeforeDet[0];
@@ -2420,13 +2455,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
                         +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No","Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",lastFlagInsp?.num_findings>0,matchingCodes.length>0)
-                        +pair("Matching Deficiency Themes",matchingCategories.length?matchingCategories.join(", "):"No matching themes",null,null,matchingCategories.length>0)
-                        +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||matchingCategories.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||matchingCategories.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
-                        +(matchingCategories.length>0 ? "<tr><td colspan='4' style='padding:8px;border:1px solid #999;background:#fdecec;color:#a30000;font-size:9pt;'><b>⚠ Recurring deficiency theme"+(matchingCategories.length!==1?"s":"")+":</b> "+matchingCategories.join(", ")+" — flagged in both the last Flag inspection and this detention, even though the exact defect codes differ.</td></tr>" : "")
+                        +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||recurringDeficiencies.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||recurringDeficiencies.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
                         +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY",SEC_COLORS.ro)
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
                         +"</table>",SEC_COLORS.flag)
+                      +(recurringDeficiencies.length>0 ? sec("Matching / Recurring Deficiency Codes","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                        +"<tr>"+["Deficiency","Match Type","Occurrences"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
+                        +recurringDeficiencies.map(r=>"<tr>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'><b>"+r.cat+"</b><br/><span style='color:#666;font-size:8pt;'>"+r.names.join(" · ")+"</span></td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+r.matchType+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+r.occurrenceCount+"x</td>"
+                          +"</tr>").join("")
+                        +"</table>",SEC_COLORS.flag) : "")
                       +sec("Full Flag and PSC Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +(allInspsSorted.length?allInspsSorted.map(f=>"<tr>"
@@ -2488,7 +2529,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const blob = await generateCaseBriefDocx({
                       v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
                       lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
-                      flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, matchingCategories,
+                      flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
                     });
                     const a = document.createElement("a");
@@ -2650,13 +2691,28 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
                             <Row label="Matching Deficiency Codes" value={matchingCodes.length?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
-                            <Row label="Matching Deficiency Themes" value={matchingCategories.length?matchingCategories.join(", "):"No matching themes"} red={matchingCategories.length>0} />
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
                         ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
-                        {matchingCategories.length>0 && (
-                          <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 12px",marginBottom:"10px"}}>
-                            <b style={{color:"var(--red2)"}}>⚠ Recurring deficiency theme{matchingCategories.length!==1?"s":""}:</b> <span style={{color:"var(--text2)"}}>{matchingCategories.join(", ")}</span> — flagged in both the last Flag inspection and this detention, even though the exact defect codes differ.
+                        {recurringDeficiencies.length>0 && (
+                          <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Matching / Recurring Deficiency Codes</div>
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                              <thead><tr>
+                                <th style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>Deficiency</th>
+                                <th style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>Match Type</th>
+                                <th style={{textAlign:"right",padding:"4px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>Occurrences</th>
+                              </tr></thead>
+                              <tbody>
+                                {recurringDeficiencies.map((r,i) => (
+                                  <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                                    <td style={{padding:"6px 8px",color:"var(--text2)"}}><b style={{color:"var(--text)"}}>{r.cat}</b><br/><span style={{color:"var(--text3)",fontSize:"11px"}}>{r.names.join(" · ")}</span></td>
+                                    <td style={{padding:"6px 8px",color:"var(--red2)",fontWeight:600}}>{r.matchType}</td>
+                                    <td style={{padding:"6px 8px",color:"var(--text2)",textAlign:"right"}}>{r.occurrenceCount}x</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         )}
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
