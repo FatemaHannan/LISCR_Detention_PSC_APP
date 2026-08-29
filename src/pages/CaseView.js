@@ -2338,6 +2338,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       };
                     })
                     .sort((a,b)=>b.occurrenceCount-a.occurrenceCount);
+                  const recurringDefSummary = recurringDeficiencies.length
+                    ? recurringDeficiencies.map(r=>r.cat+" — "+r.matchType+" ("+r.occurrenceCount+"x)"+(r.names.length?": "+r.names.join(" · "):"")).join(";  ")
+                    : "No matching/recurring deficiency codes";
                   const latestDpp = (intel?.dpp||[])[0];
                   const dppBeforeDet = (intel?.dpp||[]).filter(d=>!v.detentionDate||!d.created_date||d.created_date<=v.detentionDate);
                   const vettingAtDetention = dppBeforeDet[0];
@@ -2454,20 +2457,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +sec("Inspection / Survey History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
-                        +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No","Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",lastFlagInsp?.num_findings>0,matchingCodes.length>0)
+                        +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No",null,null,lastFlagInsp?.num_findings>0)
+                        +"<tr><td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#f4f5f7;'>Matching Deficiency/Recurring Codes</td><td colspan='3' style='padding:5px 8px;border:1px solid #999;"+(recurringDeficiencies.length>0?"color:#a30000;font-weight:bold;":"")+"'>"+recurringDefSummary+"</td></tr>"
                         +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||recurringDeficiencies.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||recurringDeficiencies.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
                         +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY",SEC_COLORS.ro)
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
                         +"</table>",SEC_COLORS.flag)
-                      +(recurringDeficiencies.length>0 ? sec("Matching / Recurring Deficiency Codes","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
-                        +"<tr>"+["Deficiency","Match Type","Occurrences"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
-                        +recurringDeficiencies.map(r=>"<tr>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'><b>"+r.cat+"</b><br/><span style='color:#666;font-size:8pt;'>"+r.names.join(" · ")+"</span></td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;color:#a30000;font-weight:bold;'>"+r.matchType+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+r.occurrenceCount+"x</td>"
-                          +"</tr>").join("")
-                        +"</table>",SEC_COLORS.flag) : "")
                       +sec("Full Flag and PSC Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +(allInspsSorted.length?allInspsSorted.map(f=>"<tr>"
@@ -2690,13 +2686,14 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
                             <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
-                            <Row label="Matching Deficiency Codes" value={matchingCodes.length?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
                         ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
-                        {recurringDeficiencies.length>0 && (
-                          <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
-                            <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Matching / Recurring Deficiency Codes</div>
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Matching Deficiency/Recurring Codes</div>
+                          {recurringDeficiencies.length===0 ? (
+                            <div style={{fontSize:"12px",color:"var(--text3)"}}>No matching/recurring deficiency codes.</div>
+                          ) : (
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
                               <thead><tr>
                                 <th style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",borderBottom:"1px solid var(--border)",fontSize:"10px",textTransform:"uppercase"}}>Deficiency</th>
@@ -2713,8 +2710,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                                 ))}
                               </tbody>
                             </table>
-                          </div>
-                        )}
+                          )}
+                        </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag and PSC Inspection History ({allInspsSorted.length})</div>
                           {allInspsSorted.length>0?allInspsSorted.map((f,i)=>(
