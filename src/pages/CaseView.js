@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import * as XLSX from "xlsx";
 import * as mammoth from "mammoth";
 import { DOC_TYPES } from "../data/masterData";
+import { catDef } from "./TrendAnalysis";
 import { getVessels, getVessel, upsertVessel, deleteVesselFromDB, getTasks, getDocuments, saveDocument, uploadFileToStorage, getFileUrl, deleteDocument, markDocumentAnalyzed, updateVesselFields, upsertTasksBulk } from "../lib/db";
 import { fmtDate } from "../lib/utils";
 import { generateCaseBriefDocx } from "../lib/caseBriefDocx";
@@ -2296,6 +2297,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const flagCodes = new Set(lastFlagGroup.map(f=>f.defect_code).filter(Boolean));
                   const caseCodes = new Set((v.deficiencies||[]).map(d=>d.code).filter(Boolean));
                   const matchingCodes = [...flagCodes].filter(c=>caseCodes.has(c));
+                  // Theme/category-level match (e.g. "LSA / Life Saving", "Fire Safety") — catches
+                  // genuinely related deficiencies even when the exact defect code differs, since
+                  // codes for a similar underlying issue (lifeboat, fire drill, etc.) often vary.
+                  const flagDefCats = new Set(lastFlagGroup.map(f=>catDef(f.main_defect_text||f.full_description)).filter(c=>c && c!=="Other"));
+                  const caseDefCats = new Set((v.deficiencies||[]).map(d=>catDef(d.desc)).filter(c=>c && c!=="Other"));
+                  const matchingCategories = [...flagDefCats].filter(c=>caseDefCats.has(c));
                   const latestDpp = (intel?.dpp||[])[0];
                   const dppBeforeDet = (intel?.dpp||[]).filter(d=>!v.detentionDate||!d.created_date||d.created_date<=v.detentionDate);
                   const vettingAtDetention = dppBeforeDet[0];
@@ -2413,7 +2420,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +boxHead("FLAG INSPECTION HISTORY",SEC_COLORS.flag)
                         +pair("Last Flag State Inspection (Previous to Detention)",lastFlagDate||lastFlagInsp?.inspection_date||"—","Days Before Detention",daysBeforeDet,false,daysBeforeDet!=null&&daysBeforeDet<90)
                         +pair("Findings During Last Flag Inspection?",lastFlagInsp?.num_findings>0?"Yes ("+lastFlagInsp.num_findings+")":"No","Matching Deficiency Codes",matchingCodes.length?matchingCodes.join(", "):"No exact code matches",lastFlagInsp?.num_findings>0,matchingCodes.length>0)
-                        +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
+                        +pair("Matching Deficiency Themes",matchingCategories.length?matchingCategories.join(", "):"No matching themes",null,null,matchingCategories.length>0)
+                        +pair("Recommend Follow-up Regarding Flag Inspections?",(matchingCodes.length>0||matchingCategories.length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No",null,null,(matchingCodes.length>0||matchingCategories.length>0||(daysBeforeDet!=null&&daysBeforeDet<90)))
+                        +(matchingCategories.length>0 ? "<tr><td colspan='4' style='padding:8px;border:1px solid #999;background:#fdecec;color:#a30000;font-size:9pt;'><b>⚠ Recurring deficiency theme"+(matchingCategories.length!==1?"s":"")+":</b> "+matchingCategories.join(", ")+" — flagged in both the last Flag inspection and this detention, even though the exact defect codes differ.</td></tr>" : "")
                         +boxHead("RECOGNIZED ORGANIZATION SURVEY HISTORY",SEC_COLORS.ro)
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
@@ -2479,7 +2488,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const blob = await generateCaseBriefDocx({
                       v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
                       lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
-                      flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes,
+                      flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, matchingCategories,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
                     });
                     const a = document.createElement("a");
@@ -2641,9 +2650,15 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
                             <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
                             <Row label="Matching Deficiency Codes" value={matchingCodes.length?matchingCodes.join(", "):"No exact code matches"} red={matchingCodes.length>0} />
+                            <Row label="Matching Deficiency Themes" value={matchingCategories.length?matchingCategories.join(", "):"No matching themes"} red={matchingCategories.length>0} />
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
                         ):<div style={{fontSize:"13px",color:"var(--text3)",marginBottom:"10px"}}>No Flag State inspection found in history before this detention.</div>}
+                        {matchingCategories.length>0 && (
+                          <div style={{background:"var(--red-bg)",border:"1px solid #3D1A1A",borderRadius:"6px",padding:"10px 12px",marginBottom:"10px"}}>
+                            <b style={{color:"var(--red2)"}}>⚠ Recurring deficiency theme{matchingCategories.length!==1?"s":""}:</b> <span style={{color:"var(--text2)"}}>{matchingCategories.join(", ")}</span> — flagged in both the last Flag inspection and this detention, even though the exact defect codes differ.
+                          </div>
+                        )}
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag and PSC Inspection History ({allInspsSorted.length})</div>
                           {allInspsSorted.length>0?allInspsSorted.map((f,i)=>(
