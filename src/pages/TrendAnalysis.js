@@ -349,7 +349,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       { id: "ro", label: "RO (Classification Society)", get: v => v.ro && v.ro!=="—" ? v.ro : null },
       { id: "port", label: "Location / Port", get: v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; } },
       { id: "country", label: "Country", get: v => { const c = resolvePortCountry(v.port, dynamicPortCountryMap); return c!=="Unknown" ? c : null; } },
-      { id: "company", label: "Company", get: v => v.company && v.company!=="—" ? v.company : null },
+      { id: "company", label: "Company", get: v => { const c = v.company; if (!c) return null; const t = String(c).trim().toLowerCase(); return (t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a") ? null : c; } },
       { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
       { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
@@ -484,7 +484,11 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     };
     const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
     const byRo = countBy(v => v.ro && v.ro!=="—" ? v.ro : null);
-    const byCompany = countBy(v => v.company && v.company!=="—" ? v.company : null);
+    // Placeholder text like "Not specified" is stored as a literal value in some records
+    // (not blank/null), so a simple !=="—" check doesn't catch it — treat it as Unknown too,
+    // same fix already applied to this same underlying data issue in Case View.
+    const isBlankCompanyName = (c) => { if (!c) return true; const t = String(c).trim().toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
+    const byCompany = countBy(v => !isBlankCompanyName(v.company) ? v.company : null);
     const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
     const byInspector = countBy(v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null);

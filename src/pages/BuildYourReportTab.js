@@ -42,7 +42,10 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
     });
     return [...seen.values()].sort();
   }, [detained]);
-  const companyList = useMemo(() => [...new Set(detained.map(v=>(v.company||"").trim()).filter(Boolean))].sort(), [detained]);
+  const companyList = useMemo(() => {
+    const isBlank = (c) => { const t = c.toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
+    return [...new Set(detained.map(v=>(v.company||"").trim()).filter(c=>c && !isBlank(c)))].sort();
+  }, [detained]);
   const yearList = useMemo(() => [...new Set(detained.filter(v=>v.detentionDate).map(v=>Number(String(v.detentionDate).slice(0,4))))].sort((a,b)=>b-a), [detained]);
   // Every distinct vessel (by IMO) across all detentions, for the vessel picker — a vessel can
   // be selected here regardless of which port(s) it was detained at.
