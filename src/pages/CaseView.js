@@ -259,7 +259,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company, vesselOverride) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes, dueRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes, dueRes, frRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_vetting_history").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
@@ -270,18 +270,23 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("flag_psc_findings").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
       supabase.from("car_status_report").select("*").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("insp_date",{ascending:false}),
       supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
+      supabase.from("fleet_roster").select("imo,vessel,ism_client").eq("imo", String(imo)).limit(1),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, loading:false});
+    const fleetRosterRow = frRes?.data?.[0]||null;
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, fleetRoster:fleetRosterRow, loading:false});
 
-    // Auto-backfill vessel facts from VIP if fields are empty
+    // Auto-backfill vessel facts from VIP, falling back to Fleet Roster (weekly upload) for
+    // Company specifically if VIP doesn't have it — Fleet Roster is a broader, more reliably
+    // populated source for ism_client than VIP.
     const backfillTarget = vesselOverride || sel;
-    if (vipRow && backfillTarget) {
+    if ((vipRow || fleetRosterRow) && backfillTarget) {
       const updates = {};
-      if ((!backfillTarget.company || backfillTarget.company === "—" || backfillTarget.company === "") && vipRow.ism_client) updates.company = vipRow.ism_client;
-      if ((!backfillTarget.ro || backfillTarget.ro === "—" || backfillTarget.ro === "") && vipRow.ro) updates.ro = vipRow.ro;
-      if ((!backfillTarget.fsiCaseOwner || backfillTarget.fsiCaseOwner === "—" || backfillTarget.fsiCaseOwner === "") && vipRow.flag_followup_rcm) updates.fsiCaseOwner = vipRow.flag_followup_rcm;
-      if ((!backfillTarget.pscOwner || backfillTarget.pscOwner === "—" || backfillTarget.pscOwner === "") && vipRow.psc_followup_rcm) updates.pscOwner = vipRow.psc_followup_rcm;
+      const companySource = vipRow?.ism_client || fleetRosterRow?.ism_client;
+      if ((!backfillTarget.company || backfillTarget.company === "—" || backfillTarget.company === "") && companySource) updates.company = companySource;
+      if ((!backfillTarget.ro || backfillTarget.ro === "—" || backfillTarget.ro === "") && vipRow?.ro) updates.ro = vipRow.ro;
+      if ((!backfillTarget.fsiCaseOwner || backfillTarget.fsiCaseOwner === "—" || backfillTarget.fsiCaseOwner === "") && vipRow?.flag_followup_rcm) updates.fsiCaseOwner = vipRow.flag_followup_rcm;
+      if ((!backfillTarget.pscOwner || backfillTarget.pscOwner === "—" || backfillTarget.pscOwner === "") && vipRow?.psc_followup_rcm) updates.pscOwner = vipRow.psc_followup_rcm;
       if (Object.keys(updates).length > 0) {
         if (backfillTarget.id) {
           await supabase.from("vessels").update(updates).eq("id", backfillTarget.id);
@@ -840,7 +845,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Age",ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Age",ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||intel?.fleetRoster?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
