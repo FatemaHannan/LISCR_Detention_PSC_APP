@@ -253,13 +253,31 @@ function DrillDownPanel({ combo, drill, onClose }) {
           <Section title="RO / Class" prefix="ro" list={drill.byRo} />
           <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
           <Section title="Inspector Name" prefix="inspector" list={drill.byInspector} />
+          <Section title="Major Deficiencies" prefix="majordef" list={drill.byMajorDeficiencyList} />
         </div>
         <div>
           <Section title="Company" prefix="company" list={drill.byCompany} />
           <Section title="Ports" prefix="port" list={drill.byPort} />
           <Section title="CAR Status" prefix="carstatus" list={drill.byCarStatus} />
+          <Section title="Day of Week" prefix="dow" list={drill.byDayOfWeek} />
         </div>
       </div>
+      {drill.friToTueGroupCount>0 && (
+        <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)",fontSize:"11px",color:"var(--text2)"}}>
+          <b style={{color:"var(--amber2)"}}>{drill.friToTueGroupCount} of {drill.n}</b> detention{drill.friToTueGroupCount!==1?"s":""} in this group ({Math.round(drill.friToTueGroupCount/drill.n*100)}%) fell within the Friday→Tuesday high-scrutiny window seen fleet-wide.
+        </div>
+      )}
+      {drill.repeatInspectors.length>0 && (
+        <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Same Inspector Across Multiple Vessels</div>
+          {drill.repeatInspectors.map((r,i) => (
+            <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"4px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{r.name}</span>
+              <span style={{color:"var(--amber2)",fontWeight:700}}>{r.vesselCount} vessels</span>
+            </div>
+          ))}
+        </div>
+      )}
       {drill.matchingDeficiencies.length>0 && (
         <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Matching / Repeated Deficiencies Across These Vessels</div>
@@ -493,6 +511,30 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
     const byInspector = countBy(v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null);
     const byCarStatus = countBy(v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null);
+    // Major Deficiencies — overall category breakdown across ALL deficiencies for this group
+    // (not just detainable ones), e.g. Fire Safety, LSA/Life Saving, ISM/Safety Mgmt.
+    const majorDefCounts = {};
+    vessels.forEach(v => (v.deficiencies||[]).forEach(d => {
+      const cat = catDef(d.desc);
+      if (cat && cat!=="Other") majorDefCounts[cat] = (majorDefCounts[cat]||0)+1;
+    }));
+    const byMajorDeficiencyList = Object.entries(majorDefCounts).sort((a,b)=>b[1]-a[1]);
+    // Day of Week — which day(s) these detentions happened on, same Fri-Tue targeting concept
+    // used elsewhere in the app, scoped to just this group.
+    const DOW_NAMES_LOCAL = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const byDayOfWeek = countBy(v => v.detentionDate ? DOW_NAMES_LOCAL[new Date(v.detentionDate).getDay()] : null);
+    const friToTueGroupCount = vessels.filter(v => v.detentionDate && [5,6,0,1,2].includes(new Date(v.detentionDate).getDay())).length;
+    // Cross-vessel inspector matching — flags an inspector (PSCO/auditor for the vessel's
+    // last inspection) who appears on 2+ DISTINCT vessels in this group, not just a raw
+    // occurrence count. Same "genuinely shared across vessels" logic as matchingDeficiencies.
+    const inspectorByVessel = {};
+    vessels.forEach(v => {
+      const insp = (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null;
+      if (!insp || insp==="Unknown") return;
+      inspectorByVessel[insp] = inspectorByVessel[insp] || new Set();
+      inspectorByVessel[insp].add(v.imo);
+    });
+    const repeatInspectors = Object.entries(inspectorByVessel).filter(([,set])=>set.size>=2).map(([name,set])=>({name, vesselCount:set.size})).sort((a,b)=>b.vesselCount-a.vesselCount);
     // Most common detainable-deficiency category, broken down by port, by ship type, and by
     // the combined Ship Type + Age + Port grouping (the most specific view)
     const detCatByPort = {}, detCatByType = {}, detCatByCombo = {};
@@ -532,7 +574,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       .filter(d => d.vesselSet.size >= 2)
       .map(d => ({ code: d.code, desc: d.desc, detainable: d.detainable, vesselCount: d.vesselSet.size, vessels: d.vessels }))
       .sort((a,b) => b.vesselCount - a.vesselCount);
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies };
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byDayOfWeek, friToTueGroupCount, repeatInspectors, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies };
   }
 
   return (
