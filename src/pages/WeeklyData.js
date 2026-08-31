@@ -725,11 +725,14 @@ export default function WeeklyData({ currentUser }) {
       // Read every sheet in the workbook, not just the first one — a large consolidated
       // export can legitimately span multiple tabs (e.g. split by year), and reading only
       // wb.SheetNames[0] silently drops everything past the first tab.
-      const allRows = [];
+      let allRows = [];
       wb.SheetNames.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
         const sheetRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
-        allRows.push(...sheetRows);
+        // .concat(), not push(...sheetRows) — spreading tens of thousands of rows as
+        // individual function arguments blows V8's call-stack/argument limit (~65k),
+        // throwing "Maximum call stack size exceeded" on files this large.
+        allRows = allRows.concat(sheetRows);
       });
 
       // Normalize headers
