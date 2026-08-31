@@ -138,6 +138,15 @@ function VesselCard({v, onOpen, isChecked, onCheck, repeatCount}) {
 
 // The inspection_due table has an earliest_due date but no column naming which inspection
 // category it belongs to — derive it by comparing against each individual due-date field.
+// Placeholder values like "Not specified" or "Unknown" are stored as literal text in some
+// records (not blank/null), so a simple `||` fallback never triggers for them. Treat these
+// the same as genuinely empty when deciding whether to fall back to another data source.
+function isBlankCompany(c) {
+  if (!c) return true;
+  const t = String(c).trim().toLowerCase();
+  return t === "" || t === "—" || t === "not specified" || t === "unknown" || t === "n/a";
+}
+
 function earliestDueType(due) {
   if (!due?.earliest_due) return null;
   const target = fmtDate(due.earliest_due);
@@ -283,7 +292,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     if ((vipRow || fleetRosterRow) && backfillTarget) {
       const updates = {};
       const companySource = vipRow?.ism_client || fleetRosterRow?.ism_client;
-      if ((!backfillTarget.company || backfillTarget.company === "—" || backfillTarget.company === "") && companySource) updates.company = companySource;
+      if (isBlankCompany(backfillTarget.company) && companySource) updates.company = companySource;
       if ((!backfillTarget.ro || backfillTarget.ro === "—" || backfillTarget.ro === "") && vipRow?.ro) updates.ro = vipRow.ro;
       if ((!backfillTarget.fsiCaseOwner || backfillTarget.fsiCaseOwner === "—" || backfillTarget.fsiCaseOwner === "") && vipRow?.flag_followup_rcm) updates.fsiCaseOwner = vipRow.flag_followup_rcm;
       if ((!backfillTarget.pscOwner || backfillTarget.pscOwner === "—" || backfillTarget.pscOwner === "") && vipRow?.psc_followup_rcm) updates.pscOwner = vipRow.psc_followup_rcm;
@@ -845,7 +854,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)"}}>Vessel facts</div>
                   {canEdit&&<button onClick={()=>setEditModal("overview")} style={{fontSize:"13px",padding:"3px 9px",border:"1px solid var(--border)",borderRadius:"4px",background:"var(--bg3)",color:"var(--text3)",cursor:"pointer"}}>Edit</button>}
                 </div>
-                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Age",ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",v.company||intel?.vip?.ism_client||intel?.fleetRoster?.ism_client||"—"],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
+                {[["Vessel / IMO",v.name+" · "+v.imo],["Vessel Type",typeMap[v.imo]||(v.type!=="—"?v.type:null)||"—"],["Age",ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"],["Port",v.port||"—"],["MoU",v.mou||"—"],["Company",!isBlankCompany(v.company)?v.company:(intel?.vip?.ism_client||intel?.fleetRoster?.ism_client||"—")],["FSI Case Owner",v.fsiCaseOwner||"—"],["PSC Case Owner",v.pscOwner||"—"],["Task Owners",v.taskOwners?.join(", ")||"—"],["RO / Class",v.ro||intel?.vip?.ro||"—"],["PSCO",v.psco||"—"],["Appeal",v.appeal||"—"],["CAR Status",v.carStatus||"—"],["CAR Requested Date",v.carRequestedDate||"—"],["Client Rejection",v.clientRejection||"—"],["Dispensation",v.dispensation||"—"],["Registration Date",v.regDate?fmtDate(v.regDate):"—"],["Case Status",v.caseStatus||"—"]].map(([label,value])=>(
                   <div key={label} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
                     <div style={{color:"var(--text3)",width:"120px",flexShrink:0}}>{label}</div>
                     <div style={{color:"var(--text2)",flex:1}}>{value}</div>
@@ -2418,7 +2427,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Last Detention (prior)",lastDetention?fmtDate(lastDetention.detentionDate):"None on record","Last Detention Port",lastDetention?.port,!!lastDetention)
                         +pair("Last FSI",lastFlagInsp?fmtDate(lastFlagInsp.inspection_date)+" · "+(lastFlagInsp.inspection_type||"—")+(lastFlagInsp.num_findings!=null?" · "+lastFlagInsp.num_findings+" findings":""):null,null,null)
                         +boxHead("COMPANY DETAILS",SEC_COLORS.admin)
-                        +pair("Company",v.company,"Previous Detentions (36 mo)",intel?.client?.num_dets,false,intel?.client?.num_dets>0)
+                        +pair("Company",!isBlankCompany(v.company)?v.company:(intel?.vip?.ism_client||intel?.fleetRoster?.ism_client||"—"),"Previous Detentions (36 mo)",intel?.client?.num_dets,false,intel?.client?.num_dets>0)
                         +pair("Liberian Fleet",intel?.client?.vsls_with_insps,"Peer Rank",intel?.client?.peer_rank,false,String(intel?.client?.peer_rank).includes("Bottom"))
                         +pair("Task Owners",v.taskOwners?.join(", "),"Open Tasks",openTasksForCase.length,false,openTasksForCase.length>0)
                         +pair("FSI Case Owner",v.fsiCaseOwner,"PSC Case Owner",v.pscOwner)
