@@ -453,7 +453,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       // EVP Q&A pairs plus several notes fields) — 3000 tokens was frequently not enough,
       // causing Claude's response to get cut off mid-JSON and fail to parse (silently,
       // with nothing shown on screen — that's the bug behind "everything comes back empty").
-      const maxTokensForType = doc.doc_type === "detentionAnalysis" ? 8000 : 4000;
+      const maxTokensForType = (doc.doc_type === "detentionAnalysis" || doc.doc_type === "pscReport") ? 8000 : 4000;
 
       const apiResp = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/claude-proxy`, {
         method:"POST",
