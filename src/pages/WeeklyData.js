@@ -795,9 +795,16 @@ export default function WeeklyData({ currentUser }) {
         }
       }
 
-      // Send in parallel groups of 5 batches of 500 rows each
+      // Send in parallel groups — fewer concurrent batches for very large uploads, since
+      // running 10 batches of 500 rows at once (5,000 rows in flight) is more likely to hit
+      // a network timeout or get throttled on a very long-running upload (100k+ rows can take
+      // several minutes total). A more conservative pace is more likely to actually finish.
       const BATCH = BATCH_SIZE||500;
-      const PARALLEL = 10;
+      const PARALLEL = totalMappedFinal > 20000 ? 4 : 10;
+      if (totalMappedFinal > 20000) {
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`Large upload (${totalMappedFinal.toLocaleString()} rows) — this will take several minutes. Please keep this browser tab open and active; backgrounding it can slow or stall the upload.`}}));
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
 
       async function sendSingle(row) {
         let rErr;
