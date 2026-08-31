@@ -722,10 +722,15 @@ export default function WeeklyData({ currentUser }) {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       const wb = XLSX.read(buffer, {type:"array", cellDates:true});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-
-      // Parse all rows (SheetJS v0.18 standard API)
-      const allRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+      // Read every sheet in the workbook, not just the first one — a large consolidated
+      // export can legitimately span multiple tabs (e.g. split by year), and reading only
+      // wb.SheetNames[0] silently drops everything past the first tab.
+      const allRows = [];
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        const sheetRows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+        allRows.push(...sheetRows);
+      });
 
       // Normalize headers
       const normalized = allRows.filter(r=>r&&typeof r==="object").map(r => {
