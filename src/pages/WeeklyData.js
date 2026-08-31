@@ -533,8 +533,12 @@ const UPLOADS = [
     map: (r) => {
       const rawImo = r["IMO"]||r["imo"]||r["__IMO"]||"";
       let imoStr = null;
-      // SheetJS can corrupt large integers - use string representation
-      const imoRaw = String(rawImo).replace(/[^0-9]/g,"").replace(/^0+/,"");
+      // SheetJS can corrupt large integers - use string representation. Also reverse the
+      // same date-corruption bug found in Consolidated Inspection History: if this cell's
+      // Excel number format happens to be date-like, cellDates:true silently turns the IMO
+      // number into a garbage Date object instead of leaving it a plain number.
+      const imoResolved = excelSerial(rawImo);
+      const imoRaw = String(imoResolved).replace(/[^0-9]/g,"").replace(/^0+/,"");
       if (imoRaw.length === 7) {
         imoStr = imoRaw; // perfect 7-digit IMO
       } else if (imoRaw.length > 7) {
@@ -545,8 +549,11 @@ const UPLOADS = [
       } else {
         return null;
       }
-      const nn = (v) => { if(v===null||v===undefined||v==="") return null; const n=Number(v); return isNaN(n)?null:n; };
-      const ni = (v) => { if(v===null||v===undefined||v==="") return null; const n=parseInt(v); return isNaN(n)?null:n; };
+      // Reverse the same date-corruption for every numeric field too — e.g. Age, FSC,
+      // #FLAG INSPs, etc. can be silently turned into astronomically large or garbled
+      // numbers if their source cell happens to have a date-like number format.
+      const nn = (v) => { if(v===null||v===undefined||v==="") return null; const n=Number(excelSerial(v)); return isNaN(n)?null:n; };
+      const ni = (v) => { if(v===null||v===undefined||v==="") return null; const n=parseInt(String(excelSerial(v))); return isNaN(n)?null:n; };
       const ns = (v) => { if(v===null||v===undefined) return null; const s=String(v).trim(); return s===""?null:s; };
       return {
         vessel: ns(r["Vessel"]||r["vessel"]),
@@ -585,7 +592,8 @@ const UPLOADS = [
     filter: (r) => (r["IMO#"]||r["imo"]) && (r["Flag/PSC"]||r["flag_psc"]),
     map: (r) => {
       const rawImo = r["IMO#"]||r["imo"]||"";
-      const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
+      const imoResolved = excelSerial(rawImo);
+      const imoVal = typeof imoResolved==="number"?String(Math.round(imoResolved)):String(imoResolved).replace(/[^0-9]/g,"");
       const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
       if (!imoStr||imoStr.length<6) return null;
       const vessel_raw = String(r["VSL Search"]||r["vessel"]||"");
@@ -617,7 +625,8 @@ const UPLOADS = [
     filter: (r) => (r["IMO"]||r["imo"]) && (r["Vessel"]||r["vessel"]) && (r["CAR Link"]||r["car_link"]),
     map: (r) => {
       const rawImo = r["IMO"]||r["imo"]||"";
-      const imoVal = typeof rawImo==="number"?String(Math.round(rawImo)):String(rawImo).replace(/[^0-9]/g,"");
+      const imoResolved = excelSerial(rawImo);
+      const imoVal = typeof imoResolved==="number"?String(Math.round(imoResolved)):String(imoResolved).replace(/[^0-9]/g,"");
       const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
       if (!imoStr||imoStr.length<6) return null;
       const fmtDate = (d) => { if(!d) return null; if(d instanceof Date) return d.toISOString().slice(0,10); return String(d).slice(0,10)||null; };
@@ -628,8 +637,8 @@ const UPLOADS = [
         insp_type: s(r["Insp Types"]||r["insp_type"]),
         car_type: s(r["CAR Type"]||r["car_type"]),
         car_status: s(r["CAR Status"]||r["car_status"]),
-        num_findings: r["#F"]!=null?parseInt(r["#F"])||null:null,
-        days_open: r["Days"]!=null?parseInt(r["Days"])||null:null,
+        num_findings: r["#F"]!=null?parseInt(String(excelSerial(r["#F"])))||null:null,
+        days_open: r["Days"]!=null?parseInt(String(excelSerial(r["Days"])))||null:null,
         assigned_to: s(r["Assigned to"]||r["assigned_to"]),
         close_or_due_date: fmtDate(r["Close or Due Date"]||r["close_or_due_date"]),
         created_date: s(r["Created"]||r["created_date"]),
