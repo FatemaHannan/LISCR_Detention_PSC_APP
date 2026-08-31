@@ -24,10 +24,15 @@ const imo = (v) => {
   if (digits.length > 7) return digits.slice(-7);
   return digits;
 };
+// If a numeric cell's underlying Excel number format happens to be date-like even though
+// the value is a plain number (e.g. Age, PSC Det History), SheetJS's cellDates:true option
+// silently converts it into a garbage Date object — same root cause as the IMO corruption
+// bug. Reverse it back to the original Excel serial number before parsing as a number.
+const excelSerial = (v) => v instanceof Date ? Math.round(v.getTime()/86400000) + 25569 : v;
 // Helper: safe number
-const n = (v) => { const x = parseFloat(String(v||"").replace(/[^0-9.-]/g,"")); return isNaN(x) ? 0 : x; };
+const n = (v) => { const x = parseFloat(String(excelSerial(v)??"").replace(/[^0-9.-]/g,"")); return isNaN(x) ? 0 : x; };
 // Helper: safe int
-const i = (v) => { const x = parseInt(String(v||"")); return isNaN(x) ? 0 : x; };
+const i = (v) => { const x = parseInt(String(excelSerial(v)??"")); return isNaN(x) ? 0 : x; };
 // Helper: safe date — handles JS Date objects, ISO strings, m/d/yyyy, serial numbers
 const d = (v) => {
   if (!v && v !== 0) return null;
@@ -276,7 +281,7 @@ const UPLOADS = [
       flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
       car_status: s(r["CAR Status"]||r["car_status"]),
       num_findings: i(r["#Findings"]||r["num_findings"]),
-      detainable_flag: s(r["Detainable Flag"]||r["detainable_flag"]),
+      detainable_flag: n(r["Detainable Flag"]||r["detainable_flag"]),
       finding_note: s(r["Finding Note"]||r["finding_note"]),
       was_detained: s(r["Was Detained"]||r["was_detained"]),
       inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
