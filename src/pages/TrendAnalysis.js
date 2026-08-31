@@ -247,9 +247,20 @@ function DrillDownPanel({ combo, drill, onClose }) {
           <div style={{fontSize:"16px",fontWeight:700,color:drill.detainablePct>=50?"var(--red2)":"var(--text)",fontFamily:"var(--mono)"}}>{drill.detainableCount} ({drill.detainablePct}%)</div>
         </div>
       </div>
+      <div style={{background:"var(--bg3)",borderRadius:"6px",padding:"10px 12px",marginBottom:"14px"}}>
+        <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>📋 Report Summary</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
+          {drill.reportSummary.map((s,i) => (
+            <div key={i} style={{fontSize:"12px",color:"var(--text2)",display:"flex",gap:"7px"}}>
+              <span>{s.icon}</span><span>{s.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}}>
         <div>
           <Section title="Ship Type" prefix="type" list={drill.byType} />
+          <Section title="Age Bracket" prefix="agebrk" list={drill.byAgeBracket} />
           <Section title="RO / Class" prefix="ro" list={drill.byRo} />
           <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
           <Section title="Inspector Name" prefix="inspector" list={drill.byInspector} />
@@ -274,6 +285,17 @@ function DrillDownPanel({ combo, drill, onClose }) {
             <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"4px 0",borderBottom:"1px solid var(--border)"}}>
               <span style={{color:"var(--text2)"}}>{r.name}</span>
               <span style={{color:"var(--amber2)",fontWeight:700}}>{r.vesselCount} vessels</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {drill.companyClustering.length>0 && (
+        <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Company Clustering — Same Port / Location / MoU</div>
+          {drill.companyClustering.map((c,i) => (
+            <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"4px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{color:"var(--text2)"}}>{c.company} <span style={{color:"var(--text3)"}}>({c.flags.join(", ")})</span></span>
+              <span style={{color:"var(--amber2)",fontWeight:700}}>{c.count} detentions</span>
             </div>
           ))}
         </div>
@@ -501,6 +523,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       return Object.entries(m).map(([label,d])=>[label,d.count,d.vessels]).sort((a,b)=>b[1]-a[1]);
     };
     const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
+    const byAgeBracket = countBy(v => { const a = ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; });
     const byRo = countBy(v => v.ro && v.ro!=="—" ? v.ro : null);
     // Placeholder text like "Not specified" is stored as a literal value in some records
     // (not blank/null), so a simple !=="—" check doesn't catch it — treat it as Unknown too,
@@ -535,6 +558,29 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       inspectorByVessel[insp].add(v.imo);
     });
     const repeatInspectors = Object.entries(inspectorByVessel).filter(([,set])=>set.size>=2).map(([name,set])=>({name, vesselCount:set.size})).sort((a,b)=>b.vesselCount-a.vesselCount);
+    // Company clustering — for each company with 2+ detentions in this group, check whether
+    // those detentions are concentrated at the same port, same country/location, or same MoU
+    // (a pattern worth flagging — a company's fleet keeps getting caught in the same place).
+    const byCompanyVessels = {};
+    vessels.forEach(v => {
+      if (isBlankCompanyName(v.company)) return;
+      byCompanyVessels[v.company] = byCompanyVessels[v.company] || [];
+      byCompanyVessels[v.company].push(v);
+    });
+    const companyClustering = Object.entries(byCompanyVessels)
+      .filter(([,vs]) => vs.length >= 2)
+      .map(([company, vs]) => {
+        const ports = new Set(vs.map(v=>extractLocation(v.port)).filter(p=>p!=="Unknown"));
+        const countries = new Set(vs.map(v=>extractCountry(v.port)).filter(c=>c!=="Unknown"));
+        const mous = new Set(vs.map(v=>v.mou).filter(Boolean));
+        const flags = [];
+        if (ports.size===1) flags.push("same port ("+[...ports][0]+")");
+        else if (countries.size===1) flags.push("same country ("+[...countries][0]+")");
+        if (mous.size===1) flags.push("same MoU ("+[...mous][0]+")");
+        return { company, count: vs.length, flags };
+      })
+      .filter(c => c.flags.length>0)
+      .sort((a,b)=>b.count-a.count);
     // Most common detainable-deficiency category, broken down by port, by ship type, and by
     // the combined Ship Type + Age + Port grouping (the most specific view)
     const detCatByPort = {}, detCatByType = {}, detCatByCombo = {};
@@ -574,7 +620,50 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       .filter(d => d.vesselSet.size >= 2)
       .map(d => ({ code: d.code, desc: d.desc, detainable: d.detainable, vesselCount: d.vesselSet.size, vessels: d.vessels }))
       .sort((a,b) => b.vesselCount - a.vesselCount);
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byDayOfWeek, friToTueGroupCount, repeatInspectors, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies };
+    // ---- Report Summary — synthesizes every dimension's dominant pattern (a majority or
+    // strong plurality sharing the same value) into a readable narrative, plus the
+    // cross-vessel findings already computed above. Only surfaces a dimension if there's
+    // a genuinely meaningful concentration (not just "1 of 5, tied with everything else"). ----
+    const dominantFrom = (list, label, minShare=0.4) => {
+      if (!list.length) return null;
+      const [name, count] = list[0];
+      if (name==="Unknown" || count<2) return null;
+      const share = count/n;
+      if (share < minShare) return null;
+      return `${count} of ${n} vessels (${Math.round(share*100)}%) are ${label}: ${name}.`;
+    };
+    const reportSummary = [];
+    const typeLine = dominantFrom(byType, "Ship Type");
+    if (typeLine) reportSummary.push({icon:"🚢", text:typeLine});
+    const ageLine = dominantFrom(byAgeBracket, "Age");
+    if (ageLine) reportSummary.push({icon:"📅", text:ageLine});
+    const roLine = dominantFrom(byRo, "RO / Class");
+    if (roLine) reportSummary.push({icon:"⚓", text:roLine});
+    const companyLine = dominantFrom(byCompany, "Company");
+    if (companyLine) reportSummary.push({icon:"🏢", text:companyLine});
+    const portLine = dominantFrom(byPort, "Port");
+    if (portLine) reportSummary.push({icon:"📍", text:portLine});
+    const majorDefLine = byMajorDeficiencyList.length && byMajorDeficiencyList[0][1]>=2
+      ? `${byMajorDeficiencyList[0][1]} deficiencies in this group fall under ${byMajorDeficiencyList[0][0]} — the most common category.` : null;
+    if (majorDefLine) reportSummary.push({icon:"⚠️", text:majorDefLine});
+    if (friToTueGroupCount>0) {
+      reportSummary.push({icon:"📆", text:`${friToTueGroupCount} of ${n} detentions (${Math.round(friToTueGroupCount/n*100)}%) fell within the Friday→Tuesday high-scrutiny window.`});
+    }
+    if (matchingDeficiencies.length>0) {
+      reportSummary.push({icon:"🔁", text:`${matchingDeficiencies.length} deficiency type${matchingDeficiencies.length!==1?"s are":" is"} shared across multiple vessels in this group — see Matching / Repeated Deficiencies below.`});
+    }
+    if (repeatInspectors.length>0) {
+      reportSummary.push({icon:"👤", text:`${repeatInspectors.map(r=>r.name).join(", ")} inspected ${repeatInspectors.length!==1?"multiple vessels each":"multiple vessels"} in this group.`});
+    }
+    if (companyClustering.length>0) {
+      companyClustering.forEach(c => {
+        reportSummary.push({icon:"🏢", text:`${c.company} has ${c.count} detentions in this group, ${c.flags.join(" and ")}.`});
+      });
+    }
+    if (reportSummary.length===0) {
+      reportSummary.push({icon:"🟢", text:"No single dominant pattern stands out across these vessels — the group is genuinely mixed on type, age, company, and port."});
+    }
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byAgeBracket, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byDayOfWeek, friToTueGroupCount, repeatInspectors, companyClustering, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies, reportSummary };
   }
 
   return (
