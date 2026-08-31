@@ -598,10 +598,7 @@ const UPLOADS = [
       if (!imoStr||imoStr.length<6) return null;
       const vessel_raw = String(r["VSL Search"]||r["vessel"]||"");
       const vessel = vessel_raw.includes(" - ")?vessel_raw.split(" - ")[0].trim():vessel_raw.trim();
-      let insp_date = null;
-      const d = r["Insp Date"]||r["insp_date"];
-      if (d instanceof Date) insp_date = d.toISOString().slice(0,10);
-      else if (d) insp_date = String(d).slice(0,10);
+      let insp_date = d(r["Insp Date"]||r["insp_date"]);
       return {
         imo: imoStr,
         vessel: vessel||null,
