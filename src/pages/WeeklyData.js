@@ -626,7 +626,7 @@ const UPLOADS = [
       const imoVal = typeof imoResolved==="number"?String(Math.round(imoResolved)):String(imoResolved).replace(/[^0-9]/g,"");
       const imoStr = imoVal.length>7?imoVal.slice(-7):imoVal;
       if (!imoStr||imoStr.length<6) return null;
-      const fmtDate = (d) => { if(!d) return null; if(d instanceof Date) return d.toISOString().slice(0,10); return String(d).slice(0,10)||null; };
+      const fmtDate = (dt) => d(dt);
       return {
         imo: imoStr,
         vessel: s(r["Vessel"]||r["vessel"]),
