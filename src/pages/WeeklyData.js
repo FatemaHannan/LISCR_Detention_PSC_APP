@@ -33,6 +33,23 @@ const excelSerial = (v) => v instanceof Date ? Math.round(v.getTime()/86400000) 
 const n = (v) => { const x = parseFloat(String(excelSerial(v)??"").replace(/[^0-9.-]/g,"")); return isNaN(x) ? 0 : x; };
 // Helper: safe int
 const i = (v) => { const x = parseInt(String(excelSerial(v)??"")); return isNaN(x) ? 0 : x; };
+// Helper: safe boolean — for DB columns typed boolean, sending raw text ("Yes"/"") instead
+// of true/false/null causes a cast error ("invalid input syntax for type boolean") and
+// rejects the whole row. Blank cells become null (unknown), not false.
+const bool = (v) => {
+  if (v == null || v === "") return null;
+  const str = String(v).trim().toLowerCase();
+  if (["yes","true","y","1","t"].includes(str)) return true;
+  if (["no","false","n","0","f"].includes(str)) return false;
+  return null;
+};
+// Helper: numeric value stored in a text column — reverses the same date-corruption as n(),
+// but returns a string (or null if blank) to match a text column's expected type.
+const numAsText = (v) => {
+  if (v == null || v === "") return null;
+  const x = parseFloat(String(excelSerial(v)??"").replace(/[^0-9.-]/g,""));
+  return isNaN(x) ? null : String(x);
+};
 // Helper: safe date — handles JS Date objects, ISO strings, m/d/yyyy, serial numbers
 const d = (v) => {
   if (!v && v !== 0) return null;
@@ -281,16 +298,16 @@ const UPLOADS = [
       flag_psc: s(r["Flag/PSC"]||r["flag_psc"]),
       car_status: s(r["CAR Status"]||r["car_status"]),
       num_findings: i(r["#Findings"]||r["num_findings"]),
-      detainable_flag: n(r["Detainable Flag"]||r["detainable_flag"]),
+      detainable_flag: numAsText(r["Detainable Flag"]||r["detainable_flag"]),
       finding_note: s(r["Finding Note"]||r["finding_note"]),
-      was_detained: s(r["Was Detained"]||r["was_detained"]),
+      was_detained: bool(r["Was Detained"]||r["was_detained"]),
       inspection_type: s(r["Inspection Type"]||r["inspection_type"]),
       days_since_last: n(r["Days"]||r["days_since_last"]),
       last_onboard: s(r["Last Onboard"]||r["last_onboard"]),
       auditor: s(r["Auditor"]||r["auditor"]),
       ism_client: s(r["ISM Client"]||r["ism_client"]),
       risk_level: s(r["Risk Level"]||r["risk_level"]),
-      target_vessel: s(r["Target Vsl"]||r["target_vessel"]),
+      target_vessel: bool(r["Target Vsl"]||r["target_vessel"]),
       ism_points: n(r["ISM Points"]||r["ism_points"]),
       psc_det_history: n(r["PSC Det History"]||r["psc_det_history"]),
       tonnage_client: s(r["Tonnage Client"]||r["tonnage_client"]),
