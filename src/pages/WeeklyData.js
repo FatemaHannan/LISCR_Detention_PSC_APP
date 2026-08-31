@@ -750,6 +750,33 @@ export default function WeeklyData({ currentUser }) {
       let saved = 0, skipped = 0;
       const BATCH_SIZE = 500; // all tables use 500 rows per batch
 
+      // Deduplicate by the conflict key before batching. If two rows in the SAME batch share
+      // the same conflict key (very common in a "Consolidated" multi-year export that's been
+      // re-exported/appended over time), Postgres rejects the WHOLE batch with "ON CONFLICT DO
+      // UPDATE command cannot affect row a second time" — every affected batch then silently
+      // fell back to sending rows one at a time, sequentially, which is what turned large
+      // uploads into something that takes forever or times out. Deduplicating here (keep the
+      // LAST occurrence, since a later row in the file is more likely to be the corrected one)
+      // avoids that failure mode entirely for the vast majority of batches.
+      let dedupedMapped = allMapped;
+      let dedupedCount = 0;
+      if (cfg.onConflictKey) {
+        const keyParts = cfg.onConflictKey.split(",");
+        const seen = new Map();
+        allMapped.forEach(row => {
+          const key = keyParts.map(k => row[k]).join("|");
+          seen.set(key, row); // later occurrence overwrites earlier — keeps the last one
+        });
+        dedupedMapped = [...seen.values()];
+        dedupedCount = allMapped.length - dedupedMapped.length;
+      }
+      const allMappedFinal = dedupedMapped;
+      const totalMappedFinal = allMappedFinal.length;
+      if (dedupedCount > 0) {
+        setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed, ${dedupedCount.toLocaleString()} duplicate${dedupedCount!==1?"s":""} removed (same ${cfg.onConflictKey}). Starting upload...`}}));
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
       if (mode === "replace") {
         setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:"Clearing old data..."}}));
         const { error: delErr } = await supabase.from(cfg.table).delete().not("id", "is", null);
@@ -764,6 +791,29 @@ export default function WeeklyData({ currentUser }) {
       const BATCH = BATCH_SIZE||500;
       const PARALLEL = 10;
 
+      async function sendSingle(row) {
+        let rErr;
+        if (mode === "replace") {
+          ({error: rErr} = await supabase.from(cfg.table).insert([row]));
+        } else {
+          ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
+        }
+        if (rErr) { console.error("Row error:", rErr.message, row); return false; }
+        return true;
+      }
+      async function sendSubBatch(sub) {
+        let sData, sErr;
+        if (mode === "replace") {
+          ({data: sData, error: sErr} = await supabase.from(cfg.table).insert(sub));
+        } else {
+          ({data: sData, error: sErr} = await supabase.from(cfg.table).upsert(sub, {onConflict: conflictKey, ignoreDuplicates: false}));
+        }
+        if (!sErr) return { saved: sData?.length || sub.length, skipped: 0 };
+        // Still failing even at 25 rows — now go row by row, but only for this small slice
+        let s = 0, sk = 0;
+        for (const row of sub) { if (await sendSingle(row)) s++; else sk++; }
+        return { saved: s, skipped: sk };
+      }
       async function sendBatch(batch) {
         let bData, bErr;
         if (mode === "replace") {
@@ -773,16 +823,17 @@ export default function WeeklyData({ currentUser }) {
         }
         if (bErr) {
           console.error("Batch error for", cfg.table, ":", bErr.message, bErr.details, bErr.hint);
-          // fallback row by row
+          // Fall back to smaller sub-batches (25 rows), sent with limited concurrency, instead
+          // of dropping straight to 500 fully sequential single-row requests — much faster
+          // recovery in the common case where only a few rows in the batch are the problem.
+          const SUB = 25, SUB_PARALLEL = 8;
+          const subBatches = [];
+          for (let i = 0; i < batch.length; i += SUB) subBatches.push(batch.slice(i, i+SUB));
           let s = 0, sk = 0;
-          for (const row of batch) {
-            let rErr;
-            if (mode === "replace") {
-              ({error: rErr} = await supabase.from(cfg.table).insert([row]));
-            } else {
-              ({error: rErr} = await supabase.from(cfg.table).upsert([row], {onConflict: conflictKey}));
-            }
-            if (rErr) { console.error("Row error:", rErr.message, row); sk++; } else s++;
+          for (let i = 0; i < subBatches.length; i += SUB_PARALLEL) {
+            const group = subBatches.slice(i, i+SUB_PARALLEL);
+            const results = await Promise.all(group.map(sendSubBatch));
+            results.forEach(r => { s += r.saved; sk += r.skipped; });
           }
           return {saved: s, skipped: sk};
         }
@@ -790,8 +841,8 @@ export default function WeeklyData({ currentUser }) {
       }
 
       const batches = [];
-      for (let idx = 0; idx < allMapped.length; idx += BATCH) {
-        batches.push(allMapped.slice(idx, idx + BATCH));
+      for (let idx = 0; idx < allMappedFinal.length; idx += BATCH) {
+        batches.push(allMappedFinal.slice(idx, idx + BATCH));
       }
 
       for (let g = 0; g < batches.length; g += PARALLEL) {
@@ -799,7 +850,7 @@ export default function WeeklyData({ currentUser }) {
         const results = await Promise.all(group.map(b => sendBatch(b)));
         results.forEach(r => { saved += r.saved; skipped += r.skipped; });
         const pct = Math.min(100, Math.round(((g + PARALLEL) / batches.length) * 100));
-        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} / ${totalMapped.toLocaleString()} (${pct}%)`}}));
+        setStatus(p => ({...p, [cfg.key]: {state:"uploading", msg:`${mode==="replace"?"Inserting":"Upserting"}... ${saved.toLocaleString()} / ${totalMappedFinal.toLocaleString()} (${pct}%)`}}));
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
