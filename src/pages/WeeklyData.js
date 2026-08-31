@@ -8,6 +8,14 @@ const s = (v) => v == null ? "" : String(v).trim();
 // IMO numbers must be 7-digit integers — guard against Excel float/scientific notation
 const imo = (v) => {
   if (v == null || v === "") return "";
+  // If the cell's Excel number format happens to be date-like even though the value is a
+  // plain IMO number, SheetJS's cellDates:true option silently converts it into a garbage
+  // Date object (e.g. IMO 9174634 becomes the year 27019) instead of leaving it a number.
+  // Detect that and reverse it back to the original numeric value before continuing.
+  if (v instanceof Date) {
+    const serial = Math.round(v.getTime()/86400000) + 25569;
+    if (serial > 1000000 && serial < 10000000) return String(serial);
+  }
   // If it's already a clean integer-like number (e.g. 9260469 stored as float 9260469.0)
   const num = typeof v === "number" ? Math.round(v) : null;
   if (num !== null && num > 1000000 && num < 10000000) return String(num);
