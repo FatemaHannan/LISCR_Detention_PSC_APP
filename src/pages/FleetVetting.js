@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { catDef } from "./TrendAnalysis";
+import { getVesselsByImo } from "../lib/db";
 
 const RISK_LEVEL_ORDER = ["Low", "Medium", "High", "Very High"];
 const RISK_COLORS = { "Very High": "#ff4d4d", High: "var(--red2)", Medium: "var(--amber2)", Low: "var(--green2)" };
@@ -165,7 +166,7 @@ export default function FleetVetting({ vessels = [] }) {
     setArrivalDate("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
-    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows, dueRows] = await Promise.all([
+    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows, dueRows, detentionHistoryRaw] = await Promise.all([
       fetchAll("inspection_history", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("dpp_vetting_history", "*", q=>q.eq("imo", imoStr).order("created_date",{ascending:false})),
       fetchAll("vessel_casualty", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
@@ -176,8 +177,12 @@ export default function FleetVetting({ vessels = [] }) {
       fetchAll("psc_detention_summary", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("vessel_inspection_performance", "*", q=>q.eq("imo", imoStr).limit(1)),
       fetchAll("inspection_due", "*", q=>q.eq("imo", imoStr).limit(1)),
+      getVesselsByImo(imoStr),
     ]);
-    const detentionHistory = detained.filter(v => String(v.imo)===imoStr).sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
+    // Fetched fresh from the database rather than filtered from the bulk-loaded vessels prop,
+    // which never refreshes after a new case is added elsewhere in the app during a long-lived
+    // browser tab.
+    const detentionHistory = detentionHistoryRaw.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
     setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null, due: dueRows[0]||null });
     setIntelLoading(false);
   }

@@ -33,6 +33,17 @@ export async function getVessel(imo, detentionDate) {
   return data?.[0] ? mapVessel(data[0]) : null;
 }
 
+// Fetches EVERY detention record for a vessel fresh from the database (not just one).
+// Used anywhere a vessel's full detention history needs to be current, not a stale
+// snapshot from whenever the surrounding page/tab first loaded — e.g. Pre-Boarding Risk
+// Screening's detention history was pulling from a bulk-loaded vessels array that never
+// refreshed after a new case was added elsewhere in the app.
+export async function getVesselsByImo(imo) {
+  const { data, error } = await supabase.from("vessels").select("*").eq("imo", String(imo)).order("detention_date", {ascending:false});
+  if (error) { console.error("getVesselsByImo:", error); return []; }
+  return (data||[]).map(mapVessel);
+}
+
 export async function upsertVessel(vessel) {
   const row = toRow(vessel);
   // If vessel has an id, update by id to prevent duplicates when detention_date is null
