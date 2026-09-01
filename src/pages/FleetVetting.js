@@ -546,6 +546,32 @@ export default function FleetVetting({ vessels = [] }) {
       </table>
 
       ${r.floorApplied ? "<div class='rec-box' style='border-left-color:#cc0000;'><b>⛔ Risk Floor Applied:</b> "+esc(r.floorReasons.join(", "))+"</div>" : ""}
+
+      ${intel && intel.vip ? `<div class="section-title">Vessel Inspection Performance — Rolling Averages</div>
+      <table><tr>
+        ${[["PSC Inspections",intel.vip.psc_insps],["PSC Finding Avg",intel.vip.psc_finding_av!=null?Number(intel.vip.psc_finding_av).toFixed(1):null],["Flag Inspections",intel.vip.flag_insps],["Flag Finding Avg",intel.vip.flag_finding_av!=null?Number(intel.vip.flag_finding_av).toFixed(1):null],["Vsl Insp. Performance",intel.vip.vsl_insp_perf!=null?Number(intel.vip.vsl_insp_perf).toFixed(1):null],["Tech Disp. (365d)",intel.vip.tech_disp_365],["Flag Ctrl/Det (365d)",intel.vip.flag_control_det_365],["US Trading",intel.vip.us_trading]]
+          .filter(([,v])=>v!=null&&v!=="").map(([l,v])=>"<td style='padding:6px 10px;border:1px solid #ccc;text-align:center;'><div style='font-size:8pt;color:#777;text-transform:uppercase;'>"+esc(l)+"</div><div style='font-weight:bold;'>"+esc(v)+"</div></td>").join("")}
+      </tr></table>` : ""}
+
+      <div class="section-title">Detention History (${intel?.detentionHistory?.length||0})</div>
+      ${!intel?.detentionHistory?.length ? "<p style='color:#777;'>No detentions on file.</p>" : "<table><tr><th>Date</th><th>MoU</th><th>Deficiencies</th></tr>"+intel.detentionHistory.map(v=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.detentionDate)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.mou)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.defs||0)+"</td></tr>").join("")+"</table>"}
+
+      <div class="section-title">CAR History (${intel?.cars?.length||0})</div>
+      ${!intel?.cars?.length ? "<p style='color:#777;'>No CAR records on file.</p>" : "<table><tr><th>Date</th><th>Port</th><th>Findings</th><th>Status</th></tr>"+intel.cars.slice(0,10).map(c=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.insp_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.port||"—")+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.num_findings||0)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.car_status||"—")+"</td></tr>").join("")+"</table>"}
+
+      <div class="section-title">Marine Casualty + Personal Incident (${(intel?.mc?.length||0)+(intel?.pi?.length||0)})</div>
+      ${((intel?.mc?.length||0)+(intel?.pi?.length||0))===0 ? "<p style='color:#777;'>No records on file.</p>" : "<table><tr><th>Type</th><th>Date</th><th>Category</th></tr>"
+        +(intel.mc||[]).slice(0,5).map(r=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>MC</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.incident_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.casualty_type||"Unspecified")+"</td></tr>").join("")
+        +(intel.pi||[]).slice(0,5).map(r=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>PI</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.incident_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.incident_type||"Unspecified")+"</td></tr>").join("")+"</table>"}
+
+      <div class="section-title">MLC Complaints (${intel?.mlc?.length||0})</div>
+      ${!intel?.mlc?.length ? "<p style='color:#777;'>No complaints on file.</p>" : "<table><tr><th>Date</th><th>Type</th></tr>"+intel.mlc.slice(0,10).map(r=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.reported_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(r.inspection_type||r.risk_level||"—")+"</td></tr>").join("")+"</table>"}
+
+      <div class="section-title">DPP Vetting History (${intel?.dpp?.length||0})</div>
+      ${!intel?.dpp?.length ? "<p style='color:#777;'>No vetting records on file.</p>" : "<table><tr><th>Date</th><th>Risk Level</th></tr>"+intel.dpp.slice(0,10).map(d=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(d.created_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(d.risk_level_at_time||"—")+"</td></tr>").join("")+"</table>"}
+
+      <div class="section-title">PSC Detention Summary (${intel?.psc?.length||0})</div>
+      ${!intel?.psc?.length ? "<p style='color:#777;'>No PSC summary records on file.</p>" : "<table><tr><th>Date</th><th>Port</th><th>Findings</th><th>Detained?</th><th>Risk</th></tr>"+intel.psc.slice(0,10).map(p=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(p.inspection_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(p.port||"—")+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(p.num_findings||0)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+(p.was_detained?"Yes":"—")+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(p.risk_level||"—")+"</td></tr>").join("")+"</table>"}
       </body></html>`;
     const w = window.open("", "_blank");
     w.document.write(html);
