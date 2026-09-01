@@ -1006,12 +1006,28 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
             const flagFromTable = allFindings.filter(f=>String(f.flag_psc||"").toUpperCase()==="FLAG").sort((a,b)=>new Date(b.insp_date)-new Date(a.insp_date));
 
             const detDateStr = v.detentionDate||"";
-            // Get PSC findings near detention date (within 7 days)
-            const pscFindings = detDateStr?pscFromTable.filter(f=>{
-              if(!f.insp_date) return false;
-              const diff = Math.abs(new Date(f.insp_date)-new Date(detDateStr));
-              return diff <= 7*24*60*60*1000;
-            }):[];
+            // Get PSC findings near detention date. A hard 7-day cutoff was silently excluding
+            // findings for vessels where the inspection date and recorded detention date don't
+            // line up exactly (reporting lag, data entry timing) — those vessels showed "No PSC
+            // findings" even though the real data existed. Now falls back to a wider window,
+            // and as a last resort shows the single closest match with a clear label, instead
+            // of showing nothing.
+            const pscWithDiff = detDateStr ? pscFromTable
+              .filter(f=>f.insp_date)
+              .map(f=>({...f, __diffDays: Math.abs(new Date(f.insp_date)-new Date(detDateStr))/(24*60*60*1000)}))
+              .sort((a,b)=>a.__diffDays-b.__diffDays) : [];
+            let pscFindings = pscWithDiff.filter(f=>f.__diffDays<=7);
+            let pscMatchTier = pscFindings.length ? "exact" : null;
+            if (!pscFindings.length) {
+              const within14 = pscWithDiff.filter(f=>f.__diffDays<=14);
+              if (within14.length) { pscFindings = within14; pscMatchTier = "wide"; }
+            }
+            if (!pscFindings.length && pscWithDiff.length && pscWithDiff[0].__diffDays<=30) {
+              // Closest match within 30 days, same inspection date as the top result
+              const closestDate = pscWithDiff[0].insp_date;
+              pscFindings = pscWithDiff.filter(f=>f.insp_date===closestDate);
+              pscMatchTier = "closest";
+            }
 
             // Get last flag inspection before detention
             const flagFindings = flagFromTable.filter(f=>f.insp_date&&f.insp_date<=detDateStr);
@@ -1049,8 +1065,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
               <div>
                 {/* Source indicator */}
                 <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}}>
-                  <div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:usePscTable?"rgba(34,197,94,0.1)":"rgba(59,130,246,0.1)",color:usePscTable?"var(--green2)":"var(--blue)",border:"1px solid "+(usePscTable?"rgba(34,197,94,0.3)":"var(--blue)"),fontWeight:500}}>
-                    PSC: {usePscTable?"From Flag & PSC Findings report ("+pscFindings.length+" findings)":"From uploaded PSC report ("+pscReportDefs.length+" findings)"}
+                  <div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:usePscTable?(pscMatchTier==="exact"?"rgba(34,197,94,0.1)":"rgba(245,158,11,0.1)"):"rgba(59,130,246,0.1)",color:usePscTable?(pscMatchTier==="exact"?"var(--green2)":"var(--amber2)"):"var(--blue)",border:"1px solid "+(usePscTable?(pscMatchTier==="exact"?"rgba(34,197,94,0.3)":"var(--amber)"):"var(--blue)"),fontWeight:500}}>
+                    PSC: {usePscTable?"From Flag & PSC Findings report ("+pscFindings.length+" findings"+(pscMatchTier&&pscMatchTier!=="exact"?", "+(pscMatchTier==="wide"?"within 14 days":"closest match, "+Math.round(pscFindings[0].__diffDays)+"d from detention — verify")+")":")"):"From uploaded PSC report ("+pscReportDefs.length+" findings)"}
                   </div>
                   {lastFlagFindings.length>0&&<div style={{fontSize:"13px",padding:"4px 10px",borderRadius:"5px",background:"rgba(245,158,11,0.1)",color:"var(--amber2)",border:"1px solid var(--amber)",fontWeight:500}}>
                     Flag: {fmtDate(lastFlagDate)} — {lastFlagFindings.length} findings
