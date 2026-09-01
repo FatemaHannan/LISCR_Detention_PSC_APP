@@ -495,6 +495,64 @@ export default function FleetVetting({ vessels = [] }) {
     return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap, inspectionOverdue };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
+  function printRiskReport() {
+    if (!selected || !riskAssessment) return;
+    const esc = (s) => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const r = riskAssessment;
+    const levelColor = { "Very High":"#cc0000", High:"#a30000", Medium:"#b8860b", Low:"#1a7a3c" }[r.level] || "#333";
+    const factorRows = r.factors.map(f => "<tr>"
+      + "<td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(f.label)+"</td>"
+      + "<td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(f.detail)+"</td>"
+      + "<td style='padding:6px 10px;border:1px solid #ccc;text-align:center;font-weight:bold;"+(f.score>0?"color:#a30000;":"")+"'>"+f.score+" / "+f.max+"</td>"
+      + "</tr>").join("");
+    const advisoryItems = r.advisory.map(line => "<li style='margin-bottom:6px;'>"+esc(line)+"</li>").join("");
+    const html = `<!DOCTYPE html><html><head><title>Pre-Boarding Risk Report — ${esc(selected.vessel)}</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:30px;font-size:11pt;}
+        h1{font-size:18pt;margin-bottom:2px;}
+        .sub{color:#555;font-size:10pt;margin-bottom:16px;}
+        .level-badge{display:inline-block;padding:8px 20px;border-radius:8px;border:2px solid ${levelColor};color:${levelColor};font-weight:bold;font-size:16pt;text-align:center;}
+        table{border-collapse:collapse;width:100%;margin-bottom:18px;}
+        th{background:#eee;padding:6px 10px;border:1px solid #ccc;text-align:left;font-size:9.5pt;text-transform:uppercase;}
+        .section-title{font-size:12pt;font-weight:bold;margin:18px 0 8px;border-bottom:2px solid #333;padding-bottom:4px;}
+        .rec-box{background:#f7f7f7;border-left:4px solid ${levelColor};padding:12px 16px;margin-bottom:16px;}
+        @media print { body{margin:15px;} }
+      </style></head><body>
+      <h1>Pre-Boarding Risk Screening Report</h1>
+      <div class="sub">Generated ${esc(new Date().toISOString().slice(0,10))} — LISCR Detention Intelligence</div>
+
+      <table style="margin-bottom:14px;"><tr>
+        <td style="width:70%;vertical-align:top;padding:0;border:none;">
+          <div style="font-size:15pt;font-weight:bold;">${esc(selected.vessel)}</div>
+          <div style="color:#555;">IMO ${esc(selected.imo)} · ${esc(selected.vessel_sub_type||selected.vessel_type||"—")} · ${selected.age!=null?esc(selected.age)+" yrs":"Age unknown"} · ${esc(selected.class_society||"RO unknown")}${selected.gross_tons?" · "+esc(Number(selected.gross_tons).toLocaleString())+" GT":""}</div>
+          <div style="color:#555;">${esc(selected.ism_client||"Company unknown")}</div>
+          ${destinationPort.trim()||arrivalDate ? "<div style='color:#555;margin-top:6px;'>"+(destinationPort.trim()?"Destination: <b>"+esc(destinationPort)+"</b>":"")+(destinationPort.trim()&&arrivalDate?" &nbsp;|&nbsp; ":"")+(arrivalDate?"Arrival Date: <b>"+esc(arrivalDate)+"</b>":"")+"</div>" : ""}
+        </td>
+        <td style="width:30%;text-align:center;vertical-align:top;padding:0;border:none;">
+          <div class="level-badge">${esc(r.level)}</div>
+          <div style="margin-top:6px;color:#555;">${r.total} / ${r.maxTotal} points</div>
+        </td>
+      </tr></table>
+
+      <div class="rec-box"><b>Recommendation:</b> ${esc(r.recommendation)}</div>
+
+      <div class="section-title">Everything Considered</div>
+      <ul style="padding-left:20px;">${advisoryItems}</ul>
+
+      <div class="section-title">Risk Factor Breakdown</div>
+      <table>
+        <tr><th>Factor</th><th>Detail</th><th style="text-align:center;">Score</th></tr>
+        ${factorRows}
+      </table>
+
+      ${r.floorApplied ? "<div class='rec-box' style='border-left-color:#cc0000;'><b>⛔ Risk Floor Applied:</b> "+esc(r.floorReasons.join(", "))+"</div>" : ""}
+      </body></html>`;
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  }
+
   return (
     <div className="pg active" style={{ padding: "20px" }}>
       <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)", marginBottom: "2px" }}>🛡️ Pre-Boarding Risk Screening</div>
@@ -551,10 +609,15 @@ export default function FleetVetting({ vessels = [] }) {
                 </div>
               </div>
               {riskAssessment && (
-                <div style={{ background: RISK_BG[riskAssessment.level], border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "10px 18px", textAlign: "center" }}>
-                  <div style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Risk Level</div>
-                  <div style={{ fontSize: "20px", fontWeight: 700, color: RISK_COLORS[riskAssessment.level] }}>{riskAssessment.level}</div>
-                  <div style={{ fontSize: "10px", color: "var(--text3)" }}>{riskAssessment.total}/{riskAssessment.maxTotal} points</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <div style={{ background: RISK_BG[riskAssessment.level], border: "1px solid "+RISK_BORDER[riskAssessment.level], borderRadius: "8px", padding: "10px 18px", textAlign: "center" }}>
+                    <div style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Risk Level</div>
+                    <div style={{ fontSize: "20px", fontWeight: 700, color: RISK_COLORS[riskAssessment.level] }}>{riskAssessment.level}</div>
+                    <div style={{ fontSize: "10px", color: "var(--text3)" }}>{riskAssessment.total}/{riskAssessment.maxTotal} points</div>
+                  </div>
+                  <button onClick={printRiskReport} style={{ fontSize: "12px", padding: "6px 12px", border: "1px solid var(--border2)", borderRadius: "6px", background: "var(--bg3)", color: "var(--text2)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    ↓ Download / Print Report
+                  </button>
                 </div>
               )}
             </div>
