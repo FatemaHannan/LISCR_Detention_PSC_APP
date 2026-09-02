@@ -88,7 +88,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
         const key = nImo(d.imo);
         if (d.age!=null && aMap[key]==null) aMap[key] = d.age;
         if (d.vessel_type && tMap[key]==null) tMap[key] = d.vessel_type;
-        if (d.auditor && d.inspection_date) iMap[key+"|"+d.inspection_date] = d.auditor;
+        if (d.auditor && d.inspection_date) { iMap[key] = iMap[key]||[]; iMap[key].push({ date: d.inspection_date, auditor: d.auditor }); }
       });
       const stillMissing = imos.map(nImo).filter(imo => aMap[imo]==null);
       if (stillMissing.length > 0) {

@@ -182,6 +182,23 @@ function resolvePortCountry(port, dynamicMap) {
 }
 
 const normImoBuilder = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+// Looks up the inspector nearest to a vessel's detention date, instead of requiring an
+// exact date match. inspectorMap is now {imo: [{date, auditor}, ...]} rather than a flat
+// exact-key lookup - an inspection record's date rarely lines up perfectly with the
+// recorded detention date, so an exact match was showing "Unknown" far more than it should.
+// Falls back to null (Unknown) only if nothing is within a reasonable 14-day window.
+function lookupInspector(inspectorMap, imo, detentionDate) {
+  if (!inspectorMap || !detentionDate) return null;
+  const list = inspectorMap[normImoBuilder(imo)];
+  if (!list || !list.length) return null;
+  const detTime = new Date(detentionDate).getTime();
+  let best = null, bestDiff = Infinity;
+  list.forEach(({date, auditor}) => {
+    const diff = Math.abs(new Date(date).getTime() - detTime);
+    if (diff < bestDiff) { bestDiff = diff; best = auditor; }
+  });
+  return bestDiff <= 14*24*60*60*1000 ? best : null;
+}
 
 function gtBucket(gt) {
   if (gt==null || isNaN(gt) || gt<=0) return null;
@@ -399,7 +416,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       { id: "caseStatus", label: "Case Status", get: v => v.caseStatus && v.caseStatus!=="—" ? v.caseStatus : null },
       { id: "carStatus", label: "CAR Status", get: v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null },
       { id: "detainable", label: "Detainable Deficiency", get: v => v.detainable!=null ? (v.detainable>0 ? "Yes" : "No") : null },
-      { id: "inspector", label: "Inspector Name", get: v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null },
+      { id: "inspector", label: "Inspector Name", get: v => lookupInspector(inspectorMap, v.imo, v.detentionDate) },
     ];
     if (includeMou) base.push({ id: "mou", label: "MoU", get: v => v.mou && v.mou!=="—" ? v.mou : null });
     return base;
@@ -568,7 +585,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const byCompany = countBy(v => !isBlankCompanyName(v.company) ? v.company : null);
     const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
-    const byInspector = countBy(v => (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null);
+    const byInspector = countBy(v => lookupInspector(inspectorMap, v.imo, v.detentionDate));
     const byCarStatus = countBy(v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null);
     // Major Deficiencies — overall category breakdown across ALL deficiencies for this group
     // (not just detainable ones), e.g. Fire Safety, LSA/Life Saving, ISM/Safety Mgmt.
@@ -588,7 +605,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     // occurrence count. Same "genuinely shared across vessels" logic as matchingDeficiencies.
     const inspectorByVessel = {};
     vessels.forEach(v => {
-      const insp = (inspectorMap && v.detentionDate) ? (inspectorMap[normImoBuilder(v.imo)+"|"+v.detentionDate]||null) : null;
+      const insp = lookupInspector(inspectorMap, v.imo, v.detentionDate);
       if (!insp || insp==="Unknown") return;
       inspectorByVessel[insp] = inspectorByVessel[insp] || new Set();
       inspectorByVessel[insp].add(v.imo);
