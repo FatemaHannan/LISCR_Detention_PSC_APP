@@ -520,6 +520,18 @@ export default function MouDetentionReport({ vessels = [] }) {
       </div>
       <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"14px"}}>Year filter applies to the MoU list below and each authority's expanded detail (monthly trend, causes, risk vessels, age/type/risk, companies, RO). The by-year comparison tables above always show every year regardless of this filter, since that's their purpose.</div>
 
+      {/* MoU Summary Cards — quick-glance overview, one card per PSC authority */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))",gap:"10px",marginBottom:"18px"}}>
+        {mouMetricsByYear.map(m => (
+          <div key={m.mou} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"12px 14px"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.mou}</div>
+            <div style={{fontSize:"22px",fontWeight:700,color:"var(--text)",fontFamily:"var(--mono)"}}>{m.total}</div>
+            <div style={{fontSize:"10px",color:"var(--text3)",marginBottom:"6px"}}>total detentions</div>
+            <div style={{fontSize:"11px",fontWeight:600,color:m.trendColor}}>{m.trend}</div>
+          </div>
+        ))}
+      </div>
+
       {/* MoU Metrics by Year (YTD) */}
       <div style={{fontSize:"16px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. MoU Performance by Year <span style={{fontWeight:400,color:"var(--text3)"}}>— YTD through {todayMD.replace("-","/")} each year</span></div>
 
