@@ -19,6 +19,9 @@ function normalizeMouValue(mou) {
   if (lower.includes("tokyo")) return "Tokyo MOU";
   if (lower.includes("paris")) return "Paris MOU";
   if (lower.includes("vina")) return "Vina Del Mar";
+  // "Australia" and "Australia (AMSA)" are the same regulatory body as "AMSA", just
+  // entered inconsistently across different case records.
+  if (lower === "australia" || lower.includes("australia")) return "AMSA";
   const exact = MOU_CANONICAL.find(m => m.toLowerCase() === lower);
   if (exact) return exact;
   return trimmed;

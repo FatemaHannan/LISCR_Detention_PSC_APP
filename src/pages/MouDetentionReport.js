@@ -9,9 +9,14 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 function normalizeMouValue(mou) {
   if (!mou) return mou;
   const trimmed = mou.trim();
+  const lower = trimmed.toLowerCase();
   // China MSA operates under the Tokyo MoU region — combine it in, same alias already
   // used for benchmark comparison elsewhere in this app.
-  if (trimmed.toLowerCase() === "china msa") return "Tokyo MOU";
+  if (lower === "china msa") return "Tokyo MOU";
+  // "Australia" and "Australia (AMSA)" are the same regulatory body as "AMSA", just
+  // entered inconsistently across different case records — fold them into one canonical
+  // value so counts/filters by MoU aren't silently undercounting.
+  if (lower === "australia" || lower === "australia (amsa)") return "AMSA";
   return trimmed;
 }
 
