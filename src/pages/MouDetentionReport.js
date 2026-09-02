@@ -543,18 +543,72 @@ export default function MouDetentionReport({ vessels = [] }) {
     html += sectionTitle("Detentions by Year")
       + table(["Year","Detentions (YTD-aligned)"], Object.entries(dd.detByYear||{}).sort((a,b)=>a[0].localeCompare(b[0])));
 
+    // Year-over-Year Trend — Jan-Dec grid, one column per year
+    if ((dd.yearOverlay?.years||[]).length) {
+      html += sectionTitle("Year-over-Year Trend")
+        + table(["Month",...dd.yearOverlay.years], dd.yearOverlay.grid.map(row => [row.month, ...dd.yearOverlay.years.map(yr=>row[yr]??"")]));
+    }
+
     if ((dd.monthly||[]).length) html += sectionTitle("Monthly Trend (Last 12 Months)") + barChart(dd.monthly.map(m=>[m.month,m.count]), {color:"#b8860b"});
     if ((dd.dow||[]).length) html += sectionTitle("Day of Week") + barChart(dd.dow.map(d=>[d.day,d.count]));
     if ((dd.locations||[]).length) html += sectionTitle("Top Locations") + barChart(dd.locations.map(l=>[l.location,l.count]));
-    if ((dd.causes||[]).length) html += sectionTitle("Major Causes") + barChart(dd.causes.map(c=>[c.cause,c.count]));
+
+    // Major Causes, with industry benchmark comparison if one exists for this MoU
+    if ((dd.causes||[]).length) {
+      const bench = getBenchmarkForMou(mou);
+      html += sectionTitle("Major Causes"+(bench?" (vs Industry Benchmark)":""));
+      if (bench) {
+        html += table(["Cause","Count","Industry %"], dd.causes.map(c => {
+          const benchRow = bench.find(b=>b.category===c.cause);
+          return [c.cause, c.count, benchRow ? (benchRow.pct!=null?benchRow.pct+"%":"rank #"+benchRow.rank) : "—"];
+        }));
+      } else {
+        html += barChart(dd.causes.map(c=>[c.cause,c.count]));
+      }
+    }
+
     if ((dd.topCodes||[]).length) html += sectionTitle("Top Deficiency Codes") + table(["Code","Description","Count","Detainable"], dd.topCodes.map(c=>[c.code,c.desc||"—",c.count,c.detainable]));
+    if ((dd.riskVessels||[]).length) html += sectionTitle("Repeat / High-Frequency Vessels") + table(["Vessel","IMO","Detentions","Avg Deficiencies"], dd.riskVessels.map(v=>[v.name,v.imo,v.count+"x",v.count?(v.totalDefs/v.count).toFixed(1):"—"]));
     if ((dd.ageBreakdown||[]).length) html += sectionTitle("Vessel Age") + barChart(dd.ageBreakdown.map(a=>[a.bracket,a.count]));
     if ((dd.riskBreakdown||[]).length) html += sectionTitle("Vessel Risk Level") + barChart(dd.riskBreakdown.map(r=>[r.level,r.count]));
     if ((dd.typeBreakdown||[]).length) html += sectionTitle("Vessel Type") + barChart(dd.typeBreakdown.map(t=>[t.type,t.count]));
     if ((dd.roChartBreakdown||[]).length) html += sectionTitle("RO / Class") + barChart(dd.roChartBreakdown.map(r=>[r.ro,r.count]));
-    if ((dd.riskVessels||[]).length) html += sectionTitle("Repeat / High-Frequency Vessels") + table(["Vessel","IMO","Detentions","Total Deficiencies"], dd.riskVessels.map(v=>[v.name,v.imo,v.count,v.totalDefs]));
-    if ((dd.companyBreakdown||[]).length) html += sectionTitle("Top Companies") + table(["Company","Total"], dd.companyBreakdown.map(c=>[c.name,c.total]));
-    if ((dd.roBreakdown||[]).length) html += sectionTitle("Top RO (by Year)") + table(["RO","Total"], dd.roBreakdown.map(r=>[r.name,r.total]));
+    if ((dd.companyBreakdown||[]).length) html += sectionTitle("Top Companies (by Year)") + table(["Company",...availableYears,"Total"], dd.companyBreakdown.map(c=>[c.name,...availableYears.map(y=>c.years[y]||0),c.total]));
+    if ((dd.roBreakdown||[]).length) html += sectionTitle("Top RO (by Year)") + table(["RO",...availableYears,"Total"], dd.roBreakdown.map(r=>[r.name,...availableYears.map(y=>r.years[y]||0),r.total]));
+
+    // Detentions vs Vetting Activity
+    if (availableYears.length) {
+      const vRows = availableYears.map(y => {
+        const det = dd.detByYear?.[y]||0;
+        const vet = vettingCounts[mou]?.[y]||0;
+        const rate = vet ? (det/vet*100).toFixed(3)+"%" : "—";
+        return [y, det, vet.toLocaleString(), rate];
+      });
+      html += sectionTitle("Detentions vs Vetting Activity") + table(["Year","Detentions","Vetting Count","Rate %"], vRows);
+    }
+
+    // Inspections vs Detentions (PSC / Flag rates)
+    if (availableYears.length) {
+      const iRows = availableYears.map(y => {
+        const det = dd.detByYear?.[y]||0;
+        const psc = inspectionRates[mou]?.[y]?.psc;
+        const flag = inspectionRates[mou]?.[y]?.flag;
+        const pscRate = psc ? (det/psc*100).toFixed(2)+"%" : "—";
+        const flagRate = flag ? (det/flag*100).toFixed(2)+"%" : "—";
+        return [y, det, psc!=null?psc.toLocaleString():"—", pscRate, flag!=null?flag.toLocaleString():"—", flagRate];
+      });
+      html += sectionTitle("Inspections vs Detentions") + table(["Year","Detentions","PSC Inspections","PSC Rate","Flag Inspections","Flag Rate"], iRows);
+    }
+
+    // Casualty & MLC
+    if (availableYears.length) {
+      const cRows = availableYears.map(y => {
+        const cas = inspectionRates[mou]?.[y]?.casualty||0;
+        const mlc = mlcCounts[mou]?.[y]||0;
+        return [y, cas, mlc];
+      });
+      html += sectionTitle("Casualty & MLC") + table(["Year","Casualty Reports","MLC Complaints"], cRows);
+    }
 
     const filename = "MoU_Report_"+mou.replace(/[^a-zA-Z0-9]+/g,"_")+"_"+new Date().toISOString().slice(0,10);
     if (format === "pdf") {
