@@ -520,14 +520,23 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       if (combo) {
         const drill = computeDrillDown(combo.vessels);
         const listRows = (list) => list.slice(0,10).map(([label,count])=>[label,count]);
+        const summaryList = "<ul style='padding-left:20px;font-size:9.5pt;'>"+drill.reportSummary.map(s=>"<li style='margin-bottom:5px;'>"+esc(s.icon)+" "+esc(s.text)+"</li>").join("")+"</ul>";
         html += sectionTitle("Drill-Down — "+esc(combo.values.join(" · ")))
           + "<p style='font-size:9.5pt;'>"+drill.n+" record(s) &nbsp;|&nbsp; Avg Age: "+esc(drill.avgAge??"—")+" yrs &nbsp;|&nbsp; Detainable: "+drill.detainableCount+" ("+drill.detainablePct+"%)</p>"
+          + "<b style='font-size:10pt;'>📋 Report Summary</b>" + summaryList
           + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+barChart(listRows(drill.byType),{limit:8}) : "")
+          + (drill.byAgeBracket?.length ? "<b style='font-size:10pt;'>Age Bracket</b>"+barChart(listRows(drill.byAgeBracket),{limit:8}) : "")
           + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+barChart(listRows(drill.byRo),{limit:8}) : "")
           + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+barChart(listRows(drill.byCompany),{limit:8}) : "")
           + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+barChart(listRows(drill.byPort),{limit:8}) : "")
+          + (drill.byCarStatus?.length ? "<b style='font-size:10pt;'>CAR Status</b>"+barChart(listRows(drill.byCarStatus),{limit:8}) : "")
+          + (drill.byDayOfWeek?.length ? "<b style='font-size:10pt;'>Day of Week</b>"+barChart(listRows(drill.byDayOfWeek),{limit:8}) : "")
           + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+barChart(listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))),{color:"#b8860b"}) : "")
           + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
+          + (drill.byMajorDeficiencyList?.length ? "<b style='font-size:10pt;'>Major Deficiencies</b>"+barChart(drill.byMajorDeficiencyList.slice(0,10),{limit:10}) : "")
+          + (drill.repeatInspectors?.length ? "<b style='font-size:10pt;'>Same Inspector Across Multiple Vessels</b>"+table(["Inspector","Vessels"], drill.repeatInspectors.map(r=>[r.name,r.vesselCount])) : "")
+          + (drill.companyClustering?.length ? "<b style='font-size:10pt;'>Company Clustering — Same Port / Location / MoU</b>"+table(["Company","Detentions","Pattern"], drill.companyClustering.map(c=>[c.company,c.count,c.flags.join(", ")])) : "")
+          + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.slice(0,10).map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
           + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
           + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
           + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Count"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "");
