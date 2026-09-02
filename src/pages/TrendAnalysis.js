@@ -455,11 +455,47 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       "<table style='border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:9.5pt;'>"
       + "<thead><tr>" + headers.map(h=>"<th style='border:1px solid #999;padding:5px 8px;background:#eee;text-align:left;'>"+esc(h)+"</th>").join("") + "</tr></thead>"
       + "<tbody>" + rowsArr.map(r=>"<tr>"+r.map(c=>"<td style='border:1px solid #ccc;padding:5px 8px;'>"+esc(c)+"</td>").join("")+"</tr>").join("") + "</tbody></table>";
-    const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #333;padding-bottom:3px;page-break-after:avoid;'>"+esc(t)+"</h3>";
+    const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #1a3a5c;padding-bottom:3px;page-break-after:avoid;color:#1a3a5c;'>"+esc(t)+"</h3>";
+    // Real visual bar chart — horizontal bars with proportional width, built with nested
+    // tables (not flexbox) so it renders correctly in BOTH the printed PDF (browser) and the
+    // Word export — Word's HTML import uses an older rendering engine that doesn't reliably
+    // support flexbox, but table-based layouts are universally supported.
+    const barChart = (items, opts={}) => {
+      if (!items.length) return "";
+      const max = Math.max(...items.map(i=>i[1]), 1);
+      const color = opts.color || "#2c5f8a";
+      const rows = items.slice(0, opts.limit||15).map(([label,count]) => {
+        const pct = Math.max(3, Math.round(count/max*100));
+        return "<tr>"
+          + "<td style='width:170px;padding:2px 8px 2px 0;font-size:9pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>"+esc(label)+"</td>"
+          + "<td style='padding:2px 0;'><table style='border-collapse:collapse;width:100%;background:#eee;border-radius:3px;'><tr><td style='width:"+pct+"%;background:"+color+";height:14px;font-size:1px;line-height:14px;'>&nbsp;</td><td style='height:14px;font-size:1px;'>&nbsp;</td></tr></table></td>"
+          + "<td style='width:42px;text-align:right;font-weight:bold;padding:2px 0 2px 8px;font-size:9pt;'>"+count+"</td>"
+          + "</tr>";
+      }).join("");
+      return "<table style='border-collapse:collapse;width:100%;margin:8px 0 18px;'>"+rows+"</table>";
+    };
 
-    let html = "<h1 style='font-size:15pt;margin-bottom:2px;'>Detention Report — By " + activeDims.map(d=>d.label).join(" · ") + "</h1>"
-      + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+    // Year-over-Year Trend — computed across the FULL filtered dataset (rows), independent
+    // of which specific combination is expanded, so every report includes a real historical
+    // comparison, not just a snapshot of the current filters.
+    const yearCounts = {};
+    rows.forEach(v => { if (v.detentionDate) { const yr = String(v.detentionDate).slice(0,4); yearCounts[yr] = (yearCounts[yr]||0)+1; } });
+    const yearEntries = Object.entries(yearCounts).sort((a,b)=>a[0].localeCompare(b[0]));
+    const thisYear = yearEntries[yearEntries.length-1];
+    const lastYear = yearEntries[yearEntries.length-2];
+    const yoyLine = (thisYear && lastYear)
+      ? (() => { const diff = thisYear[1]-lastYear[1]; const pct = lastYear[1]?Math.round(diff/lastYear[1]*100):0;
+          return "<p style='font-size:10pt;'><b>"+thisYear[0]+" vs "+lastYear[0]+":</b> "+thisYear[1]+" detentions vs "+lastYear[1]+" — "
+          + (diff>0?"up "+pct+"%":diff<0?"down "+Math.abs(pct)+"%":"unchanged")+" year-over-year.</p>"; })()
+      : "";
+
+    let html = "<div style='background:#1a3a5c;color:#fff;padding:16px 20px;margin:0 0 20px;border-radius:4px;'>"
+      + "<div style='font-size:16pt;font-weight:bold;'>Detention Report — By " + activeDims.map(d=>d.label).join(" · ") + "</div>"
+      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + "</div>"
+      + (yearEntries.length>1 ? sectionTitle("Year-over-Year Trend") + yoyLine + barChart(yearEntries, {color:"#b8860b"}) : "")
       + sectionTitle("By " + activeDims.map(d=>d.label).join(" · "))
+      + barChart(combos.map(c=>[c.values.join(" · "), c.count]))
       + table([...activeDims.map(d=>d.label), "Count", "% of Total"], combos.map(c=>[...c.values, c.count, c.pct+"%"]));
 
     if (expandedKey) {
@@ -469,11 +505,11 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         const listRows = (list) => list.slice(0,10).map(([label,count])=>[label,count]);
         html += sectionTitle("Drill-Down — "+esc(combo.values.join(" · ")))
           + "<p style='font-size:9.5pt;'>"+drill.n+" record(s) &nbsp;|&nbsp; Avg Age: "+esc(drill.avgAge??"—")+" yrs &nbsp;|&nbsp; Detainable: "+drill.detainableCount+" ("+drill.detainablePct+"%)</p>"
-          + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+table(["Type","Count"], listRows(drill.byType)) : "")
-          + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+table(["RO","Count"], listRows(drill.byRo)) : "")
-          + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+table(["Company","Count"], listRows(drill.byCompany)) : "")
-          + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+table(["Port","Count"], listRows(drill.byPort)) : "")
-          + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+table(["Year","Count"], listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0])))) : "")
+          + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+barChart(listRows(drill.byType),{limit:8}) : "")
+          + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+barChart(listRows(drill.byRo),{limit:8}) : "")
+          + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+barChart(listRows(drill.byCompany),{limit:8}) : "")
+          + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+barChart(listRows(drill.byPort),{limit:8}) : "")
+          + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+barChart(listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))),{color:"#b8860b"}) : "")
           + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
           + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
           + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
