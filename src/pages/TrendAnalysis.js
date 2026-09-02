@@ -384,7 +384,7 @@ function DrillDownPanel({ combo, drill, onClose }) {
   );
 }
 
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount, companyMap, roMap }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
   const dynamicPortCountryMap = useMemo(() => {
@@ -403,10 +403,10 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const base = [
       { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null); return t; } },
       { id: "age", label: "Vessel Age", get: v => { const a = ageMap && ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; } },
-      { id: "ro", label: "RO (Classification Society)", get: v => v.ro && v.ro!=="—" ? v.ro : null },
+      { id: "ro", label: "RO (Classification Society)", get: v => (v.ro && v.ro!=="—" ? v.ro : null) || (roMap && roMap[normImoBuilder(v.imo)]) || null },
       { id: "port", label: "Location / Port", get: v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; } },
       { id: "country", label: "Country", get: v => { const c = resolvePortCountry(v.port, dynamicPortCountryMap); return c!=="Unknown" ? c : null; } },
-      { id: "company", label: "Company", get: v => { const c = v.company; if (!c) return null; const t = String(c).trim().toLowerCase(); return (t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a") ? null : c; } },
+      { id: "company", label: "Company", get: v => { const c = v.company; const t = c ? String(c).trim().toLowerCase() : ""; const blank = !c || t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; return blank ? ((companyMap && companyMap[normImoBuilder(v.imo)]) || null) : c; } },
       { id: "risk", label: "Risk Level", get: v => (riskMap && riskMap[v.imo]) || null },
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
       { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
@@ -595,12 +595,12 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     };
     const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
     const byAgeBracket = countBy(v => { const a = ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; });
-    const byRo = countBy(v => v.ro && v.ro!=="—" ? v.ro : null);
+    const byRo = countBy(v => (v.ro && v.ro!=="—" ? v.ro : null) || (roMap && roMap[normImoBuilder(v.imo)]) || null);
     // Placeholder text like "Not specified" is stored as a literal value in some records
     // (not blank/null), so a simple !=="—" check doesn't catch it — treat it as Unknown too,
     // same fix already applied to this same underlying data issue in Case View.
     const isBlankCompanyName = (c) => { if (!c) return true; const t = String(c).trim().toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
-    const byCompany = countBy(v => !isBlankCompanyName(v.company) ? v.company : null);
+    const byCompany = countBy(v => { const blank = isBlankCompanyName(v.company); return blank ? ((companyMap && companyMap[normImoBuilder(v.imo)]) || null) : v.company; });
     const byPort = countBy(v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; });
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
     const byInspector = countBy(v => lookupInspector(inspectorMap, v.imo, v.detentionDate));
@@ -634,9 +634,10 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     // (a pattern worth flagging — a company's fleet keeps getting caught in the same place).
     const byCompanyVessels = {};
     vessels.forEach(v => {
-      if (isBlankCompanyName(v.company)) return;
-      byCompanyVessels[v.company] = byCompanyVessels[v.company] || [];
-      byCompanyVessels[v.company].push(v);
+      const resolvedCompany = isBlankCompanyName(v.company) ? ((companyMap && companyMap[normImoBuilder(v.imo)]) || null) : v.company;
+      if (!resolvedCompany) return;
+      byCompanyVessels[resolvedCompany] = byCompanyVessels[resolvedCompany] || [];
+      byCompanyVessels[resolvedCompany].push(v);
     });
     const companyClustering = Object.entries(byCompanyVessels)
       .filter(([,vs]) => vs.length >= 2)
