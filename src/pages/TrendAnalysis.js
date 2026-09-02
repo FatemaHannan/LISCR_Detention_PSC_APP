@@ -281,7 +281,40 @@ function DrillDownPanel({ combo, drill, onClose }) {
           <Section title="RO / Class" prefix="ro" list={drill.byRo} />
           <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
           <Section title="Inspector Name" prefix="inspector" list={drill.byInspector} />
-          <Section title="Major Deficiencies" prefix="majordef" list={drill.byMajorDeficiencyList} />
+          {drill.byMajorDeficiencyList.length>0 && (
+            <div style={{marginBottom:"10px"}}>
+              <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>Major Deficiencies</div>
+              {(() => {
+                const max = Math.max(...drill.byMajorDeficiencyList.map(([,c])=>c));
+                return drill.byMajorDeficiencyList.slice(0,8).map(([cat,count]) => {
+                  const groupKey = "majordefdesc:"+cat;
+                  const isOpen = openSub === groupKey;
+                  const details = drill.byMajorDeficiencyDetail?.[cat] || [];
+                  return (
+                    <div key={cat} style={{marginBottom:"2px"}}>
+                      <div onClick={()=>setOpenSub(isOpen?null:groupKey)} style={{display:"flex",alignItems:"center",gap:"8px",padding:"3px 0",cursor:"pointer"}}>
+                        <div style={{width:"110px",fontSize:"11px",color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none",flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cat}</div>
+                        <div style={{flex:1,background:"var(--bg3)",borderRadius:"3px",height:"14px",position:"relative"}}>
+                          <div style={{width:Math.max(4,Math.round(count/max*100))+"%",background:"var(--purple, #8b5cf6)",height:"14px",borderRadius:"3px"}}></div>
+                        </div>
+                        <div style={{width:"24px",textAlign:"right",fontSize:"11px",color:"var(--text2)",fontWeight:700}}>{count}</div>
+                      </div>
+                      {isOpen && (
+                        <div style={{marginTop:"4px",marginBottom:"6px",background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",marginLeft:"118px"}}>
+                          {details.map(([desc,cnt],i) => (
+                            <div key={i} style={{fontSize:"10px",color:"var(--text3)",padding:"2px 0",display:"flex",justifyContent:"space-between",gap:"8px"}}>
+                              <span>{desc}</span>
+                              <span style={{flexShrink:0,color:"var(--text2)"}}>{cnt}x</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
         </div>
         <div>
           <Section title="Company" prefix="company" list={drill.byCompany} />
@@ -530,7 +563,13 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         + (drill.byDayOfWeek?.length ? "<b style='font-size:10pt;'>Day of Week</b>"+barChart(listRows(drill.byDayOfWeek),{limit:8}) : "")
         + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+barChart(listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))),{color:"#b8860b"}) : "")
         + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
-        + (drill.byMajorDeficiencyList?.length ? "<b style='font-size:10pt;'>Major Deficiencies</b>"+barChart(drill.byMajorDeficiencyList.slice(0,10),{limit:10}) : "")
+        + (drill.byMajorDeficiencyList?.length ? "<b style='font-size:10pt;'>Major Deficiencies</b>"+barChart(drill.byMajorDeficiencyList.slice(0,10),{limit:10})
+            +drill.byMajorDeficiencyList.slice(0,10).map(([cat])=>{
+              const details = drill.byMajorDeficiencyDetail?.[cat]||[];
+              if (!details.length) return "";
+              return "<div style='font-size:8.5pt;margin:0 0 8px;'><b>"+esc(cat)+":</b> "+details.map(([desc,cnt])=>esc(desc)+" ("+cnt+"x)").join("; ")+"</div>";
+            }).join("")
+          : "")
         + (drill.repeatInspectors?.length ? "<b style='font-size:10pt;'>Same Inspector Across Multiple Vessels</b>"+table(["Inspector","Vessels"], drill.repeatInspectors.map(r=>[r.name,r.vesselCount])) : "")
         + (drill.companyClustering?.length ? "<b style='font-size:10pt;'>Company Clustering — Same Port / Location / MoU</b>"+table(["Company","Detentions","Pattern"], drill.companyClustering.map(c=>[c.company,c.count,c.flags.join(", ")])) : "")
         + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.slice(0,10).map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
@@ -606,13 +645,24 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const byInspector = countBy(v => lookupInspector(inspectorMap, v.imo, v.detentionDate));
     const byCarStatus = countBy(v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null);
     // Major Deficiencies — overall category breakdown across ALL deficiencies for this group
-    // (not just detainable ones), e.g. Fire Safety, LSA/Life Saving, ISM/Safety Mgmt.
+    // (not just detainable ones), e.g. Fire Safety, LSA/Life Saving, ISM/Safety Mgmt. Also
+    // tracks the specific deficiency descriptions within each category, so a category can be
+    // expanded to see exactly what it's made of, not just a broad label.
     const majorDefCounts = {};
+    const majorDefDescriptions = {}; // category -> { description -> count }
     vessels.forEach(v => (v.deficiencies||[]).forEach(d => {
       const cat = catDef(d.desc);
-      if (cat && cat!=="Other") majorDefCounts[cat] = (majorDefCounts[cat]||0)+1;
+      if (cat && cat!=="Other") {
+        majorDefCounts[cat] = (majorDefCounts[cat]||0)+1;
+        const desc = (d.desc||"Unspecified").trim();
+        majorDefDescriptions[cat] = majorDefDescriptions[cat] || {};
+        majorDefDescriptions[cat][desc] = (majorDefDescriptions[cat][desc]||0)+1;
+      }
     }));
     const byMajorDeficiencyList = Object.entries(majorDefCounts).sort((a,b)=>b[1]-a[1]);
+    const byMajorDeficiencyDetail = Object.fromEntries(
+      Object.entries(majorDefDescriptions).map(([cat,descs]) => [cat, Object.entries(descs).sort((a,b)=>b[1]-a[1])])
+    );
     // Day of Week — which day(s) these detentions happened on, same Fri-Tue targeting concept
     // used elsewhere in the app, scoped to just this group.
     const DOW_NAMES_LOCAL = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -735,7 +785,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     if (reportSummary.length===0) {
       reportSummary.push({icon:"🟢", text:"No single dominant pattern stands out across these vessels — the group is genuinely mixed on type, age, company, and port."});
     }
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byAgeBracket, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byDayOfWeek, friToTueGroupCount, repeatInspectors, companyClustering, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies, reportSummary };
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byAgeBracket, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byMajorDeficiencyDetail, byDayOfWeek, friToTueGroupCount, repeatInspectors, companyClustering, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies, reportSummary };
   }
 
   return (
