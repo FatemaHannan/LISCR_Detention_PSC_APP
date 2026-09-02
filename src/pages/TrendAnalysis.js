@@ -384,7 +384,7 @@ function DrillDownPanel({ combo, drill, onClose }) {
   );
 }
 
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
   const dynamicPortCountryMap = useMemo(() => {
@@ -732,6 +732,12 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"20px"}}>
       <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"2px"}}>🧩 Build Your Own Report</div>
       <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"10px"}}>Pick one or more factors to cross-reference — see every combination that actually occurs, ranked by frequency.</div>
+      {vesselFilterCount >= 2 && (
+        <DrillDownPanel
+          combo={{ values: ["Selected Vessels ("+vesselFilterCount+")"], vessels: rows }}
+          drill={computeDrillDown(rows)}
+        />
+      )}
       {activeDims.length >= 1 && (
         <div style={{fontSize:"14px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>
           Total: <span style={{color:"var(--blue)"}}>{matchedTotal}</span> record{matchedTotal!==1?"s":""} across <span style={{color:"var(--blue)"}}>{combos.length}</span> {combos.length!==1?"combinations":"combination"}

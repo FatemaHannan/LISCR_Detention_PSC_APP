@@ -242,6 +242,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
             <CombinationBuilder
               rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} inspectorMap={inspectorMap} includeMou={scope==="fleet"}
               selected={selected} onSelectedChange={setSelected}
+              vesselFilterCount={vesselFilter.length}
             />
           )}
 
