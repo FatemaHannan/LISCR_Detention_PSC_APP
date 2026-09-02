@@ -9,10 +9,13 @@ function normalizeMouValue(mou) {
   // China MSA operates under the Tokyo MoU region — combine it in, same alias already
   // used for benchmark comparison elsewhere in this app.
   if (lower === "china msa") return "Tokyo MOU";
-  // "Australia" and "Australia (AMSA)" are the same regulatory body as "AMSA", just
-  // entered inconsistently across different case records — fold them into one canonical
-  // value so counts/filters by MoU aren't silently undercounting.
-  if (lower === "australia" || lower === "australia (amsa)") return "AMSA";
+  // Descriptive variants and casing differences for the same MoU, entered inconsistently
+  // across different case records — fold each into one canonical value so counts/filters
+  // by MoU aren't silently undercounting.
+  if (lower.includes("tokyo")) return "Tokyo MOU";
+  if (lower.includes("paris")) return "Paris MOU";
+  if (lower.includes("vina")) return "Vina Del Mar";
+  if (lower === "australia" || lower.includes("australia")) return "AMSA";
   return trimmed;
 }
 
