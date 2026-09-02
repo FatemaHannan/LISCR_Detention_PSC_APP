@@ -503,6 +503,75 @@ export default function MouDetentionReport({ vessels = [] }) {
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
+  function printMouReport(mou, dd, format) {
+    const esc = (s) => String(s==null?"":s);
+    const sectionTitle = (t) => "<h3 style='margin:18px 0 4px;font-size:12pt;border-bottom:2px solid #1a3a5c;padding-bottom:3px;page-break-after:avoid;color:#1a3a5c;'>"+esc(t)+"</h3>";
+    const table = (headers, rowsArr) =>
+      "<table style='border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:9.5pt;'>"
+      + "<thead><tr>" + headers.map(h=>"<th style='border:1px solid #999;padding:5px 8px;background:#eee;text-align:left;'>"+esc(h)+"</th>").join("") + "</tr></thead>"
+      + "<tbody>" + rowsArr.map(r=>"<tr>"+r.map(c=>"<td style='border:1px solid #ccc;padding:5px 8px;'>"+esc(c)+"</td>").join("")+"</tr>").join("") + "</tbody></table>";
+    // Table-based bar chart (not flexbox) — renders reliably in both the printed PDF and Word,
+    // same pattern already used for Build Your Report's export.
+    const barChart = (items, opts={}) => {
+      if (!items.length) return "";
+      const max = Math.max(...items.map(i=>i[1]), 1);
+      const color = opts.color || "#2c5f8a";
+      const rows = items.slice(0, opts.limit||15).map(([label,count]) => {
+        const pct = Math.max(3, Math.round(count/max*100));
+        return "<tr>"
+          + "<td style='width:170px;padding:2px 8px 2px 0;font-size:9pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>"+esc(label)+"</td>"
+          + "<td style='padding:2px 0;'><table style='border-collapse:collapse;width:100%;background:#eee;border-radius:3px;'><tr><td style='width:"+pct+"%;background:"+color+";height:14px;font-size:1px;line-height:14px;'>&nbsp;</td><td style='height:14px;font-size:1px;'>&nbsp;</td></tr></table></td>"
+          + "<td style='width:42px;text-align:right;font-weight:bold;padding:2px 0 2px 8px;font-size:9pt;'>"+count+"</td>"
+          + "</tr>";
+      }).join("");
+      return "<table style='border-collapse:collapse;width:100%;margin:8px 0 18px;'>"+rows+"</table>";
+    };
+
+    const repeatCount = (dd.riskVessels||[]).filter(v=>v.count>1).length;
+    let html = "<div style='background:#1a3a5c;color:#fff;padding:16px 20px;margin:0 0 20px;border-radius:4px;'>"
+      + "<div style='font-size:16pt;font-weight:bold;'>Detention Report — "+esc(mou)+"</div>"
+      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>"+(dd.total||0)+" total detentions &nbsp;|&nbsp; Fri→Tue window: "+(dd.friToTuePct||0)+"% &nbsp;|&nbsp; Repeat vessels: "+repeatCount+" &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + "</div>";
+
+    if (dd.focusPoint) {
+      const fp = dd.focusPoint;
+      html += "<div style='background:#f2eefc;border-left:4px solid #8b5cf6;padding:12px 16px;margin-bottom:16px;'>"
+        + "<b>🎯 Focus Point:</b> "+esc(fp.type)+" vessels aged "+esc(fp.ageBracket)+" under RO "+esc(fp.ro)+" are the most frequently detained profile under "+esc(mou)+", most often at "+esc(fp.port)+" — "+fp.count+" case"+(fp.count!==1?"s":"")+" ("+fp.pct+"% of all detentions this period)."
+        + "</div>";
+    }
+
+    html += sectionTitle("Detentions by Year")
+      + table(["Year","Detentions (YTD-aligned)"], Object.entries(dd.detByYear||{}).sort((a,b)=>a[0].localeCompare(b[0])));
+
+    if ((dd.monthly||[]).length) html += sectionTitle("Monthly Trend (Last 12 Months)") + barChart(dd.monthly.map(m=>[m.month,m.count]), {color:"#b8860b"});
+    if ((dd.dow||[]).length) html += sectionTitle("Day of Week") + barChart(dd.dow.map(d=>[d.day,d.count]));
+    if ((dd.locations||[]).length) html += sectionTitle("Top Locations") + barChart(dd.locations.map(l=>[l.location,l.count]));
+    if ((dd.causes||[]).length) html += sectionTitle("Major Causes") + barChart(dd.causes.map(c=>[c.cause,c.count]));
+    if ((dd.topCodes||[]).length) html += sectionTitle("Top Deficiency Codes") + table(["Code","Description","Count","Detainable"], dd.topCodes.map(c=>[c.code,c.desc||"—",c.count,c.detainable]));
+    if ((dd.ageBreakdown||[]).length) html += sectionTitle("Vessel Age") + barChart(dd.ageBreakdown.map(a=>[a.bracket,a.count]));
+    if ((dd.riskBreakdown||[]).length) html += sectionTitle("Vessel Risk Level") + barChart(dd.riskBreakdown.map(r=>[r.level,r.count]));
+    if ((dd.typeBreakdown||[]).length) html += sectionTitle("Vessel Type") + barChart(dd.typeBreakdown.map(t=>[t.type,t.count]));
+    if ((dd.roChartBreakdown||[]).length) html += sectionTitle("RO / Class") + barChart(dd.roChartBreakdown.map(r=>[r.ro,r.count]));
+    if ((dd.riskVessels||[]).length) html += sectionTitle("Repeat / High-Frequency Vessels") + table(["Vessel","IMO","Detentions","Total Deficiencies"], dd.riskVessels.map(v=>[v.name,v.imo,v.count,v.totalDefs]));
+    if ((dd.companyBreakdown||[]).length) html += sectionTitle("Top Companies") + table(["Company","Total"], dd.companyBreakdown.map(c=>[c.name,c.total]));
+    if ((dd.roBreakdown||[]).length) html += sectionTitle("Top RO (by Year)") + table(["RO","Total"], dd.roBreakdown.map(r=>[r.name,r.total]));
+
+    const filename = "MoU_Report_"+mou.replace(/[^a-zA-Z0-9]+/g,"_")+"_"+new Date().toISOString().slice(0,10);
+    if (format === "pdf") {
+      const w = window.open("", "_blank");
+      w.document.write("<!DOCTYPE html><html><head><title>"+esc(filename)+"</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:30px;font-size:11pt;}@media print{body{margin:15px;}}</style></head><body>"+html+"</body></html>");
+      w.document.close();
+      setTimeout(() => w.print(), 300);
+    } else {
+      const blob = new Blob(['<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>'+html+'</body></html>'], {type:"application/msword"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename+".doc";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  }
+
   return (
     <div className="pg active">
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px 16px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"}}>
@@ -665,6 +734,10 @@ export default function MouDetentionReport({ vessels = [] }) {
                   <span style={{fontSize:"12px",color:"var(--text3)",transform:isOpen?"rotate(90deg)":"none",transition:"transform .15s",display:"inline-block"}}>▶</span>
                   <span style={{fontSize:"14px",fontWeight:600,color:"var(--text)"}}>{m.mou}</span>
                   <span style={{fontSize:"11px",color:"var(--text3)"}}>{m.count} detentions · {m.defs} deficiencies</span>
+                </div>
+                <div style={{display:"flex",gap:"6px"}}>
+                  <button onClick={(e)=>{e.stopPropagation(); printMouReport(m.mou, dd, "pdf");}} style={{fontSize:"11px",padding:"4px 10px",border:"1px solid var(--border2)",borderRadius:"5px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ PDF</button>
+                  <button onClick={(e)=>{e.stopPropagation(); printMouReport(m.mou, dd, "word");}} style={{fontSize:"11px",padding:"4px 10px",border:"1px solid var(--border2)",borderRadius:"5px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer"}}>↓ Word</button>
                 </div>
               </div>
               {isOpen && (
