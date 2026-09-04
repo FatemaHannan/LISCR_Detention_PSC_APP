@@ -687,6 +687,56 @@ async function syncVIPToVessels() {
   return updated;
 }
 
+async function syncDppToVessels() {
+  // Find every detained case in dpp_case_files that doesn't yet exist in vessels (matched by
+  // imo + detention_date), and create it there. This is what actually makes a case show up in
+  // Case View / Build Your Report — dpp_case_files alone is just the raw import table.
+  const { data: dppRows } = await supabase.from("dpp_case_files").select("*")
+    .not("detention_date", "is", null);
+  if (!dppRows?.length) return 0;
+
+  const detainedRows = dppRows.filter(r => {
+    const s = String(r.detained ?? r.was_detained ?? "").trim().toLowerCase();
+    return s === "true" || s === "yes" || s === "1" || s === "t" || r.was_detained === true;
+  });
+  if (!detainedRows.length) return 0;
+
+  const { data: existing } = await supabase.from("vessels").select("imo,detention_date");
+  const existingKeys = new Set((existing||[]).map(v => v.imo+"|"+v.detention_date));
+
+  const toInsert = [];
+  const seenInBatch = new Set();
+  detainedRows.forEach(d => {
+    const dateStr = typeof d.detention_date === "string" ? d.detention_date : new Date(d.detention_date).toISOString().slice(0,10);
+    const key = String(d.imo)+"|"+dateStr;
+    if (existingKeys.has(key) || seenInBatch.has(key)) return;
+    seenInBatch.add(key);
+    toInsert.push({
+      name: d.vessel,
+      imo: String(d.imo),
+      port: d.port,
+      mou: d.mou,
+      detention_date: dateStr,
+      detained: true,
+      defs: d.num_deficiencies ?? d.num_findings ?? 0,
+      flag: d.flag,
+      car_status: d.car_status,
+      status: d.report_status ?? d.psc_report_status ?? null,
+    });
+  });
+  if (!toInsert.length) return 0;
+
+  let created = 0;
+  const BATCH = 200;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const batch = toInsert.slice(i, i+BATCH);
+    const { data, error } = await supabase.from("vessels").insert(batch).select("id");
+    if (error) { console.warn("[syncDppToVessels] batch insert error:", error.message); continue; }
+    created += data?.length || 0;
+  }
+  return created;
+}
+
 export default function WeeklyData({ currentUser }) {
   const [status, setStatus] = useState({});
   const [uploading, setUploading] = useState({});
@@ -729,6 +779,19 @@ export default function WeeklyData({ currentUser }) {
       const updated = await syncVIPToVessels();
       setSyncMsg(`✓ Synced case owners for ${updated} vessel records`);
       await logAudit(AUDIT_ACTIONS.DATA_IMPORT, {entityType:'vip_sync',details:`Synced ${updated} vessel records`});
+    } catch(e) {
+      setSyncMsg("✗ Sync failed: "+e.message);
+    }
+    setSyncing(false);
+  }
+
+  async function handleSyncDpp() {
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const created = await syncDppToVessels();
+      setSyncMsg(created > 0 ? `✓ Created ${created} new case(s) from DPP Case File data` : "✓ Already up to date — no missing cases found");
+      await logAudit(AUDIT_ACTIONS.DATA_IMPORT, {entityType:'dpp_sync',details:`Created ${created} case records`});
     } catch(e) {
       setSyncMsg("✗ Sync failed: "+e.message);
     }
@@ -929,16 +992,23 @@ export default function WeeklyData({ currentUser }) {
         } catch(syncErr) { console.warn("CVD company sync:", syncErr); }
       }
 
-      // Note: dpp_case_files (weekly "DPP Case File PSC Detention Count" export)
-      // intentionally does NOT auto-create or modify vessel/detention records.
-      // It's a raw inspection/detention count feed for reporting, not a substitute
-      // for the main Weekly Data detention import.
+      // After DPP Case File upload: create any missing case records in vessels for detained
+      // entries not already there (matched by imo + detention_date). This was previously
+      // intentionally skipped, but that left new detentions invisible in Case View / Build
+      // Your Report until someone manually synced them — this closes that gap going forward.
+      let dppSyncedCount = 0;
+      if (cfg.key === "dpp_case_files") {
+        try {
+          dppSyncedCount = await syncDppToVessels();
+        } catch(syncErr) { console.warn("DPP -> vessels sync:", syncErr); }
+      }
 
       const uploadTime = new Date().toLocaleString();
       const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
+      const syncNote = dppSyncedCount > 0 ? " "+dppSyncedCount.toLocaleString()+" new case(s) created in Case View." : "";
       const msg = mode === "replace"
-        ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote
-        : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote;
+        ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote+syncNote
+        : saved.toLocaleString()+" rows upserted (new + updated)."+skipNote+syncNote;
       const finalState = saved===0&&skipped>0?"error":"done";
       const finalMsg = saved===0&&skipped>0 ? msg+" ⚠️ All rows failed — check the browser console (F12) for the exact error message from Supabase." : msg;
       localStorage.setItem("liscr_upload_"+cfg.key, uploadTime);
@@ -990,9 +1060,14 @@ export default function WeeklyData({ currentUser }) {
           <div style={{fontSize:"11px",color:"var(--text3)"}}>Upload weekly Excel exports. Each upload fully replaces previous data.</div>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"6px"}}>
-          <button onClick={handleSyncCaseOwners} disabled={syncing} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"12px",fontWeight:500,opacity:syncing?0.6:1}}>
-            {syncing?"⏳ Syncing...":"↻ Sync Case Owners"}
-          </button>
+          <div style={{display:"flex",gap:"8px"}}>
+            <button onClick={handleSyncCaseOwners} disabled={syncing} style={{padding:"7px 14px",border:"1px solid var(--blue)",borderRadius:"6px",background:"var(--blue-bg)",color:"var(--blue)",cursor:"pointer",fontSize:"12px",fontWeight:500,opacity:syncing?0.6:1}}>
+              {syncing?"⏳ Syncing...":"↻ Sync Case Owners"}
+            </button>
+            <button onClick={handleSyncDpp} disabled={syncing} style={{padding:"7px 14px",border:"1px solid var(--amber)",borderRadius:"6px",background:"var(--amber-bg)",color:"var(--amber2)",cursor:"pointer",fontSize:"12px",fontWeight:500,opacity:syncing?0.6:1}}>
+              {syncing?"⏳ Syncing...":"↻ Sync Missing Cases"}
+            </button>
+          </div>
           {syncMsg&&<div style={{fontSize:"11px",color:syncMsg.startsWith("✓")?"var(--green2)":"var(--red2)"}}>{syncMsg}</div>}
         </div>
       </div>
