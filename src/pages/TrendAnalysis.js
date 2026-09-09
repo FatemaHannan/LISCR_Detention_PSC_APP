@@ -716,7 +716,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const majorDefDescriptions = {}; // category -> { description -> { count, vessels } }
     vessels.forEach(v => (v.deficiencies||[]).forEach(d => {
       const cat = catDef(d.desc);
-      if (cat && cat!=="Other") {
+      if (cat) {
         majorDefCounts[cat] = (majorDefCounts[cat]||0)+1;
         const desc = (d.desc||"Unspecified").trim();
         majorDefDescriptions[cat] = majorDefDescriptions[cat] || {};
