@@ -383,34 +383,82 @@ function DrillDownPanel({ combo, drill, onClose }) {
       {drill.detCatByPortTop.length>0 && (
         <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Port</div>
-          {drill.detCatByPortTop.slice(0,6).map(d=>(
-            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
-              <span style={{color:"var(--text2)"}}>{d.key}</span>
-              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+          {drill.detCatByPortTop.slice(0,6).map(d=>{
+            const gk = "detport:"+d.key;
+            const isOpen = openSub === gk;
+            return (
+            <div key={d.key}>
+              <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
+                <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+              </div>
+              {isOpen && (
+                <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
+                    <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
+                      <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
+                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {drill.detCatByTypeTop.length>0 && (
         <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Ship Type</div>
-          {drill.detCatByTypeTop.slice(0,6).map(d=>(
-            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
-              <span style={{color:"var(--text2)"}}>{d.key}</span>
-              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+          {drill.detCatByTypeTop.slice(0,6).map(d=>{
+            const gk = "dettype:"+d.key;
+            const isOpen = openSub === gk;
+            return (
+            <div key={d.key}>
+              <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
+                <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+              </div>
+              {isOpen && (
+                <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
+                    <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
+                      <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
+                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {drill.detCatByComboTop.length>0 && (
         <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency — Ship Type · Age · Port Combination</div>
-          {drill.detCatByComboTop.slice(0,8).map(d=>(
-            <div key={d.key} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
-              <span style={{color:"var(--text2)"}}>{d.key}</span>
-              <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+          {drill.detCatByComboTop.slice(0,8).map(d=>{
+            const gk = "detcombo:"+d.key;
+            const isOpen = openSub === gk;
+            return (
+            <div key={d.key}>
+              <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
+                <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+              </div>
+              {isOpen && (
+                <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
+                    <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
+                      <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
+                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -573,9 +621,9 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         + (drill.repeatInspectors?.length ? "<b style='font-size:10pt;'>Same Inspector Across Multiple Vessels</b>"+table(["Inspector","Vessels"], drill.repeatInspectors.map(r=>[r.name,r.vesselCount])) : "")
         + (drill.companyClustering?.length ? "<b style='font-size:10pt;'>Company Clustering — Same Port / Location / MoU</b>"+table(["Company","Detentions","Pattern"], drill.companyClustering.map(c=>[c.company,c.count,c.flags.join(", ")])) : "")
         + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.slice(0,10).map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
-        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
-        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "")
-        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Count"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count])) : "");
+        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count","Vessels"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "")
+        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count","Vessels"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "")
+        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Count","Vessels"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "");
     };
 
     // Selected Vessels Analysis — when specific vessels are chosen via the vessel filter,
@@ -704,7 +752,8 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       .filter(c => c.flags.length>0)
       .sort((a,b)=>b.count-a.count);
     // Most common detainable-deficiency category, broken down by port, by ship type, and by
-    // the combined Ship Type + Age + Port grouping (the most specific view)
+    // the combined Ship Type + Age + Port grouping (the most specific view) — tracking which
+    // vessels contribute to each, so the panel can show them, not just a count.
     const detCatByPort = {}, detCatByType = {}, detCatByCombo = {};
     vessels.forEach(v => {
       const port = extractLocation(v.port);
@@ -714,14 +763,22 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       const comboKey = (shipType&&ageBrk&&port!=="Unknown") ? shipType+" · "+ageBrk+" · "+port : null;
       (v.deficiencies||[]).filter(d=>d.detainable).forEach(d => {
         const cat = catDef(d.desc);
-        if (port!=="Unknown") { detCatByPort[port] = detCatByPort[port] || {}; detCatByPort[port][cat] = (detCatByPort[port][cat]||0)+1; }
-        if (shipType) { detCatByType[shipType] = detCatByType[shipType] || {}; detCatByType[shipType][cat] = (detCatByType[shipType][cat]||0)+1; }
-        if (comboKey) { detCatByCombo[comboKey] = detCatByCombo[comboKey] || {}; detCatByCombo[comboKey][cat] = (detCatByCombo[comboKey][cat]||0)+1; }
+        const bump = (bucket, groupKey) => {
+          bucket[groupKey] = bucket[groupKey] || {};
+          bucket[groupKey][cat] = bucket[groupKey][cat] || { count: 0, vessels: [] };
+          bucket[groupKey][cat].count++;
+          if (!bucket[groupKey][cat].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
+            bucket[groupKey][cat].vessels.push(v);
+          }
+        };
+        if (port!=="Unknown") bump(detCatByPort, port);
+        if (shipType) bump(detCatByType, shipType);
+        if (comboKey) bump(detCatByCombo, comboKey);
       });
     });
     const topCatFrom = (obj) => Object.entries(obj).map(([key,cats]) => {
-      const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
-      return { key, cat: top?.[0], count: top?.[1] };
+      const top = Object.entries(cats).sort((a,b)=>b[1].count-a[1].count)[0];
+      return { key, cat: top?.[0], count: top?.[1]?.count, vessels: top?.[1]?.vessels||[] };
     }).sort((a,b)=>b.count-a.count);
     // Matching/repeated deficiencies — the SAME specific deficiency (by code, falling back to
     // description) showing up across MULTIPLE DISTINCT vessels in this group. This is a
