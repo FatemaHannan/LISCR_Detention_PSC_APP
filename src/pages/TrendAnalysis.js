@@ -212,7 +212,7 @@ function gtBucket(gt) {
 // ---- Build Your Own Report — lets the person pick any 2+ factors and see every
 // combination that actually occurs in the data, ranked by count, with drill-down to
 // the actual vessels. Reused on the Dashboard (fleet-wide) and inside each MoU's detail. ----
-function DrillDownPanel({ combo, drill, onClose }) {
+function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
   const [openSub, setOpenSub] = useState(null); // e.g. "type:Bulk Carrier"
   const Bar = ({ groupKey, label, count, max, vessels }) => {
     const isOpen = openSub === groupKey;
@@ -281,7 +281,7 @@ function DrillDownPanel({ combo, drill, onClose }) {
           <Section title="RO / Class" prefix="ro" list={drill.byRo} />
           <Section title="Trend by Year" prefix="year" list={drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))} />
           <Section title="Inspector Name" prefix="inspector" list={drill.byInspector} />
-          {drill.byMajorDeficiencyList.length>0 && (
+          {!hideMajorDef && drill.byMajorDeficiencyList.length>0 && (
             <div style={{marginBottom:"10px"}}>
               <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>Major Deficiencies</div>
               {(() => {
@@ -939,7 +939,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
           {expandedKey && (() => {
             const combo = combos.find(c=>c.values.join("|")===expandedKey);
             if (!combo) return null;
-            return <DrillDownPanel combo={combo} drill={computeDrillDown(combo.vessels)} onClose={()=>setExpandedKey(null)} />;
+            return <DrillDownPanel combo={combo} drill={computeDrillDown(combo.vessels)} onClose={()=>setExpandedKey(null)} hideMajorDef={activeDims.some(d=>d.id==="defCategory")} />;
           })()}
         </>
       ) : (
@@ -969,7 +969,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
                   {isExpanded && (
                     <tr>
                       <td colSpan={activeDims.length+3} style={{padding:"10px",background:"var(--bg3)"}}>
-                        <DrillDownPanel combo={c} drill={computeDrillDown(c.vessels)} />
+                        <DrillDownPanel combo={c} drill={computeDrillDown(c.vessels)} hideMajorDef={activeDims.some(d=>d.id==="defCategory")} />
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",marginTop:"10px"}}>
                           <thead><tr>{["Vessel","IMO","Detention Date"].map(h=><th key={h} style={{textAlign:"left",padding:"4px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                           <tbody>
