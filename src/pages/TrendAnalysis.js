@@ -301,12 +301,28 @@ function DrillDownPanel({ combo, drill, onClose }) {
                       </div>
                       {isOpen && (
                         <div style={{marginTop:"4px",marginBottom:"6px",background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",marginLeft:"118px"}}>
-                          {details.map(([desc,cnt],i) => (
-                            <div key={i} style={{fontSize:"10px",color:"var(--text3)",padding:"2px 0",display:"flex",justifyContent:"space-between",gap:"8px"}}>
-                              <span>{desc}</span>
-                              <span style={{flexShrink:0,color:"var(--text2)"}}>{cnt}x</span>
+                          {details.map(([desc,d],i) => {
+                            const descKey = groupKey+"|desc:"+i;
+                            const descOpen = openSub === descKey;
+                            return (
+                            <div key={i}>
+                              <div onClick={(e)=>{e.stopPropagation();setOpenSub(descOpen?groupKey:descKey);}} style={{fontSize:"10px",color:descOpen?"var(--blue)":"var(--text3)",padding:"2px 0",display:"flex",justifyContent:"space-between",gap:"8px",cursor:"pointer"}}>
+                                <span style={{textDecoration:descOpen?"underline":"none"}}>{desc}</span>
+                                <span style={{flexShrink:0,color:"var(--text2)"}}>{d.count}x</span>
+                              </div>
+                              {descOpen && (
+                                <div style={{marginLeft:"10px",marginTop:"2px",marginBottom:"4px"}}>
+                                  {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,vi)=>(
+                                    <div key={vi} style={{fontSize:"10px",color:"var(--text2)",padding:"1px 0",display:"flex",justifyContent:"space-between"}}>
+                                      <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
+                                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -697,19 +713,23 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     // tracks the specific deficiency descriptions within each category, so a category can be
     // expanded to see exactly what it's made of, not just a broad label.
     const majorDefCounts = {};
-    const majorDefDescriptions = {}; // category -> { description -> count }
+    const majorDefDescriptions = {}; // category -> { description -> { count, vessels } }
     vessels.forEach(v => (v.deficiencies||[]).forEach(d => {
       const cat = catDef(d.desc);
       if (cat && cat!=="Other") {
         majorDefCounts[cat] = (majorDefCounts[cat]||0)+1;
         const desc = (d.desc||"Unspecified").trim();
         majorDefDescriptions[cat] = majorDefDescriptions[cat] || {};
-        majorDefDescriptions[cat][desc] = (majorDefDescriptions[cat][desc]||0)+1;
+        majorDefDescriptions[cat][desc] = majorDefDescriptions[cat][desc] || { count: 0, vessels: [] };
+        majorDefDescriptions[cat][desc].count++;
+        if (!majorDefDescriptions[cat][desc].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
+          majorDefDescriptions[cat][desc].vessels.push(v);
+        }
       }
     }));
     const byMajorDeficiencyList = Object.entries(majorDefCounts).sort((a,b)=>b[1]-a[1]);
     const byMajorDeficiencyDetail = Object.fromEntries(
-      Object.entries(majorDefDescriptions).map(([cat,descs]) => [cat, Object.entries(descs).sort((a,b)=>b[1]-a[1])])
+      Object.entries(majorDefDescriptions).map(([cat,descs]) => [cat, Object.entries(descs).sort((a,b)=>b[1].count-a[1].count)])
     );
     // Day of Week — which day(s) these detentions happened on, same Fri-Tue targeting concept
     // used elsewhere in the app, scoped to just this group.
