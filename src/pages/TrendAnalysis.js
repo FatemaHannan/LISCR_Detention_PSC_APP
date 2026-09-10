@@ -26,6 +26,18 @@ export const DEF_CATEGORY_ORDER = ["Fire Safety","LSA / Life Saving","ISM / Safe
 export function catDef(desc) {
   const d = String(desc||"").toLowerCase();
   if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
+  // Drills & Training — checked before Fire Safety/LSA so "fire drill" / "abandon ship drill" /
+  // crew familiarization land here, not silently absorbed into the equipment category they mention.
+  if (
+    d.includes("drill")||d.includes("familiariz")||d.includes("lack of training")||
+    d.includes("crew performance")||d.includes("evaluation of crew")||d.includes("on board training")
+  ) return "Drills & Training";
+  // Emergency Power — checked before Fire Safety since "emergency" alone could otherwise get lost
+  if (
+    d.includes("emergency generator")||d.includes("emergency source of power")||
+    d.includes("emergency switchboard")||d.includes("emergency air compressor")||
+    d.includes("blackout test")||d.includes("emergency battery")
+  ) return "Emergency Power";
   if (
     d.includes("fire")||d.includes("co2")||d.includes("foam system")||d.includes("water mist")||
     d.includes("dry powder")||d.includes("sprinkler")||d.includes("extinguish")||d.includes("hydrant")||
@@ -42,8 +54,7 @@ export function catDef(desc) {
     d.includes("lifebuoy")||d.includes("life buoy")||d.includes("pyrotechnic")||d.includes("parachute flare")||
     d.includes("hand flare")||d.includes("smoke signal")||d.includes("epirb")||d.includes("sart")||
     d.includes("hydrostatic release")||d.includes("marine evacuation")||d.includes("embarkation")||
-    d.includes("muster")||d.includes("release gear")||d.includes("launching winch")||d.includes("launching arrangement")||d.includes("survival craft")||
-    d.includes("abandon ship")
+    d.includes("muster")||d.includes("release gear")||d.includes("launching winch")||d.includes("launching arrangement")||d.includes("survival craft")
   ) return "LSA / Life Saving";
   if (
     d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")||
@@ -60,8 +71,28 @@ export function catDef(desc) {
     d.includes("gyro")||d.includes("compass")||d.includes("steering gear")||d.includes("pilot ladder")||d.includes("pilot transfer")
   ) return "Navigation";
   if (
+    d.includes("electrical install")||d.includes("electrical connection")||d.includes("insulation monitoring")||
+    d.includes("earthing")||d.includes("earth band")||d.includes("junction box")||d.includes("lighting distribution")||
+    d.includes("cable penetration")||d.includes("cabling")
+  ) return "Electrical Systems";
+  if (
+    d.includes("watertight door")||d.includes("watertight hatch")||d.includes("closing device")||
+    d.includes("air pipe")||d.includes("sounding pipe")||d.includes("manhole")||d.includes("scuttle")||
+    d.includes("weathertight")
+  ) return "Watertight Integrity";
+  if (
+    d.includes("cargo operation")||d.includes("discharging plan")||d.includes("loading plan")||
+    d.includes(" vgm")||d.includes("loadicator")||d.includes("draft reading")||d.includes("cargo securing")||
+    d.includes("lashing")||d.includes("cargo hold")||d.includes("bulk cargo")
+  ) return "Cargo Operations";
+  if (
+    d.includes("sanitary facilit")||d.includes("cold room")||d.includes("galley")||d.includes("laundry")||
+    d.includes("sleeping room")||d.includes("accommodation")||d.includes("hospital")||d.includes("sickbay")||
+    d.includes("mess room")||d.includes("provisions")
+  ) return "Accommodation / Habitability";
+  if (
     d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")||
-    d.includes("cargo securing")||d.includes("lashing")||d.includes("hatch cover")||d.includes("mooring")||
+    d.includes("hatch cover")||d.includes("mooring")||
     d.includes("anchoring device")||d.includes("windlass")
   ) return "Hull / Maintenance";
   if (d.includes("certif")||d.includes("document")||d.includes("record book")||d.includes("log-book")||d.includes("logbook")) return "Certification";
