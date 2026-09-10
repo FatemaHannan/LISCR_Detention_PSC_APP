@@ -33,23 +33,39 @@ export function catDef(desc) {
     d.includes("breathing device")||d.includes("smoke detect")||d.includes("fire detect")||
     d.includes("fire alarm")||d.includes("manual call point")||d.includes("fire door")||
     d.includes("fire damper")||d.includes("shore connection")||d.includes("emergency lighting")||
-    d.includes("escape route")||d.includes("general alarm")||d.includes("public address")
+    d.includes("escape route")||d.includes("means of escape")||d.includes("general alarm")||d.includes("public address")
   ) return "Fire Safety";
   if (
-    d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("rescue boat")||
-    d.includes("liferaft")||d.includes("life raft")||d.includes("davit")||d.includes("lifejacket")||
+    d.includes("lsa")||d.includes("life saving")||d.includes("lifeboat")||d.includes("life boat")||d.includes("rescue boat")||
+    d.includes("liferaft")||d.includes("life raft")||d.includes("davit launch")||d.includes("davit arm")||d.includes("lifejacket")||
     d.includes("life jacket")||d.includes("immersion suit")||d.includes("anti-exposure")||
     d.includes("lifebuoy")||d.includes("life buoy")||d.includes("pyrotechnic")||d.includes("parachute flare")||
     d.includes("hand flare")||d.includes("smoke signal")||d.includes("epirb")||d.includes("sart")||
     d.includes("hydrostatic release")||d.includes("marine evacuation")||d.includes("embarkation")||
-    d.includes("muster")||d.includes("release gear")||d.includes("winch")||d.includes("survival craft")
+    d.includes("muster")||d.includes("release gear")||d.includes("launching winch")||d.includes("launching arrangement")||d.includes("survival craft")||
+    d.includes("abandon ship")
   ) return "LSA / Life Saving";
-  if (d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")) return "MARPOL / Pollution";
-  if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")) return "MLC / Manning";
-  if (d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")) return "Navigation";
-  if (d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")) return "Hull / Maintenance";
-  if (d.includes("certif")||d.includes("document")||d.includes("record")) return "Certification";
-  if (d.includes("radio")||d.includes("gmdss")||d.includes("vhf")) return "Radio / GMDSS";
+  if (
+    d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")||
+    d.includes("garbage")||d.includes("oily water")||d.includes("15ppm")||d.includes("15 ppm")||d.includes("oil content")||
+    d.includes("oil filtering")||d.includes("o.w.s")||d.includes("ows ")||d.includes("bilge water")||d.includes("emission")||
+    d.includes("sox")||d.includes("nox")||d.includes("eexi")||d.includes(" cii")||d.includes("incinerator")||
+    d.includes("fuel change")||d.includes("fuel changeover")
+  ) return "MARPOL / Pollution";
+  if (d.includes("mlc")||d.includes("manning")||d.includes("crew")||d.includes("seafarer")||d.includes("rest hour")||d.includes("hours of work")) return "MLC / Manning";
+  if (
+    d.includes("navig")||d.includes("chart")||d.includes("ecdis")||d.includes("radar")||d.includes("passage plan")||
+    d.includes("voyage plan")||d.includes("bnwas")||d.includes(" gps")||d.includes("gps receiver")||d.includes(" ais ")||
+    d.includes("vdr")||d.includes("echo sounder")||d.includes("speed log")||d.includes("speed and distance")||
+    d.includes("gyro")||d.includes("compass")||d.includes("steering gear")||d.includes("pilot ladder")||d.includes("pilot transfer")
+  ) return "Navigation";
+  if (
+    d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")||
+    d.includes("cargo securing")||d.includes("lashing")||d.includes("hatch cover")||d.includes("mooring")||
+    d.includes("anchoring device")||d.includes("windlass")
+  ) return "Hull / Maintenance";
+  if (d.includes("certif")||d.includes("document")||d.includes("record book")||d.includes("log-book")||d.includes("logbook")) return "Certification";
+  if (d.includes("radio")||d.includes("gmdss")||d.includes("vhf")||d.includes("mf/hf")||d.includes("mf-hf")||d.includes(" dsc ")||d.includes("inmarsat")) return "Radio / GMDSS";
   return "Other";
 }
 
