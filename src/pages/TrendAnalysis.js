@@ -90,10 +90,24 @@ export function catDef(desc) {
     d.includes("sleeping room")||d.includes("accommodation")||d.includes("hospital")||d.includes("sickbay")||
     d.includes("mess room")||d.includes("provisions")
   ) return "Accommodation / Habitability";
+  // Deck Equipment / Lifting Gear — checked before Hull/Maintenance so anchoring/mooring/lifting
+  // gear gets its own bucket instead of the generic structural catch-all
+  if (
+    d.includes("lifting appliance")||d.includes("anchor handling")||d.includes("crane")||
+    d.includes("towing")||d.includes("anchoring device")||d.includes("windlass")||
+    d.includes("mooring")
+  ) return "Deck Equipment / Lifting Gear";
+  if (
+    d.includes("personal protective equipment")||d.includes(" ppe ")||d.includes("ppe)")||d.includes("ppe -")||
+    d.includes("occupational injur")||d.includes("occupational accident")||d.includes("dangerous area")||
+    d.includes("warning notice")
+  ) return "Occupational Safety / PPE";
+  if (d.includes("stability")||d.includes("loading information")||d.includes("load line")) return "Stability & Loading";
+  if (d.includes("security alert")||d.includes("ssas")||d.includes("ship security")||d.includes("isps")) return "Security (ISPS)";
+  if (d.includes("lrit")||d.includes("long-range identification")||d.includes("rmss")||d.includes("mobile satellite")) return "Tracking Systems";
   if (
     d.includes("corros")||d.includes("mainte")||d.includes("hull")||d.includes("structural")||
-    d.includes("hatch cover")||d.includes("mooring")||
-    d.includes("anchoring device")||d.includes("windlass")
+    d.includes("hatch cover")
   ) return "Hull / Maintenance";
   if (d.includes("certif")||d.includes("document")||d.includes("record book")||d.includes("log-book")||d.includes("logbook")) return "Certification";
   if (d.includes("radio")||d.includes("gmdss")||d.includes("vhf")||d.includes("mf/hf")||d.includes("mf-hf")||d.includes(" dsc ")||d.includes("inmarsat")) return "Radio / GMDSS";
