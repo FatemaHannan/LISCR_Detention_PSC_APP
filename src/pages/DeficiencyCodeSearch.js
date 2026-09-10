@@ -6,7 +6,8 @@ function fmtDate(d) {
   if (!d) return "—";
   const parts = String(d).slice(0,10).split("-");
   if (parts.length !== 3) return d;
-  return parts[2] + "/" + parts[1] + "/" + parts[0];
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return parts[2] + "-" + (months[parseInt(parts[1])-1]||parts[1]) + "-" + parts[0];
 }
 
 export default function DeficiencyCodeSearch({ vessels = [], onOpenCase }) {
