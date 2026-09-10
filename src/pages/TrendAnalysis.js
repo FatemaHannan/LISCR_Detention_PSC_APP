@@ -26,18 +26,14 @@ export const DEF_CATEGORY_ORDER = ["Fire Safety","LSA / Life Saving","ISM / Safe
 export function catDef(desc) {
   const d = String(desc||"").toLowerCase();
   if (d.includes("ism")||d.includes("safety management")||d.includes("sms")) return "ISM / Safety Mgmt";
-  // Drills & Training — checked before Fire Safety/LSA so "fire drill" / "abandon ship drill" /
-  // crew familiarization land here, not silently absorbed into the equipment category they mention.
+  // Checked first because these phrasings unambiguously mean the deficiency IS about training
+  // itself, regardless of which equipment/drill type it names — so it should win over the
+  // equipment categories below even though it may also mention "fire" or "lifeboat" etc.
   if (
-    d.includes("drill")||d.includes("familiariz")||d.includes("lack of training")||
-    d.includes("crew performance")||d.includes("evaluation of crew")||d.includes("on board training")
+    ((d.includes("drills - ")||d.includes("drill - ")) &&
+     (d.includes("lack of training")||d.includes("insufficient frequency")||d.includes("not as required")))
+    || d.includes("evaluation of crew")||d.includes("crew performance")||d.includes("on board training")
   ) return "Drills & Training";
-  // Emergency Power — checked before Fire Safety since "emergency" alone could otherwise get lost
-  if (
-    d.includes("emergency generator")||d.includes("emergency source of power")||
-    d.includes("emergency switchboard")||d.includes("emergency air compressor")||
-    d.includes("blackout test")||d.includes("emergency battery")
-  ) return "Emergency Power";
   if (
     d.includes("fire")||d.includes("co2")||d.includes("foam system")||d.includes("water mist")||
     d.includes("dry powder")||d.includes("sprinkler")||d.includes("extinguish")||d.includes("hydrant")||
@@ -56,6 +52,13 @@ export function catDef(desc) {
     d.includes("hydrostatic release")||d.includes("marine evacuation")||d.includes("embarkation")||
     d.includes("muster")||d.includes("release gear")||d.includes("launching winch")||d.includes("launching arrangement")||d.includes("survival craft")
   ) return "LSA / Life Saving";
+  // Emergency Power — checked after Fire Safety/LSA (equipment-specific wins), but before the
+  // remaining broader categories
+  if (
+    d.includes("emergency generator")||d.includes("emergency source of power")||
+    d.includes("emergency switchboard")||d.includes("emergency air compressor")||
+    d.includes("blackout test")||d.includes("emergency battery")
+  ) return "Emergency Power";
   if (
     d.includes("marpol")||d.includes("pollut")||d.includes("oil record")||d.includes("sewage")||d.includes("ballast")||
     d.includes("garbage")||d.includes("oily water")||d.includes("15ppm")||d.includes("15 ppm")||d.includes("oil content")||
