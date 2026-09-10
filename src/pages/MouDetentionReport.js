@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { supabase } from "../lib/supabase";
 import { ageBracket, AGE_BRACKET_ORDER, catDef } from "./TrendAnalysis";
+import { fmtDate } from "../lib/utils";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -530,7 +531,7 @@ export default function MouDetentionReport({ vessels = [] }) {
     const repeatCount = (dd.riskVessels||[]).filter(v=>v.count>1).length;
     let html = "<div style='background:#1a3a5c;color:#fff;padding:16px 20px;margin:0 0 20px;border-radius:4px;'>"
       + "<div style='font-size:16pt;font-weight:bold;'>Detention Report — "+esc(mou)+"</div>"
-      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>"+(dd.total||0)+" total detentions &nbsp;|&nbsp; Fri→Tue window: "+(dd.friToTuePct||0)+"% &nbsp;|&nbsp; Repeat vessels: "+repeatCount+" &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>"+(dd.total||0)+" total detentions &nbsp;|&nbsp; Fri→Tue window: "+(dd.friToTuePct||0)+"% &nbsp;|&nbsp; Repeat vessels: "+repeatCount+" &nbsp;|&nbsp; Generated "+fmtDate(new Date().toISOString().slice(0,10))+"</div>"
       + "</div>";
 
     if (dd.focusPoint) {

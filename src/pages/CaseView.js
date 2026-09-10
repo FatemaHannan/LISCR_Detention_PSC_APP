@@ -610,9 +610,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
     const lines = [
       "LISCR PSC DETENTION INTELLIGENCE PLATFORM",
       "Case Summary — "+sel.name+" (IMO: "+sel.imo+")",
-      "Generated: "+new Date().toLocaleDateString(),
+      "Generated: "+fmtDate(new Date().toISOString().slice(0,10)),
       "","STATUS: "+(sel.detained?"DETAINED":"ACTIVE"),
-      "Port: "+sel.port+" | MoU: "+sel.mou+" | Date: "+sel.detentionDate,
+      "Port: "+sel.port+" | MoU: "+sel.mou+" | Date: "+fmtDate(sel.detentionDate),
       "Deficiencies: "+sel.defs+" | Detainable: "+(sel.detainable||0),
       "Company: "+(sel.company||"—"),"Case Owner: "+(sel.caseOwner||"—"),
       "RO/Class: "+(sel.ro||"—"),"PSCO: "+(sel.psco||"—"),
@@ -1616,7 +1616,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                 {v.roSurveyDate?(
                   <div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"10px"}}>
-                      {[{l:"Survey Date",v2:v.roSurveyDate},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
+                      {[{l:"Survey Date",v2:fmtDate(v.roSurveyDate)},{l:"Findings",v2:v.roFindings??"—"},{l:"Status",v2:v.roStatus||"—"}].map(m=>(
                         <div key={m.l} style={{background:"var(--bg3)",borderRadius:"6px",padding:"8px 10px"}}>
                           <div style={{fontSize:"13px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{m.l}</div>
                           <div style={{fontSize:"13px",fontWeight:500,color:"var(--text)"}}>{m.v2}</div>
@@ -1711,7 +1711,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           const riskBg = h.risk_level==="High"?"rgba(239,68,68,0.1)":h.risk_level==="Medium"?"rgba(245,158,11,0.1)":h.risk_level==="Low"?"rgba(34,197,94,0.1)":"transparent";
                           return (
                             <tr key={i} style={{background:detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.inspection_date||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.inspection_date?fmtDate(h.inspection_date):"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",whiteSpace:"nowrap"}}>{h.port||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.mou||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.flag_psc||"—"}</td>
@@ -1722,7 +1722,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)"}}>{h.risk_level?<span style={{background:riskBg,color:riskColor,padding:"1px 6px",borderRadius:"3px",fontWeight:600,fontSize:"13px"}}>{h.risk_level}</span>:"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.car_status||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",textAlign:"center",fontFamily:"var(--mono)",color:h.days_since_last>365?"var(--red2)":h.days_since_last>180?"var(--amber2)":"var(--text2)"}}>{h.days_since_last||"—"}</td>
-                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.last_onboard||"—"}</td>
+                              <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.last_onboard?fmtDate(h.last_onboard):"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",whiteSpace:"nowrap"}}>{h.auditor||"—"}</td>
                               <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={h.finding_note||""}>{h.finding_note||"—"}</td>
                             </tr>
@@ -1768,10 +1768,10 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <thead><tr>{["Date","Status","Type","Inspector","Risk"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{intel.mlc.map((m,i)=>(
                         <tr key={i} style={{background:i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{m.reported_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{m.reported_date?fmtDate(m.reported_date):"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontSize:"13px",fontWeight:600}}>{m.mlc_status||"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{m.inspection_type||"—"}</td>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{m.last_onboard||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{m.last_onboard?fmtDate(m.last_onboard):"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",fontSize:"13px"}}>{m.risk_level||"—"}</td>
                         </tr>
                       ))}</tbody>
@@ -1839,7 +1839,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"12px",fontWeight:700,color:"var(--amber2)",marginBottom:"6px"}}>MLC Complaints ({intel.mlc.length} records)</div>
                         {intel.mlc.slice(0,3).map((m,i)=>(
                           <div key={i} style={{display:"flex",gap:"10px",padding:"5px 0",borderBottom:i<Math.min(intel.mlc.length,3)-1?"1px solid rgba(245,158,11,0.2)":"none",flexWrap:"wrap"}}>
-                            <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:"var(--text3)",flexShrink:0}}>{m.reported_date||"—"}</span>
+                            <span style={{fontFamily:"var(--mono)",fontSize:"12px",color:"var(--text3)",flexShrink:0}}>{m.reported_date?fmtDate(m.reported_date):"—"}</span>
                             <span style={{fontSize:"12px",fontWeight:600,color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",flexShrink:0}}>{m.mlc_status||"—"}</span>
                             <span style={{fontSize:"12px",color:"var(--text3)"}}>{m.inspection_type||"—"}</span>
                             <span style={{fontSize:"12px",color:m.risk_level==="High"?"var(--red2)":"var(--amber2)",marginLeft:"auto"}}>{m.risk_level||""}</span>
@@ -1883,7 +1883,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <thead><tr>{["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"].map(h=><th key={h} style={{fontSize:"13px",fontWeight:600,color:"var(--text3)",textAlign:"left",padding:"0 8px 8px",borderBottom:"1px solid var(--border)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                       <tbody>{intel.psc.map((p,i)=>(
                         <tr key={i} style={{background:p.was_detained?"rgba(239,68,68,0.04)":i%2===0?"var(--bg2)":"transparent"}}>
-                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{p.inspection_date||"—"}</td>
+                          <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",fontFamily:"var(--mono)",fontSize:"13px",color:"var(--text3)"}}>{p.inspection_date?fmtDate(p.inspection_date):"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text2)",fontSize:"13px"}}>{p.port||"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{p.mou||"—"}</td>
                           <td style={{padding:"7px 8px",borderBottom:"1px solid var(--border)",color:"var(--text3)",fontSize:"13px"}}>{p.inspection_type||"—"}</td>
@@ -1978,7 +1978,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{fontSize:"19px",fontWeight:700,color:"var(--text)",letterSpacing:".01em"}}>{v.name}</div>
                       <span style={{fontSize:"13px",padding:"3px 10px",borderRadius:"5px",background:v.detained?"var(--red-bg)":"rgba(34,197,94,0.1)",color:v.detained?"var(--red2)":"var(--green2)",border:"1px solid "+(v.detained?"#3D1A1A":"rgba(34,197,94,0.3)"),fontWeight:700,letterSpacing:".03em"}}>{v.detained?"DETAINED":"ACTIVE / RELEASED"}</span>
                     </div>
-                    <div style={{fontSize:"13px",color:"var(--text3)"}}>IMO {v.imo} · {v.port||"—"} · {v.mou||"—"} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                    <div style={{fontSize:"13px",color:"var(--text3)"}}>IMO {v.imo} · {v.port||"—"} · {v.mou||"—"} · Generated {fmtDate(new Date().toISOString().slice(0,10))}</div>
                   </div>
                   <button onClick={()=>{
                     const carStatus = carChain.map(c=>c.step+": "+(c.done?"Done":"Pending")+(c.note?" ("+c.note+")":"")).join(" | ");
@@ -2046,8 +2046,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     <Row label="Port" value={v.port} />
                     <Row label="MoU" value={v.mou} />
                     <Row label="Age" value={ageMap[v.imo]!=null?ageMap[v.imo]+" yrs":"—"} />
-                    <Row label="Reg Date" value={v.regDate||"—"} />
-                    <Row label="Detention Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
+                    <Row label="Reg Date" value={v.regDate?fmtDate(v.regDate):"—"} />
+                    <Row label="Detention Date" value={fmtDate(v.detentionDate)+(daysDetained?" ("+daysDetained+"d ago)":"")} />
                     <Row label="Status" value={v.detained?"DETAINED":"ACTIVE / RELEASED"} red={v.detained} />
                     <Row label="Company" value={v.company} />
                     <Row label="RO / Class" value={v.ro} />
@@ -2199,7 +2199,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{marginBottom:"12px"}}>
                           <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Last Flag State Inspection</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
-                            <Row label="Inspection Date" value={lastFlagDate||lastFlag?.inspection_date||"—"} />
+                            <Row label="Inspection Date" value={fmtDate(lastFlagDate||lastFlag?.inspection_date)} />
                             <Row label="Days Before Detention" value={daysBefore!=null?daysBefore+" days before detention":"—"} red={daysBefore!=null&&daysBefore<90} />
                             <Row label="Flag Findings Count" value={lastFlagGroup.length>0?lastFlagGroup.length+" findings":(lastFlag?.num_findings||0)+" findings"} red={(lastFlagGroup.length||lastFlag?.num_findings||0)>=10} />
                             <Row label="PSC Findings Count" value={pscFindingsToUse.length>0?pscFindingsToUse.length+" findings":pscDefs.length+" (from PSC report)"} red={(pscFindingsToUse.length||pscDefs.length)>=10} />
@@ -2258,7 +2258,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                             <Row label="ASI Task" value={asiTask.title} />
                             <Row label="Status" value={asiTask.status} red={asiTask.status!=="Executed"&&asiTask.status!=="Completed"} />
-                            {asiTask.due&&<Row label="Due Date" value={asiTask.due+(new Date(asiTask.due)<detDate?" — OVERDUE AT DETENTION":"")} red={new Date(asiTask.due)<detDate} />}
+                            {asiTask.due&&<Row label="Due Date" value={fmtDate(asiTask.due)+(new Date(asiTask.due)<detDate?" — OVERDUE AT DETENTION":"")} red={new Date(asiTask.due)<detDate} />}
                           </div>
                         ):(
                           <div style={{padding:"8px 12px",borderRadius:"6px",background:"var(--amber-bg)",border:"1px solid var(--amber)",fontSize:"13px",color:"var(--amber2)",fontWeight:500}}>
@@ -2569,7 +2569,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}} className="no-print">
                         <div>
                           <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",letterSpacing:".02em"}}>Case Brief</div>
-                          <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                          <div style={{fontSize:"13px",color:"var(--text3)",marginTop:"2px"}}>{v.name} · IMO {v.imo} · Generated {fmtDate(new Date().toISOString().slice(0,10))}</div>
                         </div>
                         <div style={{display:"flex",gap:"8px"}}>
                           <button onClick={()=>setEditModal(v)} style={{padding:"7px 14px",border:"1px solid var(--border)",borderRadius:"6px",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",fontSize:"13px",fontWeight:500}}>✎ Edit Fields</button>
@@ -2630,7 +2630,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginBottom:"12px"}}>
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Detention Details</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
-                          <Row label="Date" value={v.detentionDate+(daysDetained?" ("+daysDetained+"d ago)":"")} />
+                          <Row label="Date" value={fmtDate(v.detentionDate)+(daysDetained?" ("+daysDetained+"d ago)":"")} />
                           <Row label="Port" value={v.port} />
                           <Row label="MoU" value={v.mou} />
                           <Row label="PSCO" value={v.psco||"—"} />
@@ -2673,7 +2673,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>CAR Status</div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                             <Row label="CAR Status" value={v.carStatus||"Not Received"} red={v.carStatus==="Not Received"||!v.carStatus} />
-                            <Row label="CAR Requested Date" value={v.carRequestedDate||"—"} />
+                            <Row label="CAR Requested Date" value={v.carRequestedDate?fmtDate(v.carRequestedDate):"—"} />
                           </div>
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
@@ -2714,7 +2714,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>Flag Inspection History (Previous to Detention)</div>
                         {(lastFlagDate||lastFlagInsp)?(
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"10px"}}>
-                            <Row label="Last Flag Inspection" value={lastFlagDate||lastFlagInsp?.inspection_date||"—"} />
+                            <Row label="Last Flag Inspection" value={fmtDate(lastFlagDate||lastFlagInsp?.inspection_date)} />
                             <Row label="Days Before Detention" value={daysBeforeDet!=null?daysBeforeDet+" days":"—"} red={daysBeforeDet!=null&&daysBeforeDet<90} />
                             <Row label="CAR Status (last Flag insp.)" value={lastFlagInsp?.car_status||"—"} />
                           </div>
@@ -2772,7 +2772,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>RO Survey History</div>
                         {v.roSurveyDate?(
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px",marginBottom:"8px"}}>
-                            <Row label="Last RO Survey" value={v.roSurveyDate} />
+                            <Row label="Last RO Survey" value={fmtDate(v.roSurveyDate)} />
                             <Row label="Findings" value={v.roFindings??"—"} />
                             <Row label="Outstanding Conditions" value={v.roStatus||"—"} red={!!v.roStatus} />
                           </div>
@@ -2796,7 +2796,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px",borderBottom:"1px solid var(--border)",paddingBottom:"8px"}}>MLC Complaints ({mlc.length} records)</div>
                         {mlc.length>0?mlc.slice(0,5).map((m,i)=>(
                           <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:"1px solid var(--border)"}}>
-                            <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{m.reported_date||"—"}</span>
+                            <span style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{m.reported_date?fmtDate(m.reported_date):"—"}</span>
                             <span style={{fontSize:"13px",color:m.mlc_status==="UNRESOLVED"?"var(--red2)":"var(--green2)",fontWeight:600}}>{m.mlc_status||"—"}</span>
                             <span style={{fontSize:"13px",color:"var(--text3)"}}>{m.inspection_type||""}</span>
                           </div>

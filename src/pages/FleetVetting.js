@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { catDef } from "./TrendAnalysis";
 import { getVesselsByImo } from "../lib/db";
+import { fmtDate } from "../lib/utils";
 
 const RISK_LEVEL_ORDER = ["Low", "Medium", "High", "Very High"];
 const RISK_COLORS = { "Very High": "#ff4d4d", High: "var(--red2)", Medium: "var(--amber2)", Low: "var(--green2)" };
@@ -375,7 +376,7 @@ export default function FleetVetting({ vessels = [] }) {
     }
     factors.push({
       label: "PSC Inspection Recency",
-      detail: lastPscDate ? `Last PSC inspection ${lastPscDate} — ${monthsSinceLastPsc} months ago` : "No PSC inspection on file",
+      detail: lastPscDate ? `Last PSC inspection ${fmtDate(lastPscDate)} — ${monthsSinceLastPsc} months ago` : "No PSC inspection on file",
       score: pscRecencyScore, max: 3,
     });
 
@@ -480,7 +481,7 @@ export default function FleetVetting({ vessels = [] }) {
 
     const latestDetentionWithDispensation = intel.detentionHistory.find(v => v.dispensationOpenAtDetention);
     if (latestDetentionWithDispensation?.dispensationOpenAtDetention === "Yes") {
-      advisory.push(`🔴 Dispensation was OPEN during the ${latestDetentionWithDispensation.detentionDate} detention — check current status.`);
+      advisory.push(`🔴 Dispensation was OPEN during the ${fmtDate(latestDetentionWithDispensation.detentionDate)} detention — check current status.`);
     }
     if (intel.vip?.tech_disp_365 > 0) {
       advisory.push(`🟡 ${intel.vip.tech_disp_365} technical dispensation${intel.vip.tech_disp_365!==1?"s":""} in the last 365 days.`);
@@ -491,7 +492,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (forceBoardScenario) advisory.push(`⛔ FORCE BOARD RECOMMENDED — this vessel's own history includes ${overlap.map(c=>c.cat).join(", ")}, which is also among the most commonly cited findings at ${destCountryDisplay}, AND its CAR from the last Flag inspection is still open. The corrective action for a category this port is likely to check was never confirmed resolved.`);
     if (inspectionOverdue) advisory.push(`🔴 Statutory inspection OVERDUE — ${intel.due.earliest_due_status}${intel.due.earliest_due?` (due ${intel.due.earliest_due})`:""}. Recommend boarding to confirm compliance status before this call.`);
     if (isFlagInspectionDue) advisory.push(`🔴 Flag inspection due — "${selected.overdue_isi}".`);
-    if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=12) advisory.push(`🟡 Last PSC inspection was ${monthsSinceLastPsc} months ago (${lastPscDate}) — condition not recently independently verified.`);
+    if (monthsSinceLastPsc!=null && monthsSinceLastPsc>=12) advisory.push(`🟡 Last PSC inspection was ${monthsSinceLastPsc} months ago (${fmtDate(lastPscDate)}) — condition not recently independently verified.`);
     if (destinationPort.trim() && destScore>0) advisory.push(`🟡 Destination ${destinationPort} has a history of detentions${topLocationCategories.length>0?` — commonly for ${topLocationCategories[0].cat}`:""}.`);
     if (arrivalDate && arrivalScore>0) advisory.push(`🟡 Arrival day falls within the Fri→Tue high-scrutiny window.`);
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
@@ -524,14 +525,14 @@ export default function FleetVetting({ vessels = [] }) {
         @media print { body{margin:15px;} }
       </style></head><body>
       <h1>Pre-Boarding Risk Screening Report</h1>
-      <div class="sub">Generated ${esc(new Date().toISOString().slice(0,10))} — LISCR Detention Intelligence</div>
+      <div class="sub">Generated ${esc(fmtDate(new Date().toISOString().slice(0,10)))} — LISCR Detention Intelligence</div>
 
       <table style="margin-bottom:14px;"><tr>
         <td style="width:70%;vertical-align:top;padding:0;border:none;">
           <div style="font-size:15pt;font-weight:bold;">${esc(selected.vessel)}</div>
           <div style="color:#555;">IMO ${esc(selected.imo)} · ${esc(selected.vessel_sub_type||selected.vessel_type||"—")} · ${selected.age!=null?esc(selected.age)+" yrs":"Age unknown"} · ${esc(selected.class_society||"RO unknown")}${selected.gross_tons?" · "+esc(Number(selected.gross_tons).toLocaleString())+" GT":""}</div>
           <div style="color:#555;">${esc(selected.ism_client||"Company unknown")}</div>
-          ${destinationPort.trim()||arrivalDate ? "<div style='color:#555;margin-top:6px;'>"+(destinationPort.trim()?"Destination: <b>"+esc(destinationPort)+"</b>":"")+(destinationPort.trim()&&arrivalDate?" &nbsp;|&nbsp; ":"")+(arrivalDate?"Arrival Date: <b>"+esc(arrivalDate)+"</b>":"")+"</div>" : ""}
+          ${destinationPort.trim()||arrivalDate ? "<div style='color:#555;margin-top:6px;'>"+(destinationPort.trim()?"Destination: <b>"+esc(destinationPort)+"</b>":"")+(destinationPort.trim()&&arrivalDate?" &nbsp;|&nbsp; ":"")+(arrivalDate?"Arrival Date: <b>"+esc(fmtDate(arrivalDate))+"</b>":"")+"</div>" : ""}
         </td>
         <td style="width:30%;text-align:center;vertical-align:top;padding:0;border:none;">
           <div class="level-badge">${esc(r.level)}</div>
@@ -559,7 +560,7 @@ export default function FleetVetting({ vessels = [] }) {
       </tr></table>` : ""}
 
       <div class="section-title">Detention History (${intel?.detentionHistory?.length||0})</div>
-      ${!intel?.detentionHistory?.length ? "<p style='color:#777;'>No detentions on file.</p>" : "<table><tr><th>Date</th><th>MoU</th><th>Deficiencies</th></tr>"+intel.detentionHistory.map(v=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.detentionDate)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.mou)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.defs||0)+"</td></tr>").join("")+"</table>"}
+      ${!intel?.detentionHistory?.length ? "<p style='color:#777;'>No detentions on file.</p>" : "<table><tr><th>Date</th><th>MoU</th><th>Deficiencies</th></tr>"+intel.detentionHistory.map(v=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(fmtDate(v.detentionDate))+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.mou)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(v.defs||0)+"</td></tr>").join("")+"</table>"}
 
       <div class="section-title">CAR History (${intel?.cars?.length||0})</div>
       ${!intel?.cars?.length ? "<p style='color:#777;'>No CAR records on file.</p>" : "<table><tr><th>Date</th><th>Port</th><th>Findings</th><th>Status</th></tr>"+intel.cars.map(c=>"<tr><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.insp_date)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.port||"—")+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.num_findings||0)+"</td><td style='padding:5px 10px;border:1px solid #ccc;'>"+esc(c.car_status||"—")+"</td></tr>").join("")+"</table>"}
@@ -734,7 +735,7 @@ export default function FleetVetting({ vessels = [] }) {
                 <div style={{ background: "var(--amber-bg)", border: "1px solid var(--amber2)", borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
                   <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--amber2)", marginBottom: "4px" }}>🔍 PSC Inspection Recency</div>
                   <div style={{ fontSize: "13px", color: "var(--text2)" }}>
-                    Last PSC inspection was {riskAssessment.monthsSinceLastPsc} months ago ({riskAssessment.lastPscDate}) — this vessel's current condition hasn't been independently verified by PSC recently.
+                    Last PSC inspection was {riskAssessment.monthsSinceLastPsc} months ago ({fmtDate(riskAssessment.lastPscDate)}) — this vessel's current condition hasn't been independently verified by PSC recently.
                   </div>
                 </div>
               )}
@@ -844,7 +845,7 @@ export default function FleetVetting({ vessels = [] }) {
                   {intel.detentionHistory.length===0 ? <div style={{fontSize:"12px",color:"var(--text3)"}}>No detentions on file.</div> : (
                     intel.detentionHistory.map((v,i) => (
                       <div key={i} style={{ fontSize: "12px", color: "var(--text2)", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
-                        <b>{v.detentionDate}</b> — {v.mou} · {v.defs||0} deficiencies
+                        <b>{fmtDate(v.detentionDate)}</b> — {v.mou} · {v.defs||0} deficiencies
                       </div>
                     ))
                   )}

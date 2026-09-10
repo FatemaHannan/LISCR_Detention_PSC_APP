@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, BarChart, Bar, Legend } from "recharts";
 import { supabase } from "../lib/supabase";
 import { catDef, DEF_CATEGORY_ORDER } from "./TrendAnalysis";
+import { fmtDate } from "../lib/utils";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -516,7 +517,7 @@ export default function PerformanceReview({ vessels = [] }) {
     }
     if (worstInspections?.length) {
       const w = worstInspections[0];
-      bullets.push({ icon:"🔴", text: `Highest single-inspection deficiency count: ${w.name} (${w.detentionDate}) with ${w.defs} deficiencies at ${w.port||"—"}.` });
+      bullets.push({ icon:"🔴", text: `Highest single-inspection deficiency count: ${w.name} (${fmtDate(w.detentionDate)}) with ${w.defs} deficiencies at ${w.port||"—"}.` });
     }
     return bullets;
   }, [kpi, currentYearMonthly, worstCompanyP2, worseningMous, repeatVessels, casualtyByCompany, mlcByCompany, worstInspections]);
@@ -659,7 +660,7 @@ export default function PerformanceReview({ vessels = [] }) {
 
     const html =
       "<h1 style='font-size:16pt;margin-bottom:2px;'>PSC Detention Performance Review</h1>"
-      + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Period 1: "+p1Start+" to "+p1End+" &nbsp;|&nbsp; Period 2: "+p2Start+" to "+p2End+" &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + "<div style='color:#555;font-size:9pt;margin-bottom:14px;'>Period 1: "+fmtDate(p1Start)+" to "+fmtDate(p1End)+" &nbsp;|&nbsp; Period 2: "+fmtDate(p2Start)+" to "+fmtDate(p2End)+" &nbsp;|&nbsp; Generated "+fmtDate(new Date().toISOString().slice(0,10))+"</div>"
 
       + "<div style='border:2px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:14px;'>"
       + "<b style='font-size:13pt;'>"+esc(verdict.label)+"</b><br/>"
@@ -1198,7 +1199,7 @@ export default function PerformanceReview({ vessels = [] }) {
               <Td style={{color:"var(--text3)"}}>{v.periodLabel}</Td>
               <Td style={{fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</Td>
               <Td style={{color:"var(--text)",fontWeight:600}}>{v.name}</Td>
-              <Td>{v.detentionDate}</Td>
+              <Td>{fmtDate(v.detentionDate)}</Td>
               <Td style={{color:"var(--red2)",fontWeight:700}}>{v.defs}</Td>
               <Td>{v.mou||"—"}</Td>
               <Td>{v.port||"—"}</Td>

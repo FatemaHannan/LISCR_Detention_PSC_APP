@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import EditModal from '../components/EditModal';
+import { fmtDate } from '../lib/utils';
 
 const ROLE_COLOR = { 'Super Admin':'var(--purple)', 'Admin':'var(--blue)', 'Viewer':'var(--text3)' };
 const ROLE_BG = { 'Super Admin':'var(--purple-bg)', 'Admin':'var(--blue-bg)', 'Viewer':'var(--bg3)' };
@@ -91,7 +92,7 @@ export default function AdminPanel() {
   });
 
   function addUser(form) {
-    const newUser = { id:Date.now(), name:form.name, email:form.email, role:form.role||'Viewer', status:'Active', dept:form.dept||'—', lastLogin:'Never', added:new Date().toLocaleDateString('en-GB',{month:'short',year:'numeric'}) };
+    const newUser = { id:Date.now(), name:form.name, email:form.email, role:form.role||'Viewer', status:'Active', dept:form.dept||'—', lastLogin:'Never', added:fmtDate(new Date().toISOString().slice(0,10)) };
     setUsers(prev => [...prev, newUser]);
     addAudit('Program Manager', `Added user: ${form.name}`, 'User management', 'add');
   }

@@ -157,7 +157,7 @@ export async function generateCaseBriefDocx(ctx) {
     })]})],
   }));
   children.push(new Paragraph({ text: "", spacing: { after: 150 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: "Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}), size: 16, italics: true, color: "888888" })] }));
+  children.push(new Paragraph({ children: [new TextRun({ text: "Generated "+fmtDate(new Date().toISOString().slice(0,10)), size: 16, italics: true, color: "888888" })] }));
 
   // KPI row
   const kpis = [
@@ -215,10 +215,10 @@ export async function generateCaseBriefDocx(ctx) {
   // Detention Details
   children.push(spacer(), sectionTitle("Detention Details", SEC_COLORS.detention));
   children.push(table([
-    pairRow("Date", v.detentionDate, "Port (Country)", v.port),
+    pairRow("Date", fmtDate(v.detentionDate), "Port (Country)", v.port),
     pairRow("MoU", v.mou, "PSCO", v.psco),
     pairRow("Total Deficiencies", totalDefsCount, "Total Detainable", totalDetainableCount, false, totalDetainableCount>0),
-    ...(intel?.due ? [pairRow("Inspection Due (current)", intel.due.earliest_due_status+(intel.due.earliest_due?" — "+intel.due.earliest_due:"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (already due before this detention)":""), null, null, String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))] : []),
+    ...(intel?.due ? [pairRow("Inspection Due (current)", intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (already due before this detention)":""), null, null, String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))] : []),
   ]));
 
   // Main Detainable Deficiencies
@@ -243,7 +243,7 @@ export async function generateCaseBriefDocx(ctx) {
     pairRow("Case File Opened?", wasVetted?"Yes":"No", "Vetted?", wasVetted?"Yes":"No — not vetted before detention", !wasVetted, !wasVetted),
     pairRow("Vetting Status at Detention", vettingAtDetention?.cf_vetting, "Client Rejection", v.clientRejection, false, !!v.clientRejection),
     pairRow("ASI / Preemptive Insp. Before PSC", asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"), "MoU", v.mou, !asiDone),
-    pairRow("CAR Status", v.carStatus||"Not Received", "CAR Requested Date", v.carRequestedDate, !v.carStatus||v.carStatus==="Not Received"),
+    pairRow("CAR Status", v.carStatus||"Not Received", "CAR Requested Date", v.carRequestedDate?fmtDate(v.carRequestedDate):v.carRequestedDate, !v.carStatus||v.carStatus==="Not Received"),
   ]));
 
   // Vetting Activity
@@ -282,7 +282,7 @@ export async function generateCaseBriefDocx(ctx) {
     pairRow("Matching Deficiency/Recurring Codes", recurringDefSummary, null, null, (recurringDeficiencies||[]).length>0),
     pairRow("Recommend Follow-up Regarding Flag Inspections?", (matchingCodes.length>0||(recurringDeficiencies||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))?"Yes":"No", null, null, (matchingCodes.length>0||(recurringDeficiencies||[]).length>0||(daysBeforeDet!=null&&daysBeforeDet<90))),
     boxHeadRow("RECOGNIZED ORGANIZATION SURVEY HISTORY", SEC_COLORS.ro),
-    pairRow("Last RO Survey (Previous to Detention)", v.roSurveyDate, "Findings", v.roFindings),
+    pairRow("Last RO Survey (Previous to Detention)", v.roSurveyDate?fmtDate(v.roSurveyDate):v.roSurveyDate, "Findings", v.roFindings),
     pairRow("Outstanding Conditions of Class?", v.roStatus?"Yes — "+v.roStatus:"No", "Other Outstanding Findings?", v.roNotes?"Yes":"No", !!v.roStatus, !!v.roNotes),
   ]));
 
@@ -317,7 +317,7 @@ export async function generateCaseBriefDocx(ctx) {
   // RO Survey History
   children.push(spacer(), sectionTitle("RO Survey History", SEC_COLORS.ro));
   children.push(table([
-    singleRow("Last RO Survey Date", v.roSurveyDate),
+    singleRow("Last RO Survey Date", v.roSurveyDate?fmtDate(v.roSurveyDate):v.roSurveyDate),
     singleRow("Findings", v.roFindings),
     singleRow("Outstanding Conditions of Class", v.roStatus, !!v.roStatus),
     singleRow("Other Findings / Notes", v.roNotes),

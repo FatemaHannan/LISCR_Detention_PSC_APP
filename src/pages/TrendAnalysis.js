@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, Legend } from "recharts";
 import { supabase } from "../lib/supabase";
+import { fmtDate } from "../lib/utils";
 
 const DOW_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 export const AGE_BRACKET_ORDER = ["0-5 yrs","6-10 yrs","11-15 yrs","16-20 yrs","21-25 yrs","26-30 yrs","31+ yrs","Unknown"];
@@ -294,7 +295,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
             {vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
               <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
                 <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
-                <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                <span style={{color:"var(--text3)"}}>{fmtDate(v.detentionDate)}</span>
               </div>
             ))}
           </div>
@@ -450,7 +451,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
                     {d.vessels.map((v,vi) => (
                       <div key={vi} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
                         <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
-                        <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                        <span style={{color:"var(--text3)"}}>{fmtDate(v.detentionDate)}</span>
                       </div>
                     ))}
                   </div>
@@ -669,7 +670,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
 
     let html = "<div style='background:#1a3a5c;color:#fff;padding:16px 20px;margin:0 0 20px;border-radius:4px;'>"
       + "<div style='font-size:16pt;font-weight:bold;'>Detention Report — By " + activeDims.map(d=>d.label).join(" · ") + "</div>"
-      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})+"</div>"
+      + "<div style='font-size:9pt;color:#cdd8e3;margin-top:4px;'>Factors: "+activeDims.map(d=>esc(d.label)).join(" · ")+" &nbsp;|&nbsp; "+matchedTotal+" record(s) across "+combos.length+" combination(s) &nbsp;|&nbsp; Generated "+fmtDate(new Date().toISOString().slice(0,10))+"</div>"
       + "</div>"
       + (yearEntries.length>1 ? sectionTitle("Year-over-Year Trend") + yoyLine + barChart(yearEntries, {color:"#b8860b"}) : "")
       + sectionTitle("By " + activeDims.map(d=>d.label).join(" · "))
@@ -1041,7 +1042,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
                               <tr key={k} style={{borderBottom:"1px solid var(--border)"}}>
                                 <td style={{padding:"4px 8px",color:"var(--text2)",fontWeight:600}}>{v.name}</td>
                                 <td style={{padding:"4px 8px",color:"var(--text2)"}}>{v.imo}</td>
-                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{v.detentionDate}</td>
+                                <td style={{padding:"4px 8px",color:"var(--text2)"}}>{fmtDate(v.detentionDate)}</td>
                               </tr>
                             ))}
                           </tbody>
