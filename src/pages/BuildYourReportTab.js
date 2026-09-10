@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
-import { CombinationBuilder } from "./TrendAnalysis";
+import { CombinationBuilder, catDef } from "./TrendAnalysis";
 
 function normalizeMouValue(mou) {
   if (!mou) return mou;
@@ -17,6 +17,89 @@ function normalizeMouValue(mou) {
   if (lower.includes("vina")) return "Vina Del Mar";
   if (lower === "australia" || lower.includes("australia")) return "AMSA";
   return trimmed;
+}
+
+// ── FLEET-WIDE DEFICIENCY REPORT — true aggregate across whatever vessels are currently in
+// scope (respects Year/Company/Scope/Vessel filters from the page above), NOT tied to any
+// specific Build Your Report combination or drill-down selection. ──────────────────────────
+function FleetDeficiencyReport({ rows }) {
+  const [expanded, setExpanded] = useState(true);
+  const [openCat, setOpenCat] = useState(null);
+
+  const stats = useMemo(() => {
+    let totalDefs = 0, detainableDefs = 0;
+    const byCat = {}; // cat -> { count, detainable, vessels: Set-like via array of {imo,name,detentionDate} }
+    rows.forEach(v => {
+      (v.deficiencies||[]).forEach(d => {
+        totalDefs++;
+        if (d.detainable) detainableDefs++;
+        const cat = catDef(d.desc);
+        byCat[cat] = byCat[cat] || { count: 0, detainable: 0, vessels: [] };
+        byCat[cat].count++;
+        if (d.detainable) byCat[cat].detainable++;
+        if (!byCat[cat].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
+          byCat[cat].vessels.push(v);
+        }
+      });
+    });
+    const catList = Object.entries(byCat).sort((a,b)=>b[1].count-a[1].count);
+    return { totalDefs, detainableDefs, catList, vesselCount: rows.length };
+  }, [rows]);
+
+  return (
+    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px", marginBottom: "16px" }}>
+      <div onClick={()=>setExpanded(x=>!x)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: expanded?"10px":"0" }}>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>Fleet-Wide Deficiency Report</div>
+          <div style={{ fontSize: "11px", color: "var(--text3)" }}>{stats.vesselCount.toLocaleString()} vessel record(s) in current scope — {stats.totalDefs.toLocaleString()} total deficiencies, {stats.detainableDefs.toLocaleString()} detainable ({stats.totalDefs?Math.round(stats.detainableDefs/stats.totalDefs*100):0}%)</div>
+        </div>
+        <span style={{ fontSize: "11px", color: "var(--text3)" }}>{expanded?"Hide ▴":"Show ▾"}</span>
+      </div>
+      {expanded && (
+        stats.catList.length===0 ? (
+          <div style={{ fontSize: "12px", color: "var(--text3)" }}>No deficiency data for the vessels currently in scope.</div>
+        ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+            <thead><tr>
+              {["Category","Total","Detainable","% Detainable",""].map(h=>(
+                <th key={h} style={{ textAlign:"left", padding:"5px 8px", color:"var(--text3)", fontSize:"9px", textTransform:"uppercase", borderBottom:"1px solid var(--border)" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {stats.catList.map(([cat,d]) => {
+                const isOpen = openCat === cat;
+                return (
+                <React.Fragment key={cat}>
+                  <tr style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={()=>setOpenCat(isOpen?null:cat)}>
+                    <td style={{ padding: "6px 8px", color: isOpen?"var(--blue)":"var(--text2)", fontWeight: 600, textDecoration: isOpen?"underline":"none" }}>{cat}</td>
+                    <td style={{ padding: "6px 8px", fontWeight: 700, color: "var(--text)" }}>{d.count}</td>
+                    <td style={{ padding: "6px 8px", color: d.detainable>0?"var(--red2)":"var(--text3)", fontWeight: d.detainable>0?700:400 }}>{d.detainable}</td>
+                    <td style={{ padding: "6px 8px", color: "var(--text3)" }}>{d.count?Math.round(d.detainable/d.count*100):0}%</td>
+                    <td style={{ padding: "6px 8px", color: "var(--blue)" }}>{isOpen?"Hide":"View vessels"}</td>
+                  </tr>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "8px", background: "var(--bg3)" }}>
+                        {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
+                          <div key={i} style={{ fontSize: "10px", color: "var(--text2)", padding: "2px 0", display: "flex", justifyContent: "space-between" }}>
+                            <span>{v.name} <span style={{ color: "var(--text3)" }}>({v.imo})</span></span>
+                            <span style={{ color: "var(--text3)" }}>{v.detentionDate}</span>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        )
+      )}
+    </div>
+  );
 }
 
 export default function BuildYourReportTab({ vessels = [], currentUser }) {
@@ -273,12 +356,15 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
           {loading ? (
             <div style={{ fontSize: "12px", color: "var(--text3)", padding: "20px" }}>Loading age/type/risk data…</div>
           ) : (
+            <>
+            <FleetDeficiencyReport rows={rows} />
             <CombinationBuilder
               rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} inspectorMap={inspectorMap} includeMou={scope==="fleet"}
               selected={selected} onSelectedChange={setSelected}
               vesselFilterCount={vesselFilter.length}
               companyMap={companyMap} roMap={roMap}
             />
+            </>
           )}
 
           <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
