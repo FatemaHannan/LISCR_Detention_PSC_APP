@@ -2381,6 +2381,12 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const usePscTable = pscNearDet.length>0;
                   const pscToShow = usePscTable?pscNearDet:(v.deficiencies||[]).map(d=>({defect_code:d.code,main_defect_text:d.desc,full_description:d.desc,action:d.action,detainable:d.detainable}));
                   const detainableList = pscToShow.filter(d=>d.detainable||String(d.action).trim()==="30"||d.action===30);
+                  // If none of the current findings are explicitly flagged detainable (Code
+                  // 30), fall back to showing ALL of this detention's findings instead of
+                  // misleadingly showing "None on record" - the vessel genuinely is detained,
+                  // so something caused it, and showing nothing here when real deficiencies
+                  // exist for the current detention is worse than showing them unmarked.
+                  const detainableListDisplay = detainableList.length ? detainableList : pscToShow;
                   const totalDefsCount = v.defs||pscToShow.length||allDefs.length;
                   const totalDetainableCount = v.detainable||detainableList.length||detainableDefs.length;
 
@@ -2459,8 +2465,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +(intel?.due?pair("Inspection Due Status (current)",intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (was already due before this detention)":""),null,null,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")):"")
                         +"</table>",SEC_COLORS.detention)
                       +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
-                        +(detainableList.length?detainableList.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
-                        +"</table>",SEC_COLORS.detention)
+                        +(detainableListDisplay.length?detainableListDisplay.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
+                        +"</table>"
+                        +(detainableList.length===0&&detainableListDisplay.length>0 ? "<p style='font-size:8.5pt;color:#777;font-style:italic;margin:4px 0 0;'>No findings individually flagged detainable (Code 30) — showing all findings on the current detention instead.</p>" : ""),SEC_COLORS.detention)
                       +sec("Detention Assessment","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("PSC Report Supports Detention?",totalDetainableCount>0?"Detention well-supported by PSC Report":"—","Potential for Appeal",v.appeal)
                         +pair("Release Condition",v.release,null,null)
@@ -2554,7 +2561,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const resolvedType = typeMap[v.imo]||(v.type&&v.type!=="—"?v.type:null)||"—";
                     const blob = await generateCaseBriefDocx({
                       v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
+                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60,
                       flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
                     });
@@ -2640,8 +2647,9 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
                           <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Main Detainable Deficiencies</div>
-                          {detainableList.length>0?detainableList.map((d,i)=>(
-                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<detainableList.length-1?"1px solid var(--border)":"none",alignItems:"flex-start"}}>
+                          {detainableList.length===0&&detainableListDisplay.length>0&&<div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"8px",fontStyle:"italic"}}>No findings individually flagged detainable (Code 30) — showing all findings on the current detention instead.</div>}
+                          {detainableListDisplay.length>0?detainableListDisplay.map((d,i)=>(
+                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<detainableListDisplay.length-1?"1px solid var(--border)":"none",alignItems:"flex-start"}}>
                               <span style={{fontSize:"13px",padding:"2px 6px",borderRadius:"3px",background:"rgba(239,68,68,0.15)",color:"var(--red2)",fontFamily:"var(--mono)",fontWeight:700,flexShrink:0}}>{d.defect_code||i+1}</span>
                               <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.55}}>{d.main_defect_text||d.full_description||"—"}</div>
                             </div>

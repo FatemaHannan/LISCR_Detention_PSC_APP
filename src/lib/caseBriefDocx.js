@@ -132,7 +132,7 @@ function earliestDueType(due, fmtDate) {
 export async function generateCaseBriefDocx(ctx) {
   const {
     v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, vetting60,
+    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, detainableIsFallback, vetting60,
     flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
     daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
   } = ctx;
@@ -226,6 +226,9 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(table(detainableList.length
     ? detainableList.map((d,i) => singleRow(d.defect_code||"#"+(i+1), d.main_defect_text||d.full_description||"", true))
     : [singleRow("Deficiencies", "None on record")]));
+  if (detainableIsFallback) {
+    children.push(new Paragraph({ spacing: { before: 60 }, children: [new TextRun({ text: "No findings individually flagged detainable (Code 30) — showing all findings on the current detention instead.", italics: true, size: 17, color: "777777" })] }));
+  }
 
   // Detention Assessment
   children.push(spacer(), sectionTitle("Detention Assessment", SEC_COLORS.detention));
