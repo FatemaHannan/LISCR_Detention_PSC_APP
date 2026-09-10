@@ -25,24 +25,32 @@ function normalizeMouValue(mou) {
 function FleetDeficiencyReport({ rows }) {
   const [expanded, setExpanded] = useState(true);
   const [openCat, setOpenCat] = useState(null);
+  const [openDesc, setOpenDesc] = useState(null); // "cat|descIndex"
 
   const stats = useMemo(() => {
     let totalDefs = 0, detainableDefs = 0;
-    const byCat = {}; // cat -> { count, detainable, vessels: Set-like via array of {imo,name,detentionDate} }
+    const byCat = {}; // cat -> { count, detainable, descriptions: { desc -> { count, detainable, vessels } } }
     rows.forEach(v => {
       (v.deficiencies||[]).forEach(d => {
         totalDefs++;
         if (d.detainable) detainableDefs++;
         const cat = catDef(d.desc);
-        byCat[cat] = byCat[cat] || { count: 0, detainable: 0, vessels: [] };
+        byCat[cat] = byCat[cat] || { count: 0, detainable: 0, descriptions: {} };
         byCat[cat].count++;
         if (d.detainable) byCat[cat].detainable++;
-        if (!byCat[cat].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
-          byCat[cat].vessels.push(v);
+        const descKey = (d.desc||"Unspecified").trim();
+        byCat[cat].descriptions[descKey] = byCat[cat].descriptions[descKey] || { count: 0, detainable: 0, vessels: [] };
+        byCat[cat].descriptions[descKey].count++;
+        if (d.detainable) byCat[cat].descriptions[descKey].detainable++;
+        if (!byCat[cat].descriptions[descKey].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
+          byCat[cat].descriptions[descKey].vessels.push(v);
         }
       });
     });
-    const catList = Object.entries(byCat).sort((a,b)=>b[1].count-a[1].count);
+    const catList = Object.entries(byCat).map(([cat,d]) => ({
+      cat, count: d.count, detainable: d.detainable,
+      descList: Object.entries(d.descriptions).sort((a,b)=>b[1].count-a[1].count),
+    })).sort((a,b)=>b.count-a.count);
     return { totalDefs, detainableDefs, catList, vesselCount: rows.length };
   }, [rows]);
 
@@ -67,26 +75,42 @@ function FleetDeficiencyReport({ rows }) {
               ))}
             </tr></thead>
             <tbody>
-              {stats.catList.map(([cat,d]) => {
+              {stats.catList.map(({cat,count,detainable,descList}) => {
                 const isOpen = openCat === cat;
                 return (
                 <React.Fragment key={cat}>
                   <tr style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={()=>setOpenCat(isOpen?null:cat)}>
                     <td style={{ padding: "6px 8px", color: isOpen?"var(--blue)":"var(--text2)", fontWeight: 600, textDecoration: isOpen?"underline":"none" }}>{cat}</td>
-                    <td style={{ padding: "6px 8px", fontWeight: 700, color: "var(--text)" }}>{d.count}</td>
-                    <td style={{ padding: "6px 8px", color: d.detainable>0?"var(--red2)":"var(--text3)", fontWeight: d.detainable>0?700:400 }}>{d.detainable}</td>
-                    <td style={{ padding: "6px 8px", color: "var(--text3)" }}>{d.count?Math.round(d.detainable/d.count*100):0}%</td>
-                    <td style={{ padding: "6px 8px", color: "var(--blue)" }}>{isOpen?"Hide":"View vessels"}</td>
+                    <td style={{ padding: "6px 8px", fontWeight: 700, color: "var(--text)" }}>{count}</td>
+                    <td style={{ padding: "6px 8px", color: detainable>0?"var(--red2)":"var(--text3)", fontWeight: detainable>0?700:400 }}>{detainable}</td>
+                    <td style={{ padding: "6px 8px", color: "var(--text3)" }}>{count?Math.round(detainable/count*100):0}%</td>
+                    <td style={{ padding: "6px 8px", color: "var(--blue)" }}>{isOpen?"Hide":"View descriptions"}</td>
                   </tr>
                   {isOpen && (
                     <tr>
                       <td colSpan={5} style={{ padding: "8px", background: "var(--bg3)" }}>
-                        {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
-                          <div key={i} style={{ fontSize: "10px", color: "var(--text2)", padding: "2px 0", display: "flex", justifyContent: "space-between" }}>
-                            <span>{v.name} <span style={{ color: "var(--text3)" }}>({v.imo})</span></span>
-                            <span style={{ color: "var(--text3)" }}>{v.detentionDate}</span>
+                        {descList.map(([desc,dd],i) => {
+                          const dKey = cat+"|"+i;
+                          const dOpen = openDesc === dKey;
+                          return (
+                          <div key={i} style={{ marginBottom: "2px" }}>
+                            <div onClick={(e)=>{e.stopPropagation();setOpenDesc(dOpen?null:dKey);}} style={{ display:"flex", justifyContent:"space-between", gap:"8px", fontSize:"10px", padding:"3px 0", borderBottom:"1px solid var(--border)", cursor:"pointer" }}>
+                              <span style={{ color: dOpen?"var(--blue)":"var(--text2)", textDecoration: dOpen?"underline":"none" }}>{desc}</span>
+                              <span style={{ flexShrink:0, color: dd.detainable>0?"var(--red2)":"var(--text3)", fontWeight:600 }}>{dd.count}x{dd.detainable>0?" ("+dd.detainable+" detainable)":""}</span>
+                            </div>
+                            {dOpen && (
+                              <div style={{ background: "var(--bg2)", borderRadius: "5px", padding: "6px 8px", margin: "4px 0" }}>
+                                {dd.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,vi)=>(
+                                  <div key={vi} style={{ fontSize: "10px", color: "var(--text2)", padding: "1px 0", display: "flex", justifyContent: "space-between" }}>
+                                    <span>{v.name} <span style={{ color: "var(--text3)" }}>({v.imo})</span></span>
+                                    <span style={{ color: "var(--text3)" }}>{v.detentionDate}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </td>
                     </tr>
                   )}
