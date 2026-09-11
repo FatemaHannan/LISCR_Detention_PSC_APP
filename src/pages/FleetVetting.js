@@ -167,7 +167,7 @@ export default function FleetVetting({ vessels = [] }) {
     setArrivalDate("");
     setIntelLoading(true);
     const imoStr = String(r.imo||"").replace(/\.0$/,"").trim();
-    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows, dueRows, detentionHistoryRaw] = await Promise.all([
+    const [inspections, dpp, mc, pi, mlc, cars, flagFindings, psc, vipRows, dueRows, detentionHistoryRaw, cvdRows] = await Promise.all([
       fetchAll("inspection_history", "*", q=>q.eq("imo", imoStr).order("inspection_date",{ascending:false})),
       fetchAll("dpp_vetting_history", "*", q=>q.eq("imo", imoStr).order("created_date",{ascending:false})),
       fetchAll("vessel_casualty", "*", q=>q.eq("imo", imoStr).order("incident_date",{ascending:false})),
@@ -179,12 +179,13 @@ export default function FleetVetting({ vessels = [] }) {
       fetchAll("vessel_inspection_performance", "*", q=>q.eq("imo", imoStr).limit(1)),
       fetchAll("inspection_due", "*", q=>q.eq("imo", imoStr).limit(1)),
       getVesselsByImo(imoStr),
+      fetchAll("client_vessel_details", "imo,previous_flag", q=>q.eq("imo", imoStr).limit(1)),
     ]);
     // Fetched fresh from the database rather than filtered from the bulk-loaded vessels prop,
     // which never refreshes after a new case is added elsewhere in the app during a long-lived
     // browser tab.
     const detentionHistory = detentionHistoryRaw.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0));
-    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null, due: dueRows[0]||null });
+    setIntel({ inspections, dpp, mc, pi, mlc, detentionHistory, cars, flagFindings, psc, vip: vipRows[0]||null, due: dueRows[0]||null, previousFlag: cvdRows[0]?.previous_flag||null });
     setIntelLoading(false);
   }
 
@@ -530,7 +531,7 @@ export default function FleetVetting({ vessels = [] }) {
       <table style="margin-bottom:14px;"><tr>
         <td style="width:70%;vertical-align:top;padding:0;border:none;">
           <div style="font-size:15pt;font-weight:bold;">${esc(selected.vessel)}</div>
-          <div style="color:#555;">IMO ${esc(selected.imo)} · ${esc(selected.vessel_sub_type||selected.vessel_type||"—")} · ${selected.age!=null?esc(selected.age)+" yrs":"Age unknown"} · ${esc(selected.class_society||"RO unknown")}${selected.gross_tons?" · "+esc(Number(selected.gross_tons).toLocaleString())+" GT":""}</div>
+          <div style="color:#555;">IMO ${esc(selected.imo)} · ${esc(selected.vessel_sub_type||selected.vessel_type||"—")} · ${selected.age!=null?esc(selected.age)+" yrs":"Age unknown"} · ${esc(selected.class_society||"RO unknown")}${selected.gross_tons?" · "+esc(Number(selected.gross_tons).toLocaleString())+" GT":""}${intel?.previousFlag?" · Previous Flag: "+esc(intel.previousFlag):""}</div>
           <div style="color:#555;">${esc(selected.ism_client||"Company unknown")}</div>
           ${destinationPort.trim()||arrivalDate ? "<div style='color:#555;margin-top:6px;'>"+(destinationPort.trim()?"Destination: <b>"+esc(destinationPort)+"</b>":"")+(destinationPort.trim()&&arrivalDate?" &nbsp;|&nbsp; ":"")+(arrivalDate?"Arrival Date: <b>"+esc(fmtDate(arrivalDate))+"</b>":"")+"</div>" : ""}
         </td>
@@ -622,7 +623,7 @@ export default function FleetVetting({ vessels = [] }) {
               <div>
                 <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)" }}>{selected.vessel}</div>
                 <div style={{ fontSize: "12px", color: "var(--text3)", marginTop: "3px" }}>
-                  IMO {selected.imo} · {selected.vessel_sub_type||selected.vessel_type||"—"} · {selected.age!=null?`${selected.age} yrs`:"Age unknown"} · {selected.class_society||"RO unknown"} · {selected.gross_tons?`${Number(selected.gross_tons).toLocaleString()} GT`:""}
+                  IMO {selected.imo} · {selected.vessel_sub_type||selected.vessel_type||"—"} · {selected.age!=null?`${selected.age} yrs`:"Age unknown"} · {selected.class_society||"RO unknown"} · {selected.gross_tons?`${Number(selected.gross_tons).toLocaleString()} GT`:""}{intel?.previousFlag?` · Previous Flag: ${intel.previousFlag}`:""}
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text3)", marginTop: "3px" }}>{selected.ism_client||"Company unknown"}</div>
                 <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
