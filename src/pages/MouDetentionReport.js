@@ -61,6 +61,7 @@ export default function MouDetentionReport({ vessels = [] }) {
   const [expanded, setExpanded] = useState({});
   const [ageMap, setAgeMap] = useState({});
   const [typeMap, setTypeMap] = useState({});
+  const [previousFlagMap, setPreviousFlagMap] = useState({});
   const [riskMap, setRiskMap] = useState({});
   const [selectedYear, setSelectedYear] = useState("All");
   const allDetainedRaw = useMemo(()=>vessels.filter(v=>v.detained).map(v=> v.mou ? {...v, mou: normalizeMouValue(v.mou)} : v), [vessels]);
@@ -95,6 +96,23 @@ export default function MouDetentionReport({ vessels = [] }) {
       }
       setAgeMap(aMap);
       setTypeMap(tMap);
+    })();
+    return () => { cancelled = true; };
+  }, [detained]);
+
+  // Previous Flag — from client_vessel_details, used to check whether the flag a vessel was
+  // previously registered under correlates with detention patterns for a given MoU.
+  useEffect(() => {
+    let cancelled = false;
+    const imos = [...new Set(detained.filter(v=>v.imo).map(v=>v.imo))];
+    if (imos.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("client_vessel_details").select("imo,previous_flag").in("imo", imos);
+      if (cancelled || !data) return;
+      const nImo = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+      const pfMap = {};
+      data.forEach(d => { const key = nImo(d.imo); if (d.previous_flag && pfMap[key]==null) pfMap[key] = d.previous_flag; });
+      setPreviousFlagMap(pfMap);
     })();
     return () => { cancelled = true; };
   }, [detained]);
@@ -474,6 +492,20 @@ export default function MouDetentionReport({ vessels = [] }) {
       });
       const roBreakdown = Object.values(roByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
 
+      // Top Previous Flag by year (within this MoU) — checks whether a vessel's prior flag
+      // state correlates with detention patterns under this authority.
+      const nImoLocal = (imo) => String(imo||"").replace(/\.0$/,"").trim();
+      const prevFlagByYearCounts = {};
+      rows.forEach(v => {
+        if (!v.detentionDate || !String(v.detentionDate).match(/^\d{4}/)) return;
+        const yr = String(v.detentionDate).slice(0,4);
+        const prevFlag = previousFlagMap[nImoLocal(v.imo)] || "Unknown";
+        if (!prevFlagByYearCounts[prevFlag]) prevFlagByYearCounts[prevFlag] = { name: prevFlag, years:{}, total:0 };
+        prevFlagByYearCounts[prevFlag].years[yr] = (prevFlagByYearCounts[prevFlag].years[yr]||0)+1;
+        prevFlagByYearCounts[prevFlag].total++;
+      });
+      const prevFlagBreakdown = Object.values(prevFlagByYearCounts).sort((a,b)=>b.total-a.total).slice(0,10);
+
       // Simple aggregate RO breakdown (total count, not by-year) for the bar-chart view
       // alongside Vessel Age/Risk/Type — same shape as those, for visual consistency.
       const roChartCounts = {};
@@ -497,10 +529,10 @@ export default function MouDetentionReport({ vessels = [] }) {
       const topProfile = Object.values(profileCounts).sort((a,b)=>b.count-a.count)[0];
       const focusPoint = (topProfile && topProfile.count >= 3) ? { ...topProfile, pct: Math.round(topProfile.count/total*100) } : null;
 
-      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, roChartBreakdown, detByYear, total:rows.length, focusPoint, rows };
+      result[mou] = { monthly, yearOverlay, dow, friToTuePct:Math.round(friToTue/total*100), locations, causes, topCodes, riskVessels, ageBreakdown, riskBreakdown, typeBreakdown, companyBreakdown, roBreakdown, roChartBreakdown, prevFlagBreakdown, detByYear, total:rows.length, focusPoint, rows };
     });
     return result;
-  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD]);
+  }, [detained, mouList, ageMap, typeMap, riskMap, findingsMap, todayMD, previousFlagMap]);
 
   const toggle = (mou) => setExpanded(e => ({ ...e, [mou]: !e[mou] }));
 
@@ -576,6 +608,7 @@ export default function MouDetentionReport({ vessels = [] }) {
     if ((dd.roChartBreakdown||[]).length) html += sectionTitle("RO / Class") + barChart(dd.roChartBreakdown.map(r=>[r.ro,r.count]));
     if ((dd.companyBreakdown||[]).length) html += sectionTitle("Top Companies (by Year)") + table(["Company",...availableYears,"Total"], dd.companyBreakdown.map(c=>[c.name,...availableYears.map(y=>c.years[y]||0),c.total]));
     if ((dd.roBreakdown||[]).length) html += sectionTitle("Top RO (by Year)") + table(["RO",...availableYears,"Total"], dd.roBreakdown.map(r=>[r.name,...availableYears.map(y=>r.years[y]||0),r.total]));
+    if ((dd.prevFlagBreakdown||[]).length) html += sectionTitle("Previous Flag (by Year)") + table(["Previous Flag",...availableYears,"Total"], dd.prevFlagBreakdown.map(pf=>[pf.name,...availableYears.map(y=>pf.years[y]||0),pf.total]));
 
     // Detentions vs Vetting Activity
     if (availableYears.length) {
@@ -1002,6 +1035,22 @@ export default function MouDetentionReport({ vessels = [] }) {
                             <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.name}>{r.name}</td>
                             {availableYears.map(y=><td key={y} style={{padding:"5px 8px",color:"var(--text2)"}}>{r.years[y]||0}</td>)}
                             <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{r.total}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>}
+                    </Card>
+                  </div>
+
+                  <div style={{marginBottom:"12px"}}>
+                    <Card title="Previous Flag" subtitle="Which flag state these vessels were registered under before transferring to Liberia">
+                      {(dd.prevFlagBreakdown||[]).length===0?<div style={{fontSize:"11px",color:"var(--text3)"}}>No previous flag data available.</div>:
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px",tableLayout:"fixed"}}>
+                        <thead><tr>{["Previous Flag",...availableYears,"Total"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",width:h==="Previous Flag"?"auto":"45px"}}>{h}</th>)}</tr></thead>
+                        <tbody>{dd.prevFlagBreakdown.map(pf=>(
+                          <tr key={pf.name} style={{borderBottom:"1px solid var(--border)"}}>
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={pf.name}>{pf.name}</td>
+                            {availableYears.map(y=><td key={y} style={{padding:"5px 8px",color:"var(--text2)"}}>{pf.years[y]||0}</td>)}
+                            <td style={{padding:"5px 8px",color:"var(--text)",fontWeight:600}}>{pf.total}</td>
                           </tr>
                         ))}</tbody>
                       </table>}
