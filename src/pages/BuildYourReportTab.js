@@ -134,6 +134,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [companyMap, setCompanyMap] = useState({});
   const [roMap, setRoMap] = useState({});
   const [shipTypeMap, setShipTypeMap] = useState({});
+  const [previousFlagMap, setPreviousFlagMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   const [scope, setScope] = useState("fleet");
@@ -232,13 +233,14 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       // last resort - covers vessels no longer in the active Fleet Roster (deregistered from
       // Liberian flag), which VIP and Fleet Roster will never have.
       const isBlank = (c) => { if (!c) return true; const t = String(c).trim().toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
-      const [{ data: vipRows }, { data: rosterRows }, { data: strickenRows }] = await Promise.all([
+      const [{ data: vipRows }, { data: rosterRows }, { data: strickenRows }, { data: prevFlagRows }] = await Promise.all([
         supabase.from("vessel_inspection_performance").select("imo,ism_client,ro").in("imo", imos),
         supabase.from("fleet_roster").select("imo,ism_client,vessel_sub_type").in("imo", imos),
         supabase.from("stricken_vessels").select("imo,ism_client,vessel_type,ro").in("imo", imos),
+        supabase.from("previous_flag_history").select("imo,previous_flag").in("imo", imos),
       ]);
       if (cancelled) return;
-      const cMap = {}, roM = {}, stM = {};
+      const cMap = {}, roM = {}, stM = {}, pfM = {};
       (vipRows||[]).forEach(d => {
         const key = nImo(d.imo);
         if (!isBlank(d.ism_client) && cMap[key]==null) cMap[key] = d.ism_client;
@@ -255,9 +257,14 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
         if (!isBlank(d.ro) && roM[key]==null) roM[key] = d.ro;
         if (!isBlank(d.vessel_type) && stM[key]==null) stM[key] = d.vessel_type;
       });
+      (prevFlagRows||[]).forEach(d => {
+        const key = nImo(d.imo);
+        if (!isBlank(d.previous_flag) && pfM[key]==null) pfM[key] = d.previous_flag;
+      });
       setCompanyMap(cMap);
       setRoMap(roM);
       setShipTypeMap(stM);
+      setPreviousFlagMap(pfM);
 
       setLoading(false);
     })();
@@ -398,7 +405,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
               rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} inspectorMap={inspectorMap} includeMou={scope==="fleet"}
               selected={selected} onSelectedChange={setSelected}
               vesselFilterCount={vesselFilter.length}
-              companyMap={companyMap} roMap={roMap} shipTypeMap={shipTypeMap}
+              companyMap={companyMap} roMap={roMap} shipTypeMap={shipTypeMap} previousFlagMap={previousFlagMap}
             />
             </>
           )}

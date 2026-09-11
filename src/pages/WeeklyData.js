@@ -220,6 +220,27 @@ const UPLOADS = [
     }),
   },
   {
+    key: "previous_flag_history",
+    onConflictKey: "imo",
+    label: "Previous Flag History",
+    desc: "Which flag state each vessel was registered under before transferring to Liberia — used to analyze whether prior flag correlates with detention patterns alongside port, age, and type",
+    icon: "ti-flag", color: "var(--amber2)", bg: "var(--amber-bg)",
+    table: "previous_flag_history",
+    exportColumns: {
+      vessel:"Vessel", imo:"IMO", previous_flag:"Previous Flag", flag_transfer_date:"Flag Transfer Date",
+      years_under_previous_flag:"Years Under Previous Flag", notes:"Notes",
+    },
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO"]||r["imo"]),
+    map: (r) => ({
+      vessel: s(r["Vessel"]||r["vessel"]),
+      imo: imo(r["IMO"]||r["imo"]),
+      previous_flag: s(r["Previous Flag"]||r["previous_flag"]),
+      flag_transfer_date: d(r["Flag Transfer Date"]||r["flag_transfer_date"]),
+      years_under_previous_flag: n(r["Years Under Previous Flag"]||r["years_under_previous_flag"]),
+      notes: s(r["Notes"]||r["notes"]),
+    }),
+  },
+  {
     key: "client_average",
     onConflictKey: "ism_client",
     label: "Client Average",

@@ -401,6 +401,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
           <Section title="Company" prefix="company" list={drill.byCompany} />
           <Section title="Ports" prefix="port" list={drill.byPort} />
           <Section title="CAR Status" prefix="carstatus" list={drill.byCarStatus} />
+          <Section title="Previous Flag" prefix="prevflag" list={drill.byPreviousFlag} />
           <Section title="Day of Week" prefix="dow" list={drill.byDayOfWeek} />
         </div>
       </div>
@@ -576,7 +577,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
   );
 }
 
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount, companyMap, roMap, shipTypeMap }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount, companyMap, roMap, shipTypeMap, previousFlagMap }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
   const dynamicPortCountryMap = useMemo(() => {
@@ -603,6 +604,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       { id: "fsiOwner", label: "FSI Case Owner", get: v => v.fsiCaseOwner && v.fsiCaseOwner!=="—" ? v.fsiCaseOwner : null },
       { id: "pscOwner", label: "PSC Case Owner", get: v => v.pscOwner && v.pscOwner!=="—" ? v.pscOwner : null },
       { id: "psco", label: "Inspector (PSCO)", get: v => v.psco && v.psco!=="—" ? v.psco : null },
+      { id: "previousFlag", label: "Previous Flag", get: v => (previousFlagMap && previousFlagMap[normImoBuilder(v.imo)]) || null },
       { id: "defCategory", label: "Major Deficiency Category", get: v => { const first = (v.deficiencies||[])[0]; return first ? catDef(first.desc) : null; } },
       { id: "gt", label: "Gross Tonnage Range", get: v => gtBucket(v.gt) },
       { id: "caseStatus", label: "Case Status", get: v => v.caseStatus && v.caseStatus!=="—" ? v.caseStatus : null },
@@ -719,6 +721,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+barChart(listRows(drill.byCompany),{limit:drill.byCompany.length}) : "")
         + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+barChart(listRows(drill.byPort),{limit:drill.byPort.length}) : "")
         + (drill.byCarStatus?.length ? "<b style='font-size:10pt;'>CAR Status</b>"+barChart(listRows(drill.byCarStatus),{limit:drill.byCarStatus.length}) : "")
+        + (drill.byPreviousFlag?.length ? "<b style='font-size:10pt;'>Previous Flag</b>"+barChart(listRows(drill.byPreviousFlag),{limit:drill.byPreviousFlag.length}) : "")
         + (drill.byDayOfWeek?.length ? "<b style='font-size:10pt;'>Day of Week</b>"+barChart(listRows(drill.byDayOfWeek),{limit:drill.byDayOfWeek.length}) : "")
         + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+barChart(listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))),{color:"#b8860b"}) : "")
         + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
@@ -803,6 +806,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const byYear = countBy(v => v.detentionDate ? String(v.detentionDate).slice(0,4) : null);
     const byInspector = countBy(v => lookupInspector(inspectorMap, v.imo, v.detentionDate));
     const byCarStatus = countBy(v => v.carStatus && v.carStatus!=="—" ? v.carStatus : null);
+    const byPreviousFlag = countBy(v => (previousFlagMap && previousFlagMap[normImoBuilder(v.imo)]) || null);
     // Major Deficiencies — overall category breakdown across ALL deficiencies for this group
     // (not just detainable ones), e.g. Fire Safety, LSA/Life Saving, ISM/Safety Mgmt. Also
     // tracks the specific deficiency descriptions within each category, so a category can be
@@ -943,6 +947,8 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     if (companyLine) reportSummary.push({icon:"🏢", text:companyLine});
     const portLine = dominantFrom(byPort, "Port");
     if (portLine) reportSummary.push({icon:"📍", text:portLine});
+    const prevFlagLine = dominantFrom(byPreviousFlag, "Previous Flag");
+    if (prevFlagLine) reportSummary.push({icon:"🚩", text:prevFlagLine});
     const majorDefLine = byMajorDeficiencyList.length && byMajorDeficiencyList[0][1]>=2
       ? `${byMajorDeficiencyList[0][1]} deficiencies in this group fall under ${byMajorDeficiencyList[0][0]} — the most common category.` : null;
     if (majorDefLine) reportSummary.push({icon:"⚠️", text:majorDefLine});
@@ -963,7 +969,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     if (reportSummary.length===0) {
       reportSummary.push({icon:"🟢", text:"No single dominant pattern stands out across these vessels — the group is genuinely mixed on type, age, company, and port."});
     }
-    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byAgeBracket, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byMajorDeficiencyList, byMajorDeficiencyDetail, byDayOfWeek, friToTueGroupCount, repeatInspectors, companyClustering, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies, reportSummary };
+    return { n, avgAge, detainableCount, detainablePct: Math.round(detainableCount/n*100), byType, byAgeBracket, byRo, byCompany, byPort, byYear, byInspector, byCarStatus, byPreviousFlag, byMajorDeficiencyList, byMajorDeficiencyDetail, byDayOfWeek, friToTueGroupCount, repeatInspectors, companyClustering, detCatByPortTop: topCatFrom(detCatByPort), detCatByTypeTop: topCatFrom(detCatByType), detCatByComboTop: topCatFrom(detCatByCombo), matchingDeficiencies, reportSummary };
   }
 
   return (
