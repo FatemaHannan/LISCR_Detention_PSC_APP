@@ -309,7 +309,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
     return (
       <div style={{marginBottom:"10px"}}>
         <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>{title}</div>
-        {list.slice(0,6).map(([label,count,vessels])=><Bar key={label} groupKey={prefix+":"+label} label={label} count={count} max={max} vessels={vessels} />)}
+        {list.map(([label,count,vessels])=><Bar key={label} groupKey={prefix+":"+label} label={label} count={count} max={max} vessels={vessels} />)}
       </div>
     );
   };
@@ -351,7 +351,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
               <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"5px"}}>Major Deficiencies</div>
               {(() => {
                 const max = Math.max(...drill.byMajorDeficiencyList.map(([,c])=>c));
-                return drill.byMajorDeficiencyList.slice(0,8).map(([cat,count]) => {
+                return drill.byMajorDeficiencyList.map(([cat,count]) => {
                   const groupKey = "majordefdesc:"+cat;
                   const isOpen = openSub === groupKey;
                   const details = drill.byMajorDeficiencyDetail?.[cat] || [];
@@ -434,7 +434,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
       {drill.matchingDeficiencies.length>0 && (
         <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Matching / Repeated Deficiencies Across These Vessels</div>
-          {drill.matchingDeficiencies.slice(0,8).map((d,i) => {
+          {drill.matchingDeficiencies.map((d,i) => {
             const groupKey = "matchdef:"+(d.code||d.desc)+i;
             const isOpen = openSub === groupKey;
             return (
@@ -464,7 +464,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
       {drill.detCatByPortTop.length>0 && (
         <div style={{marginTop:"4px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Port</div>
-          {drill.detCatByPortTop.slice(0,6).map(d=>{
+          {drill.detCatByPortTop.map(d=>{
             const gk = "detport:"+d.key;
             const isOpen = openSub === gk;
             return (
@@ -501,7 +501,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
       {drill.detCatByTypeTop.length>0 && (
         <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency by Ship Type</div>
-          {drill.detCatByTypeTop.slice(0,6).map(d=>{
+          {drill.detCatByTypeTop.map(d=>{
             const gk = "dettype:"+d.key;
             const isOpen = openSub === gk;
             return (
@@ -538,7 +538,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
       {drill.detCatByComboTop.length>0 && (
         <div style={{marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"6px"}}>Most Common Detainable Deficiency — Ship Type · Age · Port Combination</div>
-          {drill.detCatByComboTop.slice(0,8).map(d=>{
+          {drill.detCatByComboTop.map(d=>{
             const gk = "detcombo:"+d.key;
             const isOpen = openSub === gk;
             return (
@@ -704,26 +704,26 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       + "</div>"
       + (yearEntries.length>1 ? sectionTitle("Year-over-Year Trend") + yoyLine + barChart(yearEntries, {color:"#b8860b"}) : "")
       + sectionTitle("By " + activeDims.map(d=>d.label).join(" · "))
-      + barChart(combos.map(c=>[c.values.join(" · "), c.count]))
+      + barChart(combos.map(c=>[c.values.join(" · "), c.count]), {limit: combos.length})
       + table([...activeDims.map(d=>d.label), "Count", "% of Total"], combos.map(c=>[...c.values, c.count, c.pct+"%"]));
 
     const buildDrillDownHtml = (drill, title) => {
-      const listRows = (list) => list.slice(0,10).map(([label,count])=>[label,count]);
+      const listRows = (list) => list.map(([label,count])=>[label,count]);
       const summaryList = "<ul style='padding-left:20px;font-size:9.5pt;'>"+drill.reportSummary.map(s=>"<li style='margin-bottom:5px;'>"+esc(s.icon)+" "+esc(s.text)+"</li>").join("")+"</ul>";
       return sectionTitle(title)
         + "<p style='font-size:9.5pt;'>"+drill.n+" record(s) &nbsp;|&nbsp; Avg Age: "+esc(drill.avgAge??"—")+" yrs &nbsp;|&nbsp; Detainable: "+drill.detainableCount+" ("+drill.detainablePct+"%)</p>"
         + "<b style='font-size:10pt;'>📋 Report Summary</b>" + summaryList
-        + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+barChart(listRows(drill.byType),{limit:8}) : "")
-        + (drill.byAgeBracket?.length ? "<b style='font-size:10pt;'>Age Bracket</b>"+barChart(listRows(drill.byAgeBracket),{limit:8}) : "")
-        + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+barChart(listRows(drill.byRo),{limit:8}) : "")
-        + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+barChart(listRows(drill.byCompany),{limit:8}) : "")
-        + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+barChart(listRows(drill.byPort),{limit:8}) : "")
-        + (drill.byCarStatus?.length ? "<b style='font-size:10pt;'>CAR Status</b>"+barChart(listRows(drill.byCarStatus),{limit:8}) : "")
-        + (drill.byDayOfWeek?.length ? "<b style='font-size:10pt;'>Day of Week</b>"+barChart(listRows(drill.byDayOfWeek),{limit:8}) : "")
+        + (drill.byType.length ? "<b style='font-size:10pt;'>Ship Type</b>"+barChart(listRows(drill.byType),{limit:drill.byType.length}) : "")
+        + (drill.byAgeBracket?.length ? "<b style='font-size:10pt;'>Age Bracket</b>"+barChart(listRows(drill.byAgeBracket),{limit:drill.byAgeBracket.length}) : "")
+        + (drill.byRo.length ? "<b style='font-size:10pt;'>RO / Class</b>"+barChart(listRows(drill.byRo),{limit:drill.byRo.length}) : "")
+        + (drill.byCompany.length ? "<b style='font-size:10pt;'>Company</b>"+barChart(listRows(drill.byCompany),{limit:drill.byCompany.length}) : "")
+        + (drill.byPort.length ? "<b style='font-size:10pt;'>Ports</b>"+barChart(listRows(drill.byPort),{limit:drill.byPort.length}) : "")
+        + (drill.byCarStatus?.length ? "<b style='font-size:10pt;'>CAR Status</b>"+barChart(listRows(drill.byCarStatus),{limit:drill.byCarStatus.length}) : "")
+        + (drill.byDayOfWeek?.length ? "<b style='font-size:10pt;'>Day of Week</b>"+barChart(listRows(drill.byDayOfWeek),{limit:drill.byDayOfWeek.length}) : "")
         + (drill.byYear.length ? "<b style='font-size:10pt;'>Trend by Year</b>"+barChart(listRows(drill.byYear.sort((a,b)=>a[0].localeCompare(b[0]))),{color:"#b8860b"}) : "")
         + (drill.byInspector.length ? "<b style='font-size:10pt;'>Inspector Name</b>"+table(["Inspector","Count"], listRows(drill.byInspector)) : "")
-        + (drill.byMajorDeficiencyList?.length ? "<b style='font-size:10pt;'>Major Deficiencies</b>"+barChart(drill.byMajorDeficiencyList.slice(0,10),{limit:10})
-            +drill.byMajorDeficiencyList.slice(0,10).map(([cat])=>{
+        + (drill.byMajorDeficiencyList?.length ? "<b style='font-size:10pt;'>Major Deficiencies</b>"+barChart(drill.byMajorDeficiencyList,{limit:drill.byMajorDeficiencyList.length})
+            +drill.byMajorDeficiencyList.map(([cat])=>{
               const details = drill.byMajorDeficiencyDetail?.[cat]||[];
               if (!details.length) return "";
               return "<div style='font-size:8.5pt;margin:0 0 8px;'><b>"+esc(cat)+":</b> "+details.map(([desc,cnt])=>esc(desc)+" ("+cnt+"x)").join("; ")+"</div>";
@@ -731,10 +731,10 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
           : "")
         + (drill.repeatInspectors?.length ? "<b style='font-size:10pt;'>Same Inspector Across Multiple Vessels</b>"+table(["Inspector","Vessels"], drill.repeatInspectors.map(r=>[r.name,r.vesselCount])) : "")
         + (drill.companyClustering?.length ? "<b style='font-size:10pt;'>Company Clustering — Same Port / Location / MoU</b>"+table(["Company","Detentions","Pattern"], drill.companyClustering.map(c=>[c.company,c.count,c.flags.join(", ")])) : "")
-        + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.slice(0,10).map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
-        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
-        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
-        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "");
+        + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
+        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByPortTop.map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
+        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByTypeTop.map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
+        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByComboTop.map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "");
     };
 
     // Selected Vessels Analysis — when specific vessels are chosen via the vessel filter,
