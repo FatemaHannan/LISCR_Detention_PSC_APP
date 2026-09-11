@@ -237,7 +237,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
         supabase.from("vessel_inspection_performance").select("imo,ism_client,ro").in("imo", imos),
         supabase.from("fleet_roster").select("imo,ism_client,vessel_sub_type").in("imo", imos),
         supabase.from("stricken_vessels").select("imo,ism_client,vessel_type,ro").in("imo", imos),
-        supabase.from("previous_flag_history").select("imo,previous_flag").in("imo", imos),
+        supabase.from("client_vessel_details").select("imo,previous_flag").in("imo", imos),
       ]);
       if (cancelled) return;
       const cMap = {}, roM = {}, stM = {}, pfM = {};
