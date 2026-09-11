@@ -228,11 +228,14 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       // Company/RO/Ship Type fallback — same reasoning as Case View's per-case auto-backfill:
       // many vessel records have a blank/placeholder value because that case was never
       // individually opened to trigger the backfill. Build Your Report works on the whole
-      // fleet at once, so it needs its own bulk fallback instead.
+      // fleet at once, so it needs its own bulk fallback instead. stricken_vessels is the
+      // last resort - covers vessels no longer in the active Fleet Roster (deregistered from
+      // Liberian flag), which VIP and Fleet Roster will never have.
       const isBlank = (c) => { if (!c) return true; const t = String(c).trim().toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
-      const [{ data: vipRows }, { data: rosterRows }] = await Promise.all([
+      const [{ data: vipRows }, { data: rosterRows }, { data: strickenRows }] = await Promise.all([
         supabase.from("vessel_inspection_performance").select("imo,ism_client,ro").in("imo", imos),
         supabase.from("fleet_roster").select("imo,ism_client,vessel_sub_type").in("imo", imos),
+        supabase.from("stricken_vessels").select("imo,ism_client,vessel_type,ro").in("imo", imos),
       ]);
       if (cancelled) return;
       const cMap = {}, roM = {}, stM = {};
@@ -245,6 +248,12 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
         const key = nImo(d.imo);
         if (!isBlank(d.ism_client) && cMap[key]==null) cMap[key] = d.ism_client;
         if (!isBlank(d.vessel_sub_type) && stM[key]==null) stM[key] = d.vessel_sub_type;
+      });
+      (strickenRows||[]).forEach(d => {
+        const key = nImo(d.imo);
+        if (!isBlank(d.ism_client) && cMap[key]==null) cMap[key] = d.ism_client;
+        if (!isBlank(d.ro) && roM[key]==null) roM[key] = d.ro;
+        if (!isBlank(d.vessel_type) && stM[key]==null) stM[key] = d.vessel_type;
       });
       setCompanyMap(cMap);
       setRoMap(roM);
