@@ -133,6 +133,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
   const [inspectorMap, setInspectorMap] = useState({});
   const [companyMap, setCompanyMap] = useState({});
   const [roMap, setRoMap] = useState({});
+  const [shipTypeMap, setShipTypeMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   const [scope, setScope] = useState("fleet");
@@ -224,17 +225,17 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       (vetting||[]).forEach(d => { if (d.risk_level_at_time && rMap[d.imo]==null) rMap[d.imo] = d.risk_level_at_time; });
       setRiskMap(rMap);
 
-      // Company/RO fallback — same reasoning as Case View's per-case auto-backfill: many
-      // vessel records have a blank or placeholder ("Not specified") company/RO because
-      // that case was never individually opened to trigger the backfill. Build Your Report
-      // works on the whole fleet at once, so it needs its own bulk fallback instead.
+      // Company/RO/Ship Type fallback — same reasoning as Case View's per-case auto-backfill:
+      // many vessel records have a blank/placeholder value because that case was never
+      // individually opened to trigger the backfill. Build Your Report works on the whole
+      // fleet at once, so it needs its own bulk fallback instead.
       const isBlank = (c) => { if (!c) return true; const t = String(c).trim().toLowerCase(); return t===""||t==="—"||t==="not specified"||t==="unknown"||t==="n/a"; };
       const [{ data: vipRows }, { data: rosterRows }] = await Promise.all([
         supabase.from("vessel_inspection_performance").select("imo,ism_client,ro").in("imo", imos),
-        supabase.from("fleet_roster").select("imo,ism_client").in("imo", imos),
+        supabase.from("fleet_roster").select("imo,ism_client,vessel_sub_type").in("imo", imos),
       ]);
       if (cancelled) return;
-      const cMap = {}, roM = {};
+      const cMap = {}, roM = {}, stM = {};
       (vipRows||[]).forEach(d => {
         const key = nImo(d.imo);
         if (!isBlank(d.ism_client) && cMap[key]==null) cMap[key] = d.ism_client;
@@ -243,9 +244,11 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
       (rosterRows||[]).forEach(d => {
         const key = nImo(d.imo);
         if (!isBlank(d.ism_client) && cMap[key]==null) cMap[key] = d.ism_client;
+        if (!isBlank(d.vessel_sub_type) && stM[key]==null) stM[key] = d.vessel_sub_type;
       });
       setCompanyMap(cMap);
       setRoMap(roM);
+      setShipTypeMap(stM);
 
       setLoading(false);
     })();
@@ -386,7 +389,7 @@ export default function BuildYourReportTab({ vessels = [], currentUser }) {
               rows={rows} ageMap={ageMap} typeMap={typeMap} riskMap={riskMap} inspectorMap={inspectorMap} includeMou={scope==="fleet"}
               selected={selected} onSelectedChange={setSelected}
               vesselFilterCount={vesselFilter.length}
-              companyMap={companyMap} roMap={roMap}
+              companyMap={companyMap} roMap={roMap} shipTypeMap={shipTypeMap}
             />
             </>
           )}

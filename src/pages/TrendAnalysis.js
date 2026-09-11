@@ -471,14 +471,24 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
             <div key={d.key}>
               <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
                 <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
-                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count} deficienc{d.count!==1?"ies":"y"} · {d.vesselCount} vessel{d.vesselCount!==1?"s":""})</span></span>
               </div>
               {isOpen && (
                 <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.descs.length>0 && (
+                    <div style={{marginBottom:"6px",paddingBottom:"6px",borderBottom:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>Specific Deficiencies</div>
+                      {d.descs.map(([desc,cnt],i)=>(
+                        <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"1px 0",display:"flex",justifyContent:"space-between",gap:"8px"}}>
+                          <span>{desc}</span><span style={{flexShrink:0,color:"var(--text3)"}}>{cnt}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
                     <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
                       <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
-                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                      <span style={{color:"var(--text3)"}}>{fmtDate(v.detentionDate)}</span>
                     </div>
                   ))}
                 </div>
@@ -498,14 +508,24 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
             <div key={d.key}>
               <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
                 <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
-                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count} deficienc{d.count!==1?"ies":"y"} · {d.vesselCount} vessel{d.vesselCount!==1?"s":""})</span></span>
               </div>
               {isOpen && (
                 <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.descs.length>0 && (
+                    <div style={{marginBottom:"6px",paddingBottom:"6px",borderBottom:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>Specific Deficiencies</div>
+                      {d.descs.map(([desc,cnt],i)=>(
+                        <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"1px 0",display:"flex",justifyContent:"space-between",gap:"8px"}}>
+                          <span>{desc}</span><span style={{flexShrink:0,color:"var(--text3)"}}>{cnt}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
                     <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
                       <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
-                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                      <span style={{color:"var(--text3)"}}>{fmtDate(v.detentionDate)}</span>
                     </div>
                   ))}
                 </div>
@@ -525,14 +545,24 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
             <div key={d.key}>
               <div onClick={()=>setOpenSub(isOpen?null:gk)} style={{display:"flex",justifyContent:"space-between",fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",cursor:"pointer"}}>
                 <span style={{color:isOpen?"var(--blue)":"var(--text2)",textDecoration:isOpen?"underline":"none"}}>{d.key}</span>
-                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count}x)</span></span>
+                <span style={{color:"var(--red2)"}}>{d.cat} <span style={{color:"var(--text3)"}}>({d.count} deficienc{d.count!==1?"ies":"y"} · {d.vesselCount} vessel{d.vesselCount!==1?"s":""})</span></span>
               </div>
               {isOpen && (
                 <div style={{background:"var(--bg2)",borderRadius:"5px",padding:"6px 8px",margin:"4px 0"}}>
+                  {d.descs.length>0 && (
+                    <div style={{marginBottom:"6px",paddingBottom:"6px",borderBottom:"1px solid var(--border)"}}>
+                      <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"3px"}}>Specific Deficiencies</div>
+                      {d.descs.map(([desc,cnt],i)=>(
+                        <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"1px 0",display:"flex",justifyContent:"space-between",gap:"8px"}}>
+                          <span>{desc}</span><span style={{flexShrink:0,color:"var(--text3)"}}>{cnt}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {d.vessels.sort((a,b)=>new Date(b.detentionDate||0)-new Date(a.detentionDate||0)).map((v,i)=>(
                     <div key={i} style={{fontSize:"10px",color:"var(--text2)",padding:"2px 0",display:"flex",justifyContent:"space-between"}}>
                       <span>{v.name} <span style={{color:"var(--text3)"}}>({v.imo})</span></span>
-                      <span style={{color:"var(--text3)"}}>{v.detentionDate}</span>
+                      <span style={{color:"var(--text3)"}}>{fmtDate(v.detentionDate)}</span>
                     </div>
                   ))}
                 </div>
@@ -546,7 +576,7 @@ function DrillDownPanel({ combo, drill, onClose, hideMajorDef }) {
   );
 }
 
-export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount, companyMap, roMap }) {
+export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMap, includeMou, selected: controlledSelected, onSelectedChange, vesselFilterCount, companyMap, roMap, shipTypeMap }) {
   // Learn port->country from any records in this dataset that DO have a real ", Country"
   // suffix, so bare port names elsewhere (no country in the raw string) can still resolve.
   const dynamicPortCountryMap = useMemo(() => {
@@ -563,7 +593,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
 
   const DIMENSIONS = useMemo(() => {
     const base = [
-      { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null); return t; } },
+      { id: "type", label: "Vessel Type", get: v => { const t = (typeMap&&typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null) || (shipTypeMap&&shipTypeMap[normImoBuilder(v.imo)]) || null; return t; } },
       { id: "age", label: "Vessel Age", get: v => { const a = ageMap && ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; } },
       { id: "ro", label: "RO (Classification Society)", get: v => (v.ro && v.ro!=="—" ? v.ro : null) || (roMap && roMap[normImoBuilder(v.imo)]) || null },
       { id: "port", label: "Location / Port", get: v => { const l = extractLocation(v.port); return l!=="Unknown" ? l : null; } },
@@ -702,9 +732,9 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         + (drill.repeatInspectors?.length ? "<b style='font-size:10pt;'>Same Inspector Across Multiple Vessels</b>"+table(["Inspector","Vessels"], drill.repeatInspectors.map(r=>[r.name,r.vesselCount])) : "")
         + (drill.companyClustering?.length ? "<b style='font-size:10pt;'>Company Clustering — Same Port / Location / MoU</b>"+table(["Company","Detentions","Pattern"], drill.companyClustering.map(c=>[c.company,c.count,c.flags.join(", ")])) : "")
         + (drill.matchingDeficiencies?.length ? "<b style='font-size:10pt;'>Matching / Repeated Deficiencies Across These Vessels</b>"+table(["Deficiency","Match Type","Occurrences"], drill.matchingDeficiencies.slice(0,10).map(d=>[(d.code?"["+d.code+"] ":"")+d.desc,d.matchType,d.vesselCount+" vessels"])) : "")
-        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Count","Vessels"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "")
-        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Count","Vessels"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "")
-        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Count","Vessels"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vessels.slice(0,8).map(v=>v.name).join(", ")])) : "");
+        + (drill.detCatByPortTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Port</b>"+table(["Port","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByPortTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
+        + (drill.detCatByTypeTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency by Ship Type</b>"+table(["Ship Type","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByTypeTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "")
+        + (drill.detCatByComboTop.length ? "<b style='font-size:10pt;'>Most Common Detainable Deficiency — Ship Type · Age · Port</b>"+table(["Combination","Category","Deficiencies","Vessels","Specific Deficiencies"], drill.detCatByComboTop.slice(0,10).map(d=>[d.key,d.cat,d.count,d.vesselCount,d.descs.map(([desc,cnt])=>desc+" ("+cnt+"x)").join("; ")])) : "");
     };
 
     // Selected Vessels Analysis — when specific vessels are chosen via the vessel filter,
@@ -761,7 +791,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
       vessels.forEach(v => { const k = getter(v) || "Unknown"; m[k]=m[k]||{count:0,vessels:[]}; m[k].count++; m[k].vessels.push(v); });
       return Object.entries(m).map(([label,d])=>[label,d.count,d.vessels]).sort((a,b)=>b[1]-a[1]);
     };
-    const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null));
+    const byType = countBy(v => (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null) || (shipTypeMap&&shipTypeMap[normImoBuilder(v.imo)]) || null);
     const byAgeBracket = countBy(v => { const a = ageMap[normImoBuilder(v.imo)]; return a!=null ? ageBracket(a) : null; });
     const byRo = countBy(v => (v.ro && v.ro!=="—" ? v.ro : null) || (roMap && roMap[normImoBuilder(v.imo)]) || null);
     // Placeholder text like "Not specified" is stored as a literal value in some records
@@ -842,7 +872,7 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     const detCatByPort = {}, detCatByType = {}, detCatByCombo = {};
     vessels.forEach(v => {
       const port = extractLocation(v.port);
-      const shipType = (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null);
+      const shipType = (typeMap[normImoBuilder(v.imo)]) || (v.type && v.type!=="—" ? v.type : null) || (shipTypeMap&&shipTypeMap[normImoBuilder(v.imo)]) || null;
       const ageVal = ageMap[normImoBuilder(v.imo)];
       const ageBrk = ageVal!=null ? ageBracket(ageVal) : null;
       const comboKey = (shipType&&ageBrk&&port!=="Unknown") ? shipType+" · "+ageBrk+" · "+port : null;
@@ -850,11 +880,13 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
         const cat = catDef(d.desc);
         const bump = (bucket, groupKey) => {
           bucket[groupKey] = bucket[groupKey] || {};
-          bucket[groupKey][cat] = bucket[groupKey][cat] || { count: 0, vessels: [] };
+          bucket[groupKey][cat] = bucket[groupKey][cat] || { count: 0, vessels: [], descs: {} };
           bucket[groupKey][cat].count++;
           if (!bucket[groupKey][cat].vessels.some(x=>x.imo===v.imo && x.detentionDate===v.detentionDate)) {
             bucket[groupKey][cat].vessels.push(v);
           }
+          const descKey = (d.desc||"Unspecified").trim();
+          bucket[groupKey][cat].descs[descKey] = (bucket[groupKey][cat].descs[descKey]||0)+1;
         };
         if (port!=="Unknown") bump(detCatByPort, port);
         if (shipType) bump(detCatByType, shipType);
@@ -863,7 +895,11 @@ export function CombinationBuilder({ rows, ageMap, typeMap, riskMap, inspectorMa
     });
     const topCatFrom = (obj) => Object.entries(obj).map(([key,cats]) => {
       const top = Object.entries(cats).sort((a,b)=>b[1].count-a[1].count)[0];
-      return { key, cat: top?.[0], count: top?.[1]?.count, vessels: top?.[1]?.vessels||[] };
+      return {
+        key, cat: top?.[0], count: top?.[1]?.count, vessels: top?.[1]?.vessels||[],
+        vesselCount: top?.[1]?.vessels?.length||0,
+        descs: top?.[1]?.descs ? Object.entries(top[1].descs).sort((a,b)=>b[1]-a[1]) : [],
+      };
     }).sort((a,b)=>b.count-a.count);
     // Matching/repeated deficiencies — the SAME specific deficiency (by code, falling back to
     // description) showing up across MULTIPLE DISTINCT vessels in this group. This is a
