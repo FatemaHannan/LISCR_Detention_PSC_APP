@@ -907,7 +907,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* Worst Performing Company */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Worst Performing Company</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>2. Worst Performing Company</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <Card title="Period 1" subtitle={p1Start+" to "+p1End}>
           {worstCompanyP1 ? (
@@ -955,7 +955,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* Quarter by Quarter (Q1-Q4) */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Quarter by Quarter — {new Date().getFullYear()} vs {new Date().getFullYear()-1}</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>Quarter by Quarter — {new Date().getFullYear()} vs {new Date().getFullYear()-1}</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr>{["Quarter",String(new Date().getFullYear()-1)+" Detentions",new Date().getFullYear()+" Detentions","Change","Avg Def. ("+(new Date().getFullYear()-1)+")","Avg Def. ("+new Date().getFullYear()+")","Trend"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:"var(--text3)",borderBottom:"1px solid var(--border)",textTransform:"uppercase",fontSize:"10px"}}>{h}</th>)}</tr></thead>
@@ -974,55 +974,19 @@ export default function PerformanceReview({ vessels = [] }) {
         <div style={{fontSize:"10px",color:"var(--text3)",marginTop:"8px"}}>Each completed quarter of {new Date().getFullYear()} compared to the same quarter in {new Date().getFullYear()-1}. Quarters that haven't started yet show as "upcoming".</div>
       </Card>
 
-      {/* Casualty & MLC by Company — Worst Performers, P1 vs P2 Comparison */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Casualty & MLC by Company — Worst Performers (P1 vs P2)</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
-        <Card title="Top 10 Companies — Casualty Reports" subtitle="From Consolidated Inspection History (VSL Casualty)">
-          {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
-          casualtyByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No casualty records on file for either period.</div>:
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-            <thead><tr><Th>Company</Th><Th>P1</Th><Th>P2</Th><Th>% Change</Th><Th>Verdict</Th></tr></thead>
-            <tbody>{casualtyByCompany.map(c=>(
-              <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-                <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td style={{color:"var(--text3)"}}>{c.p1}</Td><Td style={{color:"var(--text)",fontWeight:700}}>{c.p2}</Td>
-                <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
-                <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
-              </tr>
-            ))}</tbody>
-          </table>}
-        </Card>
-        <Card title="Top 10 Companies — MLC Complaints" subtitle="From MLC Complaints">
-          {companyReportsLoading?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>Loading…</div>:
-          mlcByCompany.length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No MLC complaints on file for either period.</div>:
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-            <thead><tr><Th>Company</Th><Th>P1</Th><Th>P2</Th><Th>% Change</Th><Th>Verdict</Th></tr></thead>
-            <tbody>{mlcByCompany.map(c=>(
-              <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
-                <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
-                <Td style={{color:"var(--text3)"}}>{c.p1}</Td><Td style={{color:"var(--text)",fontWeight:700}}>{c.p2}</Td>
-                <Td style={{color:c.pct<0?"var(--green2)":c.pct>0?"var(--red2)":"var(--text3)"}}>{c.pct>0?"+":""}{c.pct}%</Td>
-                <Td style={{color:c.vColor,fontWeight:600}}>{c.verdict}</Td>
-              </tr>
-            ))}</tbody>
-          </table>}
-        </Card>
-      </div>
-
       {/* CAR Closure by Company */}
       {/* Top 10 Companies by Year */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Top 10 Companies by Year — Detentions</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>3. Most Detention by Company</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
             {(detentionsByYearCompany[yr]||[]).length===0?<div style={{fontSize:"12px",color:"var(--text3)",padding:"12px"}}>No detentions on file for {yr}.</div>:
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-              <thead><tr><Th>Company</Th><Th>Detentions</Th><Th>Deficiencies</Th></tr></thead>
+              <thead><tr><Th>Company</Th><Th>Detentions</Th></tr></thead>
               <tbody>{detentionsByYearCompany[yr].map(c=>(
                 <tr key={c.company} style={{borderBottom:"1px solid var(--border)"}}>
                   <Td style={{color:"var(--text)",fontWeight:600}}>{c.company}</Td>
                   <Td>{c.count}</Td>
-                  <Td>{c.defs}</Td>
                 </tr>
               ))}</tbody>
             </table>}
@@ -1030,7 +994,7 @@ export default function PerformanceReview({ vessels = [] }) {
         ))}
       </div>
 
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Top 10 Companies by Year — MLC Complaints</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>4. Most MLC Complaint</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         {recentYears.map(yr => (
           <Card key={yr} title={yr}>
@@ -1049,7 +1013,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 1. Detention Rate Trend by Month */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. Detention Rate Trend by Month</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>5. Detention Rate Trend by Month</div>
       <Card style={{marginBottom:"14px"}}>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{top:20}}>
@@ -1068,33 +1032,29 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr><Th>Month</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Change</Th><Th>% Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th><Th>Avg Def. P1</Th><Th>Avg Def. P2</Th></tr></thead>
+          <thead><tr><Th>Month</Th><Th>P1</Th><Th>P2</Th><Th>% Change</Th></tr></thead>
           <tbody>{monthlyBreakdown.map((r,i)=>(
             <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
               <Td style={{color:"var(--text)",fontWeight:600}}>{r.month}</Td>
               <Td>{r.c1}</Td><Td>{r.c2}</Td>
-              <Td style={{color:r.change<0?"var(--green2)":r.change>0?"var(--red2)":"var(--text3)"}}>{r.change>0?"+":""}{r.change}</Td>
               <Td style={{color:r.pct<0?"var(--green2)":r.pct>0?"var(--red2)":"var(--text3)"}}>{r.pct>0?"+":""}{r.pct}%</Td>
-              <Td>{r.f1}</Td><Td>{r.f2}</Td><Td>{r.avg1}</Td><Td>{r.avg2}</Td>
             </tr>
           ))}</tbody>
         </table>
       </Card>
 
       {/* 2. Repeat Detentions */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. Repeat Detentions</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>6. Repeat Detentions</div>
       <Card subtitle="Vessels detained more than once across the two periods combined" style={{marginBottom:"20px"}}>
         {repeatVessels.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No repeat detentions found across the selected periods.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr><Th>IMO</Th><Th>Vessel</Th><Th>Status</Th><Th>Count</Th><Th>MoU(s)</Th><Th>Total Def.</Th><Th>Inspection Dates</Th></tr></thead>
+          <thead><tr><Th>IMO</Th><Th>Vessel</Th><Th>Count</Th><Th>MoU(s)</Th><Th>Inspection Dates</Th></tr></thead>
           <tbody>{repeatVessels.map(v=>(
             <tr key={v.imo} style={{borderBottom:"1px solid var(--border)"}}>
               <Td style={{fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</Td>
               <Td style={{color:statusMap[v.imo]==="Stricken"?"var(--red2)":"var(--text)",fontWeight:600}}>{v.name}</Td>
-              <Td style={{color:statusMap[v.imo]==="Stricken"?"var(--red2)":"var(--text3)"}}>{statusMap[v.imo]||"—"}</Td>
               <Td style={{fontWeight:600}}>{v.count}</Td>
               <Td>{v.mous}</Td>
-              <Td>{v.defs}</Td>
               <Td style={{fontFamily:"var(--mono)",fontSize:"11px"}}>{v.dates.join(", ")}</Td>
             </tr>
           ))}</tbody>
@@ -1102,7 +1062,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3. MOU-Level Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. MOU-Level Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>7. MOU-Level Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, mouPerformance.length*34)}>
           <BarChart data={mouPerformance.map(m=>({name:m.mou, [p1Label(p1Start,p1End)]:m.d1, [p2Label(p2Start,p2End)]:m.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -1136,7 +1096,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3b. RO (Recognized Organization) Performance */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. RO Performance</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>8. RO Performance</div>
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, roPerformance.length*34)}>
           <BarChart data={roPerformance.map(r=>({name:r.ro, [p1Label(p1Start,p1End)]:r.d1, [p2Label(p2Start,p2End)]:r.d2}))} layout="vertical" margin={{left:10,right:24}}>
@@ -1170,7 +1130,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 3c. Major Deficiency Type Comparison */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. Major Deficiency Type Comparison</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>9. Major Deficiency Type Comparison</div>
       {deficiencyTypeComparison.length>0 &&
       <Card style={{marginBottom:"20px"}}>
         <ResponsiveContainer width="100%" height={Math.max(200, deficiencyTypeComparison.length*34)}>
@@ -1205,7 +1165,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 4. Highest deficiency single inspections */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. Highest Number of Deficiencies (Single Inspection)</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>10. Highest Number of Deficiencies (Single Inspection)</div>
       <Card style={{marginBottom:"20px"}}>
         {worstInspections.length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No deficiency data found.</div>:
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
@@ -1215,7 +1175,7 @@ export default function PerformanceReview({ vessels = [] }) {
               <Td style={{color:"var(--text3)"}}>{v.periodLabel}</Td>
               <Td style={{fontFamily:"var(--mono)",color:"var(--text3)"}}>{v.imo}</Td>
               <Td style={{color:"var(--text)",fontWeight:600}}>{v.name}</Td>
-              <Td>{fmtDate(v.detentionDate)}</Td>
+              <Td>{fmtDateLong(v.detentionDate)}</Td>
               <Td style={{color:"var(--red2)",fontWeight:700}}>{v.defs}</Td>
               <Td>{v.mou||"—"}</Td>
               <Td>{v.port||"—"}</Td>
@@ -1225,7 +1185,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 5. Registry Performance Assessment */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Registry Performance Assessment</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>1. Registry Performance Assessment</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Measure</Th><Th>Period 1</Th><Th>Period 2</Th><Th>Change</Th><Th>Verdict</Th></tr></thead>
@@ -1265,7 +1225,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 6. Inspection Country */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Inspection Country</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>11. Inspection Country</div>
       <Card style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
           <thead><tr><Th>Country</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Change</Th><Th>P1 Def.</Th><Th>P2 Def.</Th></tr></thead>
@@ -1281,26 +1241,31 @@ export default function PerformanceReview({ vessels = [] }) {
       </Card>
 
       {/* 7. Ports */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>15. Ports</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>12. Ports</div>
       <Card subtitle="Ranked by Period 1, compared against Period 2" style={{marginBottom:"20px"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
-          <thead><tr><Th>Port (Period 1 rank)</Th><Th>P1 Det.</Th><Th>P2 Det.</Th><Th>Difference</Th></tr></thead>
-          <tbody>{portsP1.map(p=>{
-            const p2count = portsP2Map[p.port]||0;
-            const diff = p2count-p.count;
-            return (
-              <tr key={p.port} style={{borderBottom:"1px solid var(--border)"}}>
-                <Td style={{color:"var(--text)",fontWeight:600}}>{p.port}</Td>
-                <Td>{p.count}</Td><Td>{p2count}</Td>
-                <Td style={{color:diff<0?"var(--green2)":diff>0?"var(--red2)":"var(--text3)"}}>{diff>0?"+":""}{diff}</Td>
-              </tr>
-            );
-          })}</tbody>
+          <thead><tr><Th>Port</Th><Th>P1</Th><Th>P1 Rank</Th><Th>P2</Th><Th>P2 Rank</Th><Th>Difference</Th></tr></thead>
+          <tbody>{(() => {
+            const p2Ranked = [...portsP1].sort((a,b)=>(portsP2Map[b.port]||0)-(portsP2Map[a.port]||0));
+            const p2RankMap = {}; p2Ranked.forEach((p,i)=>{p2RankMap[p.port]=i+1;});
+            return portsP1.map((p,i)=>{
+              const p2count = portsP2Map[p.port]||0;
+              const diff = p2count-p.count;
+              return (
+                <tr key={p.port} style={{borderBottom:"1px solid var(--border)"}}>
+                  <Td style={{color:"var(--text)",fontWeight:600}}>{p.port}</Td>
+                  <Td>{p.count}</Td><Td style={{color:"var(--text3)"}}>{i+1}</Td>
+                  <Td>{p2count}</Td><Td style={{color:"var(--text3)"}}>{p2RankMap[p.port]}</Td>
+                  <Td style={{color:diff<0?"var(--green2)":diff>0?"var(--red2)":"var(--text3)"}}>{diff>0?"+":""}{diff}</Td>
+                </tr>
+              );
+            });
+          })()}</tbody>
         </table>
       </Card>
 
       {/* 8. Recommended Areas of Focus */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>16. Recommended Areas of Focus</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>13. Recommended Areas of Focus</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"}}>
         <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:"8px",padding:"14px"}}>
           <div style={{fontSize:"12px",fontWeight:700,color:"var(--green2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"10px"}}>✓ Where We're Doing Well</div>
@@ -1318,7 +1283,7 @@ export default function PerformanceReview({ vessels = [] }) {
       </div>
 
       {/* 9. Conclusion */}
-      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>17. Conclusion</div>
+      <div style={{fontSize:"13px",fontWeight:700,color:"var(--text2)",margin:"4px 0 8px"}}>14. Conclusion</div>
       <Card style={{marginBottom:"20px"}}>
         <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.75}}>
           Period 2 was {kpi.detPct<0?"better than":kpi.detPct>0?"worse than":"in line with"} Period 1 on the headline indicators: detentions {kpi.detChange<=0?"fell":"rose"} by {Math.abs(kpi.detChange)} ({kpi.detPct>0?"+":""}{kpi.detPct}%) and total deficiencies {kpi.defChange<=0?"fell":"rose"} by {Math.abs(kpi.defChange)} ({kpi.defPct>0?"+":""}{kpi.defPct}%). {kpi.detPct<0&&kpi.defPct<0?"This is a meaningful improvement, but it should not be treated as fully resolved — ":""}
