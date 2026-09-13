@@ -732,43 +732,43 @@ export default function PerformanceReview({ vessels = [] }) {
       + table(["Quarter",(new Date().getFullYear()-1)+" Det.",new Date().getFullYear()+" Det.","Change","Trend"],
           quarterly.map(q=>[q.q, q.priorCount, q.curCount!=null?q.curCount:"upcoming", {v:(q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—"),color:q.pct!=null?pctColor(q.pct):null}, q.qVerdict]))
 
-      + sectionTitle("4. Most Detention by Company")
+      + sectionTitle("3. Most Detention by Company")
       + (recentYears.length ? barChart((detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>({label:c.company, value:c.count})), Math.max(1,...(detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>c.count))) : "")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Detentions"], (detentionsByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
-      + sectionTitle("Most MLC Complaint")
+      + sectionTitle("4. Most MLC Complaint")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","MLC Complaints"], (mlcByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
-      + sectionTitle("Detention Rate Trend by Month")
+      + sectionTitle("5. Detention Rate Trend by Month")
       + barChartCompare(monthlyBreakdown.map(r=>({label:r.month, v1:r.c1, v2:r.c2})), Math.max(1,...monthlyBreakdown.map(r=>Math.max(r.c1,r.c2))), "Period 1", "Period 2")
       + table(["Month","P1","P2","% Change"], monthlyBreakdown.map(r=>[r.month,r.c1,r.c2,{v:(r.pct>0?"+":"")+r.pct+"%",color:pctColor(r.pct)}]))
 
-      + sectionTitle("Repeat Detentions")
+      + sectionTitle("6. Repeat Detentions")
       + "<p style='font-size:9pt;color:#666;'>Vessels detained more than once across the two periods combined</p>"
       + (repeatVessels.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No repeat detentions found across the selected periods.</p>" :
       table(["IMO","Vessel","Count","MoU(s)","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},v.count,v.mous,v.dates.join(", ")])))
 
-      + sectionTitle("9. MoU-Level Performance")
+      + sectionTitle("7. MoU-Level Performance")
       + barChartCompare(mouPerformance.slice(0,10).map(m=>({label:m.mou, v1:m.d1, v2:m.d2})), Math.max(1,...mouPerformance.slice(0,10).map(m=>Math.max(m.d1,m.d2))), "Period 1", "Period 2")
       + table(["MoU","P1 Det.","P2 Det.","% Change","Verdict"], mouPerformance.map(m=>[m.mou,m.d1,m.d2,{v:(m.detPct>0?"+":"")+m.detPct+"%",color:pctColor(m.detPct)},m.verdict]))
 
-      + sectionTitle("10. RO Performance")
+      + sectionTitle("8. RO Performance")
       + barChartCompare(roPerformance.slice(0,10).map(r=>({label:r.ro, v1:r.d1, v2:r.d2})), Math.max(1,...roPerformance.slice(0,10).map(r=>Math.max(r.d1,r.d2))), "Period 1", "Period 2")
       + table(["RO","P1 Det.","P2 Det.","% Change","Verdict"], roPerformance.map(r=>[r.ro,r.d1,r.d2,{v:(r.detPct>0?"+":"")+r.detPct+"%",color:pctColor(r.detPct)},r.verdict]))
 
-      + sectionTitle("11. Major Deficiency Type Comparison")
+      + sectionTitle("9. Major Deficiency Type Comparison")
       + barChartCompare(deficiencyTypeComparison.map(c=>({label:c.cat, v1:c.c1, v2:c.c2})), Math.max(1,...deficiencyTypeComparison.map(c=>Math.max(c.c1,c.c2))), "Period 1", "Period 2")
       + table(["Deficiency Type","Period 1","Period 2","% Change"], deficiencyTypeComparison.map(c=>[c.cat,c.c1,c.c2,{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)}]))
 
-      + sectionTitle("12. Highest Number of Deficiencies (Single Inspection)")
+      + sectionTitle("10. Highest Number of Deficiencies (Single Inspection)")
       + (worstInspections.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No deficiency data found.</p>" :
       table(["Period","IMO","Vessel","Inspection Date","Deficiencies","MoU","Port"], worstInspections.map(v=>[v.periodLabel,v.imo,{v:v.name,bold:true},fmtDateLong(v.detentionDate),{v:v.defs,color:R,bold:true},v.mou||"—",v.port||"—"])))
 
-      + sectionTitle("14. Inspection Country")
+      + sectionTitle("11. Inspection Country")
       + barChartCompare(countryPerformance.slice(0,12).map(c=>({label:c.country, v1:c.d1, v2:c.d2})), Math.max(1,...countryPerformance.slice(0,12).map(c=>Math.max(c.d1,c.d2))), "Period 1", "Period 2")
       + table(["Country","P1 Det.","P2 Det.","Change","P1 Def.","P2 Def."], countryPerformance.map(c=>[c.country,c.d1,c.d2,{v:((c.d2-c.d1)>0?"+":"")+(c.d2-c.d1),color:pctColor(c.d2-c.d1)},c.f1,c.f2]))
 
-      + sectionTitle("Ports")
+      + sectionTitle("12. Ports")
       + "<p style='font-size:9pt;color:#666;'>Ranked by Period 1, compared against Period 2</p>"
       + (() => {
           const p2Ranked = [...portsP1].sort((a,b)=>(portsP2Map[b.port]||0)-(portsP2Map[a.port]||0));
@@ -779,7 +779,7 @@ export default function PerformanceReview({ vessels = [] }) {
           }));
         })()
 
-      + sectionTitle("16. Recommended Areas of Focus")
+      + sectionTitle("13. Recommended Areas of Focus")
       + "<div style='display:flex;gap:16px;margin-top:8px;'>"
       + "<div style='flex:1;border:1px solid #22c55e;border-radius:6px;padding:10px 14px;'>"
       + "<b style='color:"+G+";'>✓ Where We're Doing Well</b>"
@@ -789,7 +789,7 @@ export default function PerformanceReview({ vessels = [] }) {
       + "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;line-height:1.6;'>"+(focusAreas.attention.length?focusAreas.attention.map(a=>"<li>"+esc(a)+"</li>").join(""):"<li>No significant red flags this period.</li>")+"</ul></div>"
       + "</div>"
 
-      + sectionTitle("17. Conclusion")
+      + sectionTitle("14. Conclusion")
       + "<p style='font-size:9.5pt;line-height:1.7;'>"
       + "Period 2 was "+(kpi.detPct<0?"better than":kpi.detPct>0?"worse than":"in line with")+" Period 1 on the headline indicators: detentions "+(kpi.detChange<=0?"fell":"rose")+" by "+Math.abs(kpi.detChange)+" ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%) and total deficiencies "+(kpi.defChange<=0?"fell":"rose")+" by "+Math.abs(kpi.defChange)+" ("+(kpi.defPct>0?"+":"")+kpi.defPct+"%). "+(kpi.detPct<0&&kpi.defPct<0?"This is a meaningful improvement, but it should not be treated as fully resolved — ":"")
       + "Period 2 detained vessels carried an average of <b>"+kpi.a2+"</b> deficiencies per detention, <b>"+repeatVessels.length+"</b> repeat detention group(s) remain visible, and <b>"+esc(dominantMou)+"</b> continues to dominate exposure."
