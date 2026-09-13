@@ -121,9 +121,19 @@ export function catDef(desc) {
 function normalizeMouValue(mou) {
   if (!mou) return mou;
   const trimmed = mou.trim();
+  const lower = trimmed.toLowerCase();
   // China MSA operates under the Tokyo MoU region — combine it in, same alias already
   // used for benchmark comparison elsewhere in this app.
-  if (trimmed.toLowerCase() === "china msa") return "Tokyo MOU";
+  if (lower === "china msa") return "Tokyo MOU";
+  // Descriptive variants and casing differences for the same MoU, entered inconsistently
+  // across different case records — fold each into one canonical value so counts/filters
+  // by MoU aren't silently undercounting or splitting into a phantom separate category.
+  // "Asia-Pacific" is Tokyo MOU's official region name (Tokyo MoU on PSC in the
+  // Asia-Pacific Region) - not a separate MoU.
+  if (lower.includes("tokyo") || lower.includes("asia-pacific") || lower.includes("asia pacific")) return "Tokyo MOU";
+  if (lower.includes("paris")) return "Paris MOU";
+  if (lower.includes("vina")) return "Vina Del Mar";
+  if (lower === "australia" || lower.includes("australia")) return "AMSA";
   return trimmed;
 }
 

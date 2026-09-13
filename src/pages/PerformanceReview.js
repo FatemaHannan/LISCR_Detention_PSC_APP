@@ -17,7 +17,7 @@ function normalizeMouValue(mou) {
   if (!trimmed || trimmed === "—") return null;
   const lower = trimmed.toLowerCase();
   if (lower === "china msa") return "Tokyo MOU";
-  if (lower.includes("tokyo")) return "Tokyo MOU";
+  if (lower.includes("tokyo") || lower.includes("asia-pacific") || lower.includes("asia pacific")) return "Tokyo MOU";
   if (lower.includes("paris")) return "Paris MOU";
   if (lower.includes("vina")) return "Vina Del Mar";
   // "Australia" and "Australia (AMSA)" are the same regulatory body as "AMSA", just

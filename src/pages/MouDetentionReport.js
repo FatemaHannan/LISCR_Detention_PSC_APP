@@ -17,7 +17,7 @@ function normalizeMouValue(mou) {
   // Descriptive variants and casing differences for the same MoU, entered inconsistently
   // across different case records — fold each into one canonical value so counts/filters
   // by MoU aren't silently undercounting.
-  if (lower.includes("tokyo")) return "Tokyo MOU";
+  if (lower.includes("tokyo") || lower.includes("asia-pacific") || lower.includes("asia pacific")) return "Tokyo MOU";
   if (lower.includes("paris")) return "Paris MOU";
   if (lower.includes("vina")) return "Vina Del Mar";
   if (lower === "australia" || lower.includes("australia")) return "AMSA";
