@@ -3,6 +3,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from "../lib/supabase";
 import { catDef, DEF_CATEGORY_ORDER } from "./TrendAnalysis";
 import { fmtDate } from "../lib/utils";
+// "1 Jan 2025" style - specifically for Inspection Date columns, distinct from the app-wide
+// fmtDate (22-Jul-2026 style) used everywhere else in this report.
+function fmtDateLong(dateStr) {
+  if (!dateStr) return "—";
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${parseInt(match[3])} ${months[parseInt(match[2])-1]} ${match[1]}`;
+  return String(dateStr);
+}
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -457,20 +466,30 @@ export default function PerformanceReview({ vessels = [] }) {
   const currentYearMonthly = useMemo(() => {
     const yr = String(new Date().getFullYear());
     const currentMonth = new Date().getMonth()+1;
-    const counts = {}, defsByMonth = {};
+    const counts = {}, defsByMonth = {}, agesByMonth = {}, typesByMonth = {}, classesByMonth = {};
     detained.forEach(v => {
       if (v.detentionDate && String(v.detentionDate).startsWith(yr)) {
         const mm = String(v.detentionDate).slice(5,7);
         counts[mm] = (counts[mm]||0)+1;
         defsByMonth[mm] = (defsByMonth[mm]||0) + (v.defs||0);
+        if (v.age!=null && v.age!=="") { agesByMonth[mm] = agesByMonth[mm]||[]; agesByMonth[mm].push(Number(v.age)); }
+        if (v.type && v.type!=="—") { typesByMonth[mm] = typesByMonth[mm]||{}; typesByMonth[mm][v.type] = (typesByMonth[mm][v.type]||0)+1; }
+        if (v.ro && v.ro!=="—") { classesByMonth[mm] = classesByMonth[mm]||{}; classesByMonth[mm][v.ro] = (classesByMonth[mm][v.ro]||0)+1; }
       }
     });
+    const mostCommon = (obj) => { if (!obj) return "—"; const e = Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]; return e ? e[0] : "—"; };
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const rows = [];
     for (let m=1; m<=currentMonth; m++) {
       const mm = String(m).padStart(2,"0");
       const c = counts[mm]||0;
-      rows.push({ month: monthNames[m-1], count: c, avgDefs: c ? (defsByMonth[mm]/c).toFixed(1) : "—" });
+      const ages = agesByMonth[mm]||[];
+      rows.push({
+        month: monthNames[m-1], count: c, avgDefs: c ? (defsByMonth[mm]/c).toFixed(1) : "—",
+        avgAge: ages.length ? (ages.reduce((a,b)=>a+b,0)/ages.length).toFixed(1) : "—",
+        shipType: mostCommon(typesByMonth[mm]),
+        class: mostCommon(classesByMonth[mm]),
+      });
     }
     return { rows, year: yr };
   }, [detained]);
@@ -688,7 +707,16 @@ export default function PerformanceReview({ vessels = [] }) {
           "<ul style='margin:6px 0 0;padding-left:18px;font-size:9.5pt;'>" + kpiHighlights.map(h=>"<li style='margin-bottom:4px;'>"+h.icon+" "+esc(h.text)+"</li>").join("") + "</ul>")
       + "</div>"
 
-      + sectionTitle("1. Worst Performing Company")
+      + sectionTitle("1. Registry Performance Assessment")
+      + table(["Measure","Period 1","Period 2","Change","Verdict"], [
+          ["Detained vessel records", kpi.d1, kpi.d2, {v:(kpi.detChange>0?"+":"")+kpi.detChange+" ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%)",color:kpi.detChange<=0?G:R}, {v:kpi.detChange<=0?"Improved":"Worsened",color:kpi.detChange<=0?G:R,bold:true}],
+          ["Total deficiencies", kpi.f1, kpi.f2, {v:(kpi.defChange>0?"+":"")+kpi.defChange+" ("+(kpi.defPct>0?"+":"")+kpi.defPct+"%)",color:kpi.defChange<=0?G:R}, {v:kpi.defChange<=0?"Improved":"Worsened",color:kpi.defChange<=0?G:R,bold:true}],
+          ["Avg deficiencies per detention", kpi.a1, kpi.a2, {v:(pctChange(kpi.a1,kpi.a2)>0?"+":"")+pctChange(kpi.a1,kpi.a2)+"%",color:kpi.a2<=kpi.a1?G:R}, {v:kpi.a2<=kpi.a1?"Improved":"Worsened",color:kpi.a2<=kpi.a1?G:R,bold:true}],
+          ["Repeat detention groups", repeatVessels.length, "", "—", {v:repeatVessels.length>0?"Follow-up required":"None",color:A,bold:true}],
+          ["Dominant detention MoU", dominantMou, "", "—", {v:"Key risk area",color:A,bold:true}],
+        ])
+
+      + sectionTitle("2. Worst Performing Company")
       + table(["Period","Company","Detentions","Avg Deficiencies"], [
           ["Period 1", worstCompanyP1?worstCompanyP1.company:"—", worstCompanyP1?worstCompanyP1.count:"—", worstCompanyP1?worstCompanyP1.avgDefs:"—"],
           ["Period 2", worstCompanyP2?worstCompanyP2.company:"—", worstCompanyP2?worstCompanyP2.count:"—", worstCompanyP2?worstCompanyP2.avgDefs:"—"],
@@ -697,38 +725,28 @@ export default function PerformanceReview({ vessels = [] }) {
 
       + sectionTitle(currentYearMonthly.year+" — Month by Month")
       + barChart(currentYearMonthly.rows.map(r=>({label:r.month, value:r.count})), Math.max(1,...currentYearMonthly.rows.map(r=>r.count)))
-      + table(["Month","Detentions","Avg Deficiencies"], currentYearMonthly.rows.map(r=>[r.month,r.count,r.avgDefs]))
+      + table(["Month","Detentions","Avg Age","Ship Type","Avg Deficiencies","Class"], currentYearMonthly.rows.map(r=>[r.month,r.count,r.avgAge,r.shipType,r.avgDefs,r.class]))
 
       + sectionTitle("Quarter by Quarter — "+new Date().getFullYear()+" vs "+(new Date().getFullYear()-1))
       + barChartCompare(quarterly.filter(q=>q.curCount!=null).map(q=>({label:q.q, v1:q.priorCount, v2:q.curCount})), Math.max(1,...quarterly.filter(q=>q.curCount!=null).map(q=>Math.max(q.priorCount,q.curCount))), String(new Date().getFullYear()-1), String(new Date().getFullYear()))
       + table(["Quarter",(new Date().getFullYear()-1)+" Det.",new Date().getFullYear()+" Det.","Change","Trend"],
           quarterly.map(q=>[q.q, q.priorCount, q.curCount!=null?q.curCount:"upcoming", {v:(q.pct!=null?(q.pct>0?"+":"")+q.pct+"%":"—"),color:q.pct!=null?pctColor(q.pct):null}, q.qVerdict]))
 
-      + sectionTitle("4. Casualty & MLC by Company — Worst Performers (P1 vs P2)")
-      + twoCol(
-          card("Top 10 Companies — Casualty Reports", "From Consolidated Inspection History (VSL Casualty)",
-            casualtyByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No casualty records on file for either period.</p>" :
-            table(["Company","P1","P2","% Change","Verdict"], casualtyByCompany.map(c=>[c.company,{v:c.p1,color:"#888"},{v:c.p2,bold:true},{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}]))),
-          card("Top 10 Companies — MLC Complaints", "From MLC Complaints",
-            mlcByCompany.length===0 ? "<p style='font-size:9pt;color:#888;'>No MLC complaints on file for either period.</p>" :
-            table(["Company","P1","P2","% Change","Verdict"], mlcByCompany.map(c=>[c.company,{v:c.p1,color:"#888"},{v:c.p2,bold:true},{v:(c.pct>0?"+":"")+c.pct+"%",color:pctColor(c.pct)},{v:c.verdict,color:c.vColor==="var(--green2)"?G:c.vColor==="var(--red2)"?R:null,bold:true}])))
-        )
-
-      + sectionTitle("5. Top 10 Companies by Year — Detentions")
+      + sectionTitle("4. Most Detention by Company")
       + (recentYears.length ? barChart((detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>({label:c.company, value:c.count})), Math.max(1,...(detentionsByYearCompany[recentYears[recentYears.length-1]]||[]).map(c=>c.count))) : "")
-      + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Detentions","Deficiencies"], (detentionsByYearCompany[yr]||[]).map(c=>[c.company,c.count,c.defs]))).join("")
+      + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","Detentions"], (detentionsByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
-      + sectionTitle("6. Top 10 Companies by Year — MLC Complaints")
+      + sectionTitle("Most MLC Complaint")
       + recentYears.map(yr => "<b style='font-size:10pt;'>"+yr+"</b>" + table(["Company","MLC Complaints"], (mlcByYearCompany[yr]||[]).map(c=>[c.company,c.count]))).join("")
 
-      + sectionTitle("7. Detention Rate Trend by Month")
+      + sectionTitle("Detention Rate Trend by Month")
       + barChartCompare(monthlyBreakdown.map(r=>({label:r.month, v1:r.c1, v2:r.c2})), Math.max(1,...monthlyBreakdown.map(r=>Math.max(r.c1,r.c2))), "Period 1", "Period 2")
-      + table(["Month","P1 Det.","P2 Det.","Change","% Change","P1 Def.","P2 Def.","Avg Def. P1","Avg Def. P2"], monthlyBreakdown.map(r=>[r.month,r.c1,r.c2,{v:(r.change>0?"+":"")+r.change,color:pctColor(r.change)},{v:(r.pct>0?"+":"")+r.pct+"%",color:pctColor(r.pct)},r.f1,r.f2,r.avg1,r.avg2]))
+      + table(["Month","P1","P2","% Change"], monthlyBreakdown.map(r=>[r.month,r.c1,r.c2,{v:(r.pct>0?"+":"")+r.pct+"%",color:pctColor(r.pct)}]))
 
-      + sectionTitle("8. Repeat Detentions")
+      + sectionTitle("Repeat Detentions")
       + "<p style='font-size:9pt;color:#666;'>Vessels detained more than once across the two periods combined</p>"
       + (repeatVessels.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No repeat detentions found across the selected periods.</p>" :
-      table(["IMO","Vessel","Status","Count","MoU(s)","Total Def.","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},statusMap[v.imo]||"—",v.count,v.mous,v.defs,v.dates.join(", ")])))
+      table(["IMO","Vessel","Count","MoU(s)","Inspection Dates"], repeatVessels.map(v=>[v.imo,{v:v.name,color:statusMap[v.imo]==="Stricken"?R:null,bold:true},v.count,v.mous,v.dates.join(", ")])))
 
       + sectionTitle("9. MoU-Level Performance")
       + barChartCompare(mouPerformance.slice(0,10).map(m=>({label:m.mou, v1:m.d1, v2:m.d2})), Math.max(1,...mouPerformance.slice(0,10).map(m=>Math.max(m.d1,m.d2))), "Period 1", "Period 2")
@@ -744,24 +762,22 @@ export default function PerformanceReview({ vessels = [] }) {
 
       + sectionTitle("12. Highest Number of Deficiencies (Single Inspection)")
       + (worstInspections.length===0 ? "<p style='font-size:9.5pt;color:#888;'>No deficiency data found.</p>" :
-      table(["Period","IMO","Vessel","Inspection Date","Deficiencies","MoU","Port"], worstInspections.map(v=>[v.periodLabel,v.imo,{v:v.name,bold:true},v.detentionDate,{v:v.defs,color:R,bold:true},v.mou||"—",v.port||"—"])))
-
-      + sectionTitle("13. Registry Performance Assessment")
-      + table(["Measure","Period 1","Period 2","Change","Verdict"], [
-          ["Detained vessel records", kpi.d1, kpi.d2, {v:(kpi.detChange>0?"+":"")+kpi.detChange+" ("+(kpi.detPct>0?"+":"")+kpi.detPct+"%)",color:kpi.detChange<=0?G:R}, {v:kpi.detChange<=0?"Improved":"Worsened",color:kpi.detChange<=0?G:R,bold:true}],
-          ["Total deficiencies", kpi.f1, kpi.f2, {v:(kpi.defChange>0?"+":"")+kpi.defChange+" ("+(kpi.defPct>0?"+":"")+kpi.defPct+"%)",color:kpi.defChange<=0?G:R}, {v:kpi.defChange<=0?"Improved":"Worsened",color:kpi.defChange<=0?G:R,bold:true}],
-          ["Avg deficiencies per detention", kpi.a1, kpi.a2, {v:(pctChange(kpi.a1,kpi.a2)>0?"+":"")+pctChange(kpi.a1,kpi.a2)+"%",color:kpi.a2<=kpi.a1?G:R}, {v:kpi.a2<=kpi.a1?"Improved":"Worsened",color:kpi.a2<=kpi.a1?G:R,bold:true}],
-          ["Repeat detention groups", repeatVessels.length, "", "—", {v:repeatVessels.length>0?"Follow-up required":"None",color:A,bold:true}],
-          ["Dominant detention MoU", dominantMou, "", "—", {v:"Key risk area",color:A,bold:true}],
-        ])
+      table(["Period","IMO","Vessel","Inspection Date","Deficiencies","MoU","Port"], worstInspections.map(v=>[v.periodLabel,v.imo,{v:v.name,bold:true},fmtDateLong(v.detentionDate),{v:v.defs,color:R,bold:true},v.mou||"—",v.port||"—"])))
 
       + sectionTitle("14. Inspection Country")
       + barChartCompare(countryPerformance.slice(0,12).map(c=>({label:c.country, v1:c.d1, v2:c.d2})), Math.max(1,...countryPerformance.slice(0,12).map(c=>Math.max(c.d1,c.d2))), "Period 1", "Period 2")
       + table(["Country","P1 Det.","P2 Det.","Change","P1 Def.","P2 Def."], countryPerformance.map(c=>[c.country,c.d1,c.d2,{v:((c.d2-c.d1)>0?"+":"")+(c.d2-c.d1),color:pctColor(c.d2-c.d1)},c.f1,c.f2]))
 
-      + sectionTitle("15. Ports")
+      + sectionTitle("Ports")
       + "<p style='font-size:9pt;color:#666;'>Ranked by Period 1, compared against Period 2</p>"
-      + table(["Port (Period 1 rank)","P1 Det.","P2 Det.","Difference"], portsP1.map(p=>{const p2count=portsP2Map[p.port]||0; const diff=p2count-p.count; return [p.port,p.count,p2count,{v:(diff>0?"+":"")+diff,color:pctColor(diff)}];}))
+      + (() => {
+          const p2Ranked = [...portsP1].sort((a,b)=>(portsP2Map[b.port]||0)-(portsP2Map[a.port]||0));
+          const p2RankMap = {}; p2Ranked.forEach((p,i)=>{p2RankMap[p.port]=i+1;});
+          return table(["Port","P1","P1 Rank","P2","P2 Rank","Difference"], portsP1.map((p,i)=>{
+            const p2count=portsP2Map[p.port]||0; const diff=p2count-p.count;
+            return [p.port,p.count,i+1,p2count,p2RankMap[p.port],{v:(diff>0?"+":"")+diff,color:pctColor(diff)}];
+          }));
+        })()
 
       + sectionTitle("16. Recommended Areas of Focus")
       + "<div style='display:flex;gap:16px;margin-top:8px;'>"
