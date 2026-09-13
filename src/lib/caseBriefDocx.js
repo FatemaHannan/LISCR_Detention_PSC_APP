@@ -350,10 +350,15 @@ export async function generateCaseBriefDocx(ctx) {
     const trendRows = (allInspsSorted||[]).filter(f => (f.num_findings??0) > 0).slice(0,15);
     if (trendRows.length > 0) {
       children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
-      children.push(table(trendRows.map(f => typedRow(
-        fmtDate(f.inspection_date), f.flag_psc,
-        (findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file")
-      ))));
+      children.push(multiColTable(
+        ["Date","Type","Deficiency Names"],
+        trendRows.map(f => [
+          fmtDate(f.inspection_date),
+          typeLabel(f.flag_psc),
+          (findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"),
+        ]),
+        [1500, 1200, 7380]
+      ));
     }
   }
 
