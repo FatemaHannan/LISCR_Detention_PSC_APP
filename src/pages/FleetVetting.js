@@ -139,18 +139,27 @@ export default function FleetVetting({ vessels = [] }) {
   // ships for at this location", same spirit as the ML system's Country Deficiency Trends /
   // China Port Match, computed from data already loaded (no extra query). ----
   const locationCategoryPattern = useMemo(() => {
-    const byCountry = {}; // lowercase country -> { category -> count }
+    const byCountry = {}, byPort = {}, byMou = {};
+    const byCountryDesc = {}, byPortDesc = {}, byMouDesc = {};
+    const bump = (catMap, descMap, key, cat, desc) => {
+      catMap[key] = catMap[key] || {};
+      catMap[key][cat] = (catMap[key][cat]||0)+1;
+      descMap[key] = descMap[key] || {};
+      descMap[key][desc] = (descMap[key][desc]||0)+1;
+    };
     detained.forEach(v => {
       const country = extractCountryFV(v.port);
-      if (country==="Unknown") return;
-      const key = country.toLowerCase();
+      const portKey = String(v.port||"").split(",")[0].trim().toLowerCase();
+      const mouKey = v.mou && v.mou!=="—" ? v.mou : null;
       (v.deficiencies||[]).forEach(d => {
         const cat = catDef(d.desc);
-        byCountry[key] = byCountry[key] || {};
-        byCountry[key][cat] = (byCountry[key][cat]||0)+1;
+        const desc = (d.desc||"Unspecified").trim();
+        if (country!=="Unknown") bump(byCountry, byCountryDesc, country.toLowerCase(), cat, desc);
+        if (portKey) bump(byPort, byPortDesc, portKey, cat, desc);
+        if (mouKey) bump(byMou, byMouDesc, mouKey, cat, desc);
       });
     });
-    return byCountry;
+    return { byCountry, byPort, byMou, byCountryDesc, byPortDesc, byMouDesc };
   }, [detained]);
 
   const searchResults = useMemo(() => {
@@ -295,6 +304,7 @@ export default function FleetVetting({ vessels = [] }) {
     let topLocationCategories = [];
     let destCountryDisplay = null;
     let overlap = [];
+    let deficiencyMatch = null; // full match analysis: country/port/MoU x vessel-own/company-other
     if (destinationPort.trim()) {
       const rawInput = destinationPort.trim();
       const inputCountryRaw = extractCountryFV(rawInput);
@@ -329,7 +339,7 @@ export default function FleetVetting({ vessels = [] }) {
         : `${destinationPort} — ${countryCount} fleet-wide detention${countryCount!==1?"s":""} on record for ${destCountryDisplay}${portCount>0?`, ${portCount} at this specific port`:""}${vesselPriorAtPort.length>0?` · this vessel has ${vesselPriorAtPort.length} prior detention${vesselPriorAtPort.length!==1?"s":""} there`:""}`;
 
       // What does PSC typically cite ships for at this country, fleet-wide?
-      const catCounts = locationCategoryPattern[countryKey] || {};
+      const catCounts = locationCategoryPattern.byCountry[countryKey] || {};
       topLocationCategories = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,count])=>({cat,count}));
 
       // This vessel's own deficiency categories, from its detention history
@@ -344,6 +354,71 @@ export default function FleetVetting({ vessels = [] }) {
       } else if (topLocationCategories.length > 0) {
         locationAlert = `ℹ️ No overlap between this vessel's own deficiency history and ${destCountryDisplay}'s most common findings — no elevated category-specific concern identified.`;
       }
+
+      // ---- Full Deficiency Pattern Match: Country + Port + MoU, Vessel-own + Company-other ----
+      // Builds a much more complete picture than the category-only overlap above: checks the
+      // SPECIFIC deficiency descriptions (not just broad category), at three destination levels
+      // (country/port/inferred-MoU), against two risk sources (this vessel's own history, and
+      // every other vessel under the same managing company).
+      const portCatCounts = locationCategoryPattern.byPort[portKey] || {};
+      const portTopCategories = Object.entries(portCatCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,count])=>({cat,count}));
+
+      // Infer which MoU governs this destination from other vessels' recorded MoU at matching port/country
+      const mouVotes = {};
+      detained.forEach(v => {
+        const vPort = extractLocationFV(v.port).toLowerCase();
+        const vCountry = extractCountryFV(v.port).toLowerCase();
+        if ((vPort===portKey || vCountry===countryKey) && v.mou && v.mou!=="—") {
+          mouVotes[v.mou] = (mouVotes[v.mou]||0)+1;
+        }
+      });
+      const inferredMou = Object.entries(mouVotes).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+      const mouCatCounts = inferredMou ? (locationCategoryPattern.byMou[inferredMou] || {}) : {};
+      const mouTopCategories = Object.entries(mouCatCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,count])=>({cat,count}));
+
+      // This vessel's own specific deficiency descriptions (not just category)
+      const ownDescs = new Map(); // desc -> count
+      intel.detentionHistory.forEach(v => (v.deficiencies||[]).forEach(d => {
+        const desc = (d.desc||"Unspecified").trim();
+        ownDescs.set(desc, (ownDescs.get(desc)||0)+1);
+      }));
+
+      // This vessel's company's OTHER vessels' deficiency descriptions
+      const companyDescs = new Map();
+      if (selected.ism_client) {
+        detained.filter(v => v.company===selected.ism_client && String(v.imo)!==String(selected.imo)).forEach(v => {
+          (v.deficiencies||[]).forEach(d => {
+            const desc = (d.desc||"Unspecified").trim();
+            companyDescs.set(desc, (companyDescs.get(desc)||0)+1);
+          });
+        });
+      }
+
+      // Find specific-description matches against each destination level's specific descriptions
+      const findDescMatches = (destDescMap, source, sourceLabel) => {
+        if (!destDescMap) return [];
+        return [...source.entries()]
+          .filter(([desc]) => destDescMap[desc])
+          .map(([desc,sourceCount]) => ({ desc, sourceCount, destCount: destDescMap[desc], source: sourceLabel }));
+      };
+      const countryDescMap = locationCategoryPattern.byCountryDesc[countryKey];
+      const portDescMap = locationCategoryPattern.byPortDesc[portKey];
+      const mouDescMap = inferredMou ? locationCategoryPattern.byMouDesc[inferredMou] : null;
+
+      const matches = [
+        ...findDescMatches(countryDescMap, ownDescs, "This vessel — Country level").map(m=>({...m, level:"Country ("+destCountryDisplay+")"})),
+        ...findDescMatches(portDescMap, ownDescs, "This vessel — Port level").map(m=>({...m, level:"Port ("+(destCountryDisplay)+")"})),
+        ...(inferredMou ? findDescMatches(mouDescMap, ownDescs, "This vessel — MoU level").map(m=>({...m, level:"MoU ("+inferredMou+")"})) : []),
+        ...findDescMatches(countryDescMap, companyDescs, "Company's other vessels — Country level").map(m=>({...m, level:"Country ("+destCountryDisplay+")"})),
+        ...findDescMatches(portDescMap, companyDescs, "Company's other vessels — Port level").map(m=>({...m, level:"Port ("+(destCountryDisplay)+")"})),
+        ...(inferredMou ? findDescMatches(mouDescMap, companyDescs, "Company's other vessels — MoU level").map(m=>({...m, level:"MoU ("+inferredMou+")"})) : []),
+      ];
+      // Dedupe by desc+source (a description could match at both country AND port level - keep both, they're informative)
+      deficiencyMatch = {
+        countryLabel: destCountryDisplay, portLabel: inputPortRaw, inferredMou,
+        portTopCategories, mouTopCategories,
+        matches: matches.sort((a,b)=>b.destCount-a.destCount),
+      };
     }
     factors.push({ label: "Destination Port", detail: destDetail, score: destScore, max: 3 });
 
@@ -499,7 +574,7 @@ export default function FleetVetting({ vessels = [] }) {
     if (floorApplied) advisory.push(`⛔ Risk floor applied: ${floorReasons.join(", ")}.`);
     if (advisory.length===0) advisory.push(`🟢 No significant concerns identified across any factor — clean profile based on data currently on file.`);
 
-    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap, inspectionOverdue };
+    return { factors, total, maxTotal, pct, level, recommendation, carIsOpen, latestCar, floorApplied, floorReasons, locationAlert, topLocationCategories, destCountry: destCountryDisplay, isFlagInspectionDue, monthsSinceLastPsc, lastPscDate, arrivalAlert, advisory, forceBoardScenario, overlap, inspectionOverdue, deficiencyMatch };
   }, [selected, intel, companyStats, roStats, destinationPort, portFrequency, locationCategoryPattern, arrivalDate, dowPattern]);
 
   function printRiskReport() {
@@ -553,6 +628,13 @@ export default function FleetVetting({ vessels = [] }) {
       </table>
 
       ${r.floorApplied ? "<div class='rec-box' style='border-left-color:#cc0000;'><b>⛔ Risk Floor Applied:</b> "+esc(r.floorReasons.join(", "))+"</div>" : ""}
+
+      ${r.deficiencyMatch && r.deficiencyMatch.matches.length>0 ? `<div class="section-title">⚠️ Deficiency Pattern Match — Port · Country · MoU</div>
+      <p style="color:#555;">${r.deficiencyMatch.matches.length} specific deficiencies found in this vessel's or its company's history that also show up commonly at this destination.</p>
+      <table>
+        <tr><th>Deficiency</th><th>Source</th><th>Matches At</th><th style="text-align:right;">Seen At Dest.</th></tr>
+        ${r.deficiencyMatch.matches.slice(0,15).map(m=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.desc)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.source)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.level)+"</td><td style='padding:6px 10px;border:1px solid #ccc;text-align:right;font-weight:bold;'>"+m.destCount+"x</td></tr>").join("")}
+      </table>` : ""}
 
       ${intel && intel.vip ? `<div class="section-title">Vessel Inspection Performance — Rolling Averages</div>
       <table><tr>
@@ -801,6 +883,65 @@ export default function FleetVetting({ vessels = [] }) {
                         </tbody>
                       </table>
                     </>
+                  )}
+                </div>
+              )}
+
+              {riskAssessment.deficiencyMatch && (riskAssessment.deficiencyMatch.matches.length>0 || riskAssessment.deficiencyMatch.portTopCategories.length>0 || riskAssessment.deficiencyMatch.mouTopCategories.length>0) && (
+                <div style={{ background: riskAssessment.deficiencyMatch.matches.length>0?"rgba(245,158,11,0.08)":"var(--bg2)", border: "1px solid "+(riskAssessment.deficiencyMatch.matches.length>0?"var(--amber2)":"var(--border)"), borderRadius: "8px", padding: "14px", marginBottom: "14px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>
+                    {riskAssessment.deficiencyMatch.matches.length>0 ? "⚠️ " : ""}Deficiency Pattern Match — Port · Country · MoU
+                  </div>
+                  {riskAssessment.deficiencyMatch.matches.length>0 ? (
+                    <>
+                      <div style={{ fontSize: "12px", color: "var(--amber2)", marginBottom: "10px" }}>
+                        {riskAssessment.deficiencyMatch.matches.length} specific deficienc{riskAssessment.deficiencyMatch.matches.length!==1?"ies":"y"} found in this vessel's or its company's history that also show up commonly at this destination. Worth a targeted pre-inspection check on these items.
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+                        <thead><tr>
+                          <th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Deficiency</th>
+                          <th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Source</th>
+                          <th style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Matches At</th>
+                          <th style={{textAlign:"right",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase"}}>Seen At Dest.</th>
+                        </tr></thead>
+                        <tbody>
+                          {riskAssessment.deficiencyMatch.matches.slice(0,15).map((m,i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ padding: "5px 8px", color: "var(--text)" }}>{m.desc}</td>
+                              <td style={{ padding: "5px 8px", color: "var(--text2)" }}>{m.source}</td>
+                              <td style={{ padding: "5px 8px", color: "var(--text2)" }}>{m.level}</td>
+                              <td style={{ padding: "5px 8px", color: "var(--text)", fontWeight: 700, textAlign: "right" }}>{m.destCount}x</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: "12px", color: "var(--text3)", marginBottom: "10px" }}>No specific-deficiency overlap found between this vessel/company's history and this destination's common findings.</div>
+                  )}
+                  {(riskAssessment.deficiencyMatch.portTopCategories.length>0 || riskAssessment.deficiencyMatch.mouTopCategories.length>0) && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+                      {riskAssessment.deficiencyMatch.portTopCategories.length>0 && (
+                        <div>
+                          <div style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase", marginBottom: "5px" }}>Most Common at This Port ({riskAssessment.deficiencyMatch.portLabel})</div>
+                          {riskAssessment.deficiencyMatch.portTopCategories.map((c,i)=>(
+                            <div key={i} style={{ fontSize: "11px", color: "var(--text2)", display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                              <span>{c.cat}</span><span style={{fontWeight:700,color:"var(--text)"}}>{c.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {riskAssessment.deficiencyMatch.mouTopCategories.length>0 && (
+                        <div>
+                          <div style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase", marginBottom: "5px" }}>Most Common Under {riskAssessment.deficiencyMatch.inferredMou} (inferred MoU for this destination)</div>
+                          {riskAssessment.deficiencyMatch.mouTopCategories.map((c,i)=>(
+                            <div key={i} style={{ fontSize: "11px", color: "var(--text2)", display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                              <span>{c.cat}</span><span style={{fontWeight:700,color:"var(--text)"}}>{c.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
