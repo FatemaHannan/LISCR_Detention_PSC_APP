@@ -2468,7 +2468,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Total Deficiencies",totalDefsCount,"Total Detainable",totalDetainableCount,false,totalDetainableCount>0)
                         +(intel?.due?pair("Inspection Due Status (current)",intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (was already due before this detention)":""),null,null,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")):"")
                         +"</table>",SEC_COLORS.detention)
-                      +sec("Main Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                      +sec("Detainable Deficiencies","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(detainableListDisplay.length?detainableListDisplay.map((d,i)=>rows((d.defect_code||"#"+(i+1)),(d.main_defect_text||d.full_description||""),true)).join(""):rows("Deficiencies","None on record"))
                         +"</table>"
                         +(detainableList.length===0&&detainableListDisplay.length>0 ? "<p style='font-size:8.5pt;color:#777;font-style:italic;margin:4px 0 0;'>No findings individually flagged detainable (Code 30) — showing all findings on the current detention instead.</p>" : ""),SEC_COLORS.detention)
@@ -2650,7 +2650,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           {intel?.due&&<Row label="Inspection Due (current)" value={intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (was already due before this detention)":"")} red={String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue")} />}
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
-                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Main Detainable Deficiencies</div>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--red2)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:"8px"}}>Detainable Deficiencies</div>
                           {detainableList.length===0&&detainableListDisplay.length>0&&<div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"8px",fontStyle:"italic"}}>No findings individually flagged detainable (Code 30) — showing all findings on the current detention instead.</div>}
                           {detainableListDisplay.length>0?detainableListDisplay.map((d,i)=>(
                             <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<detainableListDisplay.length-1?"1px solid var(--border)":"none",alignItems:"flex-start"}}>

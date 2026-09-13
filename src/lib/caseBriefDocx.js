@@ -49,6 +49,9 @@ function boxHeadRow(title, colorHex) {
 }
 // 2-column "rows()" equivalent: label (32%) | value (68%)
 // 2-column row where the value starts with a colored "Flag"/"PSC" label, rest of the text normal color
+function typeLabel(flagPsc) {
+  return String(flagPsc||"").toUpperCase().includes("FLAG") ? "Flag" : "PSC";
+}
 function typedRow(label, flagPsc, restText) {
   const labelW = Math.round(PAGE_WIDTH_DXA * 0.32), valW = PAGE_WIDTH_DXA - labelW;
   const isFlag = String(flagPsc||"").toUpperCase().includes("FLAG");
@@ -78,6 +81,35 @@ function pairRow(l1, v1, l2, v2, a1, a2) {
 }
 function table(rows) {
   return new Table({ width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, columnWidths: [PAGE_WIDTH_DXA], rows });
+}
+// Genuine multi-column table with a header row (e.g. Date | Type | Port | Findings | Status |
+// Inspector) — separate cells per field, matching the live view / PDF export's table layout,
+// instead of cramming everything into one combined text value.
+function multiColHeaderCell(text, widthDxa) {
+  return new TableCell({
+    width: { size: widthDxa, type: WidthType.DXA },
+    shading: { type: ShadingType.CLEAR, fill: "EEEEEE" },
+    borders: CELL_BORDERS,
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ children: [new TextRun({ text: fmt(text), bold: true, size: 17, color: "222222" })] })],
+  });
+}
+function multiColDataCell(text, widthDxa, alert) {
+  return new TableCell({
+    width: { size: widthDxa, type: WidthType.DXA },
+    borders: CELL_BORDERS,
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ children: [new TextRun({ text: fmt(text), bold: !!alert, size: 17, color: alert ? "A30000" : "111111" })] })],
+  });
+}
+function multiColTable(headers, rows, widths) {
+  const colWidths = widths || headers.map(() => Math.round(PAGE_WIDTH_DXA / headers.length));
+  const headerRow = new TableRow({ cantSplit: true, tableHeader: true, children: headers.map((h,i) => multiColHeaderCell(h, colWidths[i])) });
+  const dataRows = rows.map(cells => new TableRow({ cantSplit: true, children: cells.map((c,i) => {
+    const [text, alert] = Array.isArray(c) ? c : [c, false];
+    return multiColDataCell(text, colWidths[i], alert);
+  }) }));
+  return new Table({ width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, columnWidths: colWidths, rows: [headerRow, ...dataRows] });
 }
 // Section title rendered as a solid filled color bar with white bold text — same visual
 // treatment as the "FLAG INSPECTION HISTORY" style sub-headers, applied to every section.
@@ -221,8 +253,8 @@ export async function generateCaseBriefDocx(ctx) {
     ...(intel?.due ? [pairRow("Inspection Due (current)", intel.due.earliest_due_status+(intel.due.earliest_due?" — "+fmtDate(intel.due.earliest_due):"")+(intel.due.earliest_due&&v.detentionDate&&intel.due.earliest_due<v.detentionDate?" (already due before this detention)":""), null, null, String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))] : []),
   ]));
 
-  // Main Detainable Deficiencies
-  children.push(spacer(), sectionTitle("Main Detainable Deficiencies", SEC_COLORS.detention));
+  // Detainable Deficiencies
+  children.push(spacer(), sectionTitle("Detainable Deficiencies", SEC_COLORS.detention));
   children.push(table(detainableList.length
     ? detainableList.map((d,i) => singleRow(d.defect_code||"#"+(i+1), d.main_defect_text||d.full_description||"", true))
     : [singleRow("Deficiencies", "None on record")]));
@@ -291,9 +323,23 @@ export async function generateCaseBriefDocx(ctx) {
 
   // Full Flag and PSC Inspection History
   children.push(spacer(), sectionTitle("Full Flag and PSC Inspection History", SEC_COLORS.flag));
-  children.push(table((allInspsSorted||[]).length
-    ? allInspsSorted.map(f => typedRow(fmtDate(f.inspection_date), f.flag_psc, (f.port||"—")+" — "+(f.num_findings??0)+" findings — "+(f.car_status||"—")+" — Inspector: "+(f.auditor||"—")))
-    : [singleRow("Inspections", "None on record")]));
+  if ((allInspsSorted||[]).length) {
+    const colW = [1500, 1200, 2800, 1200, 1780, 1600]; // Date, Type, Port, Findings, Status, Inspector
+    children.push(multiColTable(
+      ["Date","Type","Port","Findings","Status","Inspector"],
+      allInspsSorted.map(f => [
+        fmtDate(f.inspection_date),
+        typeLabel(f.flag_psc),
+        f.port||"—",
+        [String(f.num_findings??0), (f.num_findings??0)>=5],
+        f.car_status||"—",
+        f.auditor||"—",
+      ]),
+      colW
+    ));
+  } else {
+    children.push(table([singleRow("Inspections", "None on record")]));
+  }
   if (flagInspsSorted.length > 0) {
     const findingNamesByDate = {};
     (intel?.findings||[]).forEach(f => {
