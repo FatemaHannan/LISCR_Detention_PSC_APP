@@ -2507,14 +2507,18 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +"</table>",SEC_COLORS.flag)
                       +sec("Full Flag and PSC Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
-                        +(allInspsSorted.length?allInspsSorted.map(f=>"<tr>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+typeLabel(f.flag_psc)+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.port||"—")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;"+(f.num_findings>=5?"color:#a30000;font-weight:bold;":"")+"'>"+(f.num_findings??0)+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.car_status||"—")+"</td>"
-                          +"<td style='padding:5px 8px;border:1px solid #999;'>"+(f.auditor||"—")+"</td>"
-                          +"</tr>").join(""):rows("Inspections","None on record"))
+                        +(allInspsSorted.length?allInspsSorted.map(f=>{
+                          const isDetentionRow = v.detentionDate && f.inspection_date===v.detentionDate && String(f.flag_psc||"").toUpperCase().includes("PSC");
+                          const rowBg = isDetentionRow ? "background:#fdeaea;" : "";
+                          return "<tr>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+rowBg+"'>"+fmtDate(f.inspection_date)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+rowBg+"'>"+typeLabel(f.flag_psc)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+rowBg+"'>"+(f.port||"—")+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+(f.num_findings>=5?"color:#a30000;font-weight:bold;":"")+rowBg+"'>"+(f.num_findings??0)+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+rowBg+(isDetentionRow?"color:#a30000;font-weight:bold;":"")+"'>"+(isDetentionRow?"PSC Detention":(f.car_status||"—"))+"</td>"
+                          +"<td style='padding:5px 8px;border:1px solid #999;"+rowBg+"'>"+(f.auditor||"—")+"</td>"
+                          +"</tr>";
+                        }).join(""):rows("Inspections","None on record"))
                         +"</table>",SEC_COLORS.flag)
                       +(flagInspsSorted.length>0?sec("Flag and PSC Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"

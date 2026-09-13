@@ -94,21 +94,26 @@ function multiColHeaderCell(text, widthDxa) {
     children: [new Paragraph({ children: [new TextRun({ text: fmt(text), bold: true, size: 17, color: "222222" })] })],
   });
 }
-function multiColDataCell(text, widthDxa, alert) {
+function multiColDataCell(text, widthDxa, alert, highlight) {
   return new TableCell({
     width: { size: widthDxa, type: WidthType.DXA },
     borders: CELL_BORDERS,
     verticalAlign: VerticalAlign.CENTER,
+    shading: highlight ? { type: ShadingType.CLEAR, fill: "FDEAEA" } : undefined,
     children: [new Paragraph({ children: [new TextRun({ text: fmt(text), bold: !!alert, size: 17, color: alert ? "A30000" : "111111" })] })],
   });
 }
 function multiColTable(headers, rows, widths) {
   const colWidths = widths || headers.map(() => Math.round(PAGE_WIDTH_DXA / headers.length));
   const headerRow = new TableRow({ cantSplit: true, tableHeader: true, children: headers.map((h,i) => multiColHeaderCell(h, colWidths[i])) });
-  const dataRows = rows.map(cells => new TableRow({ cantSplit: true, children: cells.map((c,i) => {
-    const [text, alert] = Array.isArray(c) ? c : [c, false];
-    return multiColDataCell(text, colWidths[i], alert);
-  }) }));
+  const dataRows = rows.map(row => {
+    const cells = row.highlight !== undefined ? row.cells : row;
+    const rowHighlight = row.highlight !== undefined ? row.highlight : false;
+    return new TableRow({ cantSplit: true, children: cells.map((c,i) => {
+      const [text, alert] = Array.isArray(c) ? c : [c, false];
+      return multiColDataCell(text, colWidths[i], alert, rowHighlight);
+    }) });
+  });
   return new Table({ width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, columnWidths: colWidths, rows: [headerRow, ...dataRows] });
 }
 // Section title rendered as a solid filled color bar with white bold text — same visual
@@ -327,14 +332,20 @@ export async function generateCaseBriefDocx(ctx) {
     const colW = [1500, 1200, 2800, 1200, 1780, 1600]; // Date, Type, Port, Findings, Status, Inspector
     children.push(multiColTable(
       ["Date","Type","Port","Findings","Status","Inspector"],
-      allInspsSorted.map(f => [
-        fmtDate(f.inspection_date),
-        typeLabel(f.flag_psc),
-        f.port||"—",
-        [String(f.num_findings??0), (f.num_findings??0)>=5],
-        f.car_status||"—",
-        f.auditor||"—",
-      ]),
+      allInspsSorted.map(f => {
+        const isDetentionRow = v.detentionDate && f.inspection_date===v.detentionDate && String(f.flag_psc||"").toUpperCase().includes("PSC");
+        return {
+          highlight: isDetentionRow,
+          cells: [
+            fmtDate(f.inspection_date),
+            typeLabel(f.flag_psc),
+            f.port||"—",
+            [String(f.num_findings??0), (f.num_findings??0)>=5],
+            [isDetentionRow?"PSC Detention":(f.car_status||"—"), isDetentionRow],
+            f.auditor||"—",
+          ],
+        };
+      }),
       colW
     ));
   } else {
