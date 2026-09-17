@@ -268,7 +268,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
   async function loadIntelligence(imo, company, vesselOverride) {
     setIntel(p => ({...p, loading:true}));
-    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes, dueRes, frRes, svRes] = await Promise.all([
+    const [vRes, cRes, dRes, iRes, mRes, pRes, vipRes, fpRes, carRes, dueRes, frRes, svRes, dcfRes] = await Promise.all([
       supabase.from("client_vessel_details").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("client_average").select("*").ilike("ism_client", "%"+(company||"")+"%").limit(1),
       supabase.from("dpp_vetting_history").select("*").eq("imo", String(imo)).order("created_date",{ascending:false}).limit(50),
@@ -281,11 +281,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("fleet_roster").select("imo,vessel,ism_client,regional_office").eq("imo", String(imo)).limit(1),
       supabase.from("stricken_vessels").select("*").eq("imo", String(imo)).limit(1),
+      supabase.from("dpp_case_files").select("imo,latest_case_file_note,last_updated_date").eq("imo", String(imo)).order("last_updated_date",{ascending:false}).limit(1),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
     const fleetRosterRow = frRes?.data?.[0]||null;
     const strickenRow = svRes?.data?.[0]||null;
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, fleetRoster:fleetRosterRow, stricken:strickenRow, loading:false});
+    const caseFileRow = dcfRes?.data?.[0]||null;
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, fleetRoster:fleetRosterRow, stricken:strickenRow, caseFile:caseFileRow, loading:false});
 
     // Auto-backfill vessel facts from VIP, falling back to Fleet Roster, then to
     // stricken_vessels as the final fallback — covers vessels deregistered from the
@@ -2488,7 +2490,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                       +sec("Vetting Activity","<p style='color:#666;font-size:8.5pt;margin:0 0 6px;'>Covers the 60 days leading up to detention</p><table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
                         +"</table>"
-                        +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : ""),SEC_COLORS.vetting)
+                        +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : "")
+                        +(intel?.caseFile?.latest_case_file_note ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Latest Case File Note:</b> "+intel.caseFile.latest_case_file_note+"</p>" : ""),SEC_COLORS.vetting)
                       +(intel?.due ? sec("Inspection Highlights","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Last Inspection",intel.inspections?.length?fmtDate(intel.inspections[0].inspection_date)+" — "+(intel.inspections[0].flag_psc||"—")+(intel.inspections[0].inspection_type?" ("+intel.inspections[0].inspection_type+")":""):"—","Earliest Due"+(earliestDueType(intel.due)?" ("+earliestDueType(intel.due)+")":""),(intel.due.earliest_due_status||"—")+(intel.due.earliest_due?" ("+fmtDate(intel.due.earliest_due)+")":""),false,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))
                         +pair("ASI Status",intel.due.asi_due_status||intel.due.asi_status||"—","IHM",intel.due.ihm_due||"—")
@@ -2569,7 +2572,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const resolvedType = typeMap[v.imo]||(v.type&&v.type!=="—"?v.type:null)||"—";
                     const blob = await generateCaseBriefDocx({
                       v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60,
+                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60, caseFileNote: intel?.caseFile?.latest_case_file_note||null,
                       flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
                     });
@@ -2705,6 +2708,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           {v.vettingNotes && (
                             <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
                               <b style={{color:"var(--text)"}}>Vetting Notes:</b> {v.vettingNotes}
+                            </div>
+                          )}
+                          {intel?.caseFile?.latest_case_file_note && (
+                            <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
+                              <b style={{color:"var(--text)"}}>Latest Case File Note:</b> {intel.caseFile.latest_case_file_note}
                             </div>
                           )}
                         </div>

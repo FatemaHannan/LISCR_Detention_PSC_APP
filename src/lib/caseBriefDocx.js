@@ -169,7 +169,7 @@ function earliestDueType(due, fmtDate) {
 export async function generateCaseBriefDocx(ctx) {
   const {
     v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, detainableIsFallback, vetting60,
+    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, detainableIsFallback, vetting60, caseFileNote,
     flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
     daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
   } = ctx;
@@ -295,6 +295,10 @@ export async function generateCaseBriefDocx(ctx) {
   if (v.vettingNotes) {
     children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Vetting Notes: ", bold: true, size: 20, color: "111111" })] }));
     children.push(...multiLinePara(v.vettingNotes));
+  }
+  if (caseFileNote) {
+    children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Latest Case File Note: ", bold: true, size: 20, color: "111111" })] }));
+    children.push(...multiLinePara(caseFileNote));
   }
 
   // Inspection Highlights — forward-looking: what's due next, not historical records
