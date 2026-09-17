@@ -287,7 +287,8 @@ export async function generateCaseBriefDocx(ctx) {
   ]));
 
   // Vetting Activity
-  children.push(spacer(), sectionTitle("Vetting Activity — 60 Days Before Detention", SEC_COLORS.vetting));
+  children.push(spacer(), sectionTitle("Vetting Activity", SEC_COLORS.vetting));
+  children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "Covers the 60 days leading up to detention", italics: true, size: 17, color: "666666" })] }));
   children.push(table(vetting60.length
     ? vetting60.map(d => singleRow(d.created_date?fmtDate(d.created_date):"—", (d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||"")))
     : [singleRow("Vetting Activity", "None in the 60 days before detention")]));

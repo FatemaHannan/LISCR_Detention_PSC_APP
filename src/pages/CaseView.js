@@ -2485,7 +2485,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("ASI / Preemptive Insp. Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"),"MoU",v.mou,!asiDone)
                         +pair("CAR Status",v.carStatus||"Not Received","CAR Requested Date",v.carRequestedDate,!v.carStatus||v.carStatus==="Not Received")
                         +"</table>",SEC_COLORS.vetting)
-                      +sec("Vetting Activity — 60 Days Before Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                      +sec("Vetting Activity","<p style='color:#666;font-size:8.5pt;margin:0 0 6px;'>Covers the 60 days leading up to detention</p><table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
                         +"</table>"
                         +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : ""),SEC_COLORS.vetting)
@@ -2693,7 +2693,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           </div>
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
-                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Vetting Activity — 60 Days Before Detention ({vetting60.length})</div>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px",textTransform:"uppercase",letterSpacing:".04em"}}>Vetting Activity ({vetting60.length})</div>
+                          <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"8px"}}>Covers the 60 days leading up to detention</div>
                           {vetting60.length>0?vetting60.map((d,i)=>(
                             <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<vetting60.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
                               <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{d.created_date?fmtDate(d.created_date):"—"}</span>
