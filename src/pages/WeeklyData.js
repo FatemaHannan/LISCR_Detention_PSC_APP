@@ -304,7 +304,7 @@ const UPLOADS = [
   },
   {
     key: "inspection_history",
-    onConflictKey: "imo,inspection_date,flag_psc",
+    onConflictKey: "imo,inspection_date,flag_psc,inspection_type",
     label: "Consolidated Inspection History",
     desc: "LISCR inspection records — PSC/Flag history, last onboard, CAR status, risk level",
     icon: "ti-clipboard-list", color: "var(--purple)", bg: "var(--purple-bg)",
