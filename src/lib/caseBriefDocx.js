@@ -169,7 +169,7 @@ function earliestDueType(due, fmtDate) {
 export async function generateCaseBriefDocx(ctx) {
   const {
     v, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, detainableIsFallback, vetting60, caseFileNote,
+    lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList, detainableIsFallback, vetting60, caseFiles60,
     flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
     daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
   } = ctx;
@@ -289,16 +289,27 @@ export async function generateCaseBriefDocx(ctx) {
   // Vetting Activity
   children.push(spacer(), sectionTitle("Vetting Activity", SEC_COLORS.vetting));
   children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "Covers the 60 days leading up to detention", italics: true, size: 17, color: "666666" })] }));
-  children.push(table(vetting60.length
-    ? vetting60.map(d => singleRow(d.created_date?fmtDate(d.created_date):"—", (d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||"")))
-    : [singleRow("Vetting Activity", "None in the 60 days before detention")]));
+  if (caseFiles60.length) {
+    children.push(multiColTable(
+      ["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"],
+      caseFiles60.map(d => [
+        d.created?fmtDate(d.created):"—",
+        d.cf_eta?fmtDate(d.cf_eta):"—",
+        d.mou_zone||"—",
+        d.action_status||"—",
+        d.case_file_port||"—",
+        d.cf_vetting||"—",
+        d.paris_target_risk||"—",
+        d.latest_case_file_note||"—",
+      ]),
+      [1000, 1000, 1100, 1300, 1300, 1100, 1500, 1780]
+    ));
+  } else {
+    children.push(table([singleRow("Vetting Activity", "None in the 60 days before detention")]));
+  }
   if (v.vettingNotes) {
     children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Vetting Notes: ", bold: true, size: 20, color: "111111" })] }));
     children.push(...multiLinePara(v.vettingNotes));
-  }
-  if (caseFileNote) {
-    children.push(new Paragraph({ spacing: { before: 100 }, children: [new TextRun({ text: "Latest Case File Note: ", bold: true, size: 20, color: "111111" })] }));
-    children.push(...multiLinePara(caseFileNote));
   }
 
   // Inspection Highlights — forward-looking: what's due next, not historical records

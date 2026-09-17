@@ -281,13 +281,13 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("fleet_roster").select("imo,vessel,ism_client,regional_office").eq("imo", String(imo)).limit(1),
       supabase.from("stricken_vessels").select("*").eq("imo", String(imo)).limit(1),
-      supabase.from("dpp_case_files").select("imo,latest_case_file_note,last_updated_date").eq("imo", String(imo)).order("last_updated_date",{ascending:false}).limit(1),
+      supabase.from("dpp_case_files").select("imo,created,cf_eta,mou_zone,action_status,case_file_port,cf_vetting,paris_target_risk,latest_case_file_note,inspection_date").eq("imo", String(imo)).order("created",{ascending:false}).limit(60),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
     const fleetRosterRow = frRes?.data?.[0]||null;
     const strickenRow = svRes?.data?.[0]||null;
-    const caseFileRow = dcfRes?.data?.[0]||null;
-    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, fleetRoster:fleetRosterRow, stricken:strickenRow, caseFile:caseFileRow, loading:false});
+    const caseFileRows = dcfRes?.data||[];
+    setIntel({vessel:vRes?.data?.[0]||null, client:cRes?.data?.[0]||null, dpp:dRes?.data||[], inspections:iRes?.data||[], mlc:mRes?.data||[], psc:pRes?.data||[], vip:vipRow, findings:fpRes?.data||[], cars:carRes?.data||[], due:dueRes?.data?.[0]||null, fleetRoster:fleetRosterRow, stricken:strickenRow, caseFiles:caseFileRows, loading:false});
 
     // Auto-backfill vessel facts from VIP, falling back to Fleet Roster, then to
     // stricken_vessels as the final fallback — covers vessels deregistered from the
@@ -2407,6 +2407,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const priorDetentions = (dbVessels||[]).filter(c=>c.imo===v.imo&&c.id!==v.id&&c.detentionDate&&(!v.detentionDate||c.detentionDate<v.detentionDate)).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const lastDetention = priorDetentions[0];
                   const vetting60 = v.detentionDate?dppBeforeDet.filter(d=>d.created_date&&Math.abs(new Date(v.detentionDate)-new Date(d.created_date))<=60*24*60*60*1000):dppBeforeDet;
+                  const caseFiles60 = v.detentionDate?(intel?.caseFiles||[]).filter(d=>d.created&&Math.abs(new Date(v.detentionDate)-new Date(d.created))<=60*24*60*60*1000):(intel?.caseFiles||[]);
                   const postDetInspections = v.detentionDate?(intel?.inspections||[]).filter(i=>i.inspection_date&&new Date(i.inspection_date)>new Date(v.detentionDate)).sort((a,b)=>new Date(a.inspection_date)-new Date(b.inspection_date)):[];
                   const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
@@ -2487,11 +2488,20 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("ASI / Preemptive Insp. Before PSC",asiDone?"Yes":(asiTask?asiTask.status:"Not recorded"),"MoU",v.mou,!asiDone)
                         +pair("CAR Status",v.carStatus||"Not Received","CAR Requested Date",v.carRequestedDate,!v.carStatus||v.carStatus==="Not Received")
                         +"</table>",SEC_COLORS.vetting)
-                      +sec("Vetting Activity","<p style='color:#666;font-size:8.5pt;margin:0 0 6px;'>Covers the 60 days leading up to detention</p><table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
-                        +(vetting60.length?vetting60.map(d=>rows(d.created_date?fmtDate(d.created_date):"—",(d.action_type||d.cf_vetting||"—")+" — "+(d.case_file_port||""))).join(""):rows("Vetting Activity","None in the 60 days before detention"))
+                      +sec("Vetting Activity","<p style='color:#666;font-size:8.5pt;margin:0 0 6px;'>Covers the 60 days leading up to detention</p><table style='border-collapse:collapse;width:100%;table-layout:fixed;font-size:8pt;'>"
+                        +"<tr>"+["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"].map(h=>"<td style='padding:4px 6px;border:1px solid #999;font-weight:bold;background:#eee;'>"+h+"</td>").join("")+"</tr>"
+                        +(caseFiles60.length?caseFiles60.map(d=>"<tr>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.created?fmtDate(d.created):"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.cf_eta?fmtDate(d.cf_eta):"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.mou_zone||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.action_status||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.case_file_port||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.cf_vetting||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.paris_target_risk||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.latest_case_file_note||"—")+"</td>"
+                          +"</tr>").join(""):"<tr><td colspan='8' style='padding:6px;border:1px solid #999;color:#888;'>None in the 60 days before detention</td></tr>")
                         +"</table>"
-                        +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : "")
-                        +(intel?.caseFile?.latest_case_file_note ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Latest Case File Note:</b> "+intel.caseFile.latest_case_file_note+"</p>" : ""),SEC_COLORS.vetting)
+                        +(v.vettingNotes ? "<p style='margin:10px 0 0;white-space:pre-wrap;'><b>Vetting Notes:</b> "+v.vettingNotes+"</p>" : ""),SEC_COLORS.vetting)
                       +(intel?.due ? sec("Inspection Highlights","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Last Inspection",intel.inspections?.length?fmtDate(intel.inspections[0].inspection_date)+" — "+(intel.inspections[0].flag_psc||"—")+(intel.inspections[0].inspection_type?" ("+intel.inspections[0].inspection_type+")":""):"—","Earliest Due"+(earliestDueType(intel.due)?" ("+earliestDueType(intel.due)+")":""),(intel.due.earliest_due_status||"—")+(intel.due.earliest_due?" ("+fmtDate(intel.due.earliest_due)+")":""),false,String(intel.due.earliest_due_status||"").toLowerCase().includes("overdue"))
                         +pair("ASI Status",intel.due.asi_due_status||intel.due.asi_status||"—","IHM",intel.due.ihm_due||"—")
@@ -2572,7 +2582,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     const resolvedType = typeMap[v.imo]||(v.type&&v.type!=="—"?v.type:null)||"—";
                     const blob = await generateCaseBriefDocx({
                       v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
-                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60, caseFileNote: intel?.caseFile?.latest_case_file_note||null,
+                      lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60, caseFiles60,
                       flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
                     });
@@ -2696,23 +2706,34 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           </div>
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px"}}>
-                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px",textTransform:"uppercase",letterSpacing:".04em"}}>Vetting Activity ({vetting60.length})</div>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"2px",textTransform:"uppercase",letterSpacing:".04em"}}>Vetting Activity ({caseFiles60.length})</div>
                           <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"8px"}}>Covers the 60 days leading up to detention</div>
-                          {vetting60.length>0?vetting60.map((d,i)=>(
-                            <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<vetting60.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap"}}>
-                              <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{d.created_date?fmtDate(d.created_date):"—"}</span>
-                              <span style={{color:"var(--text2)"}}>{d.action_type||d.cf_vetting||"—"}</span>
-                              <span style={{color:"var(--text3)"}}>{d.case_file_port||""}</span>
+                          {caseFiles60.length>0?(
+                            <div style={{overflowX:"auto"}}>
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
+                              <thead><tr>
+                                {["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"].map(h=>(
+                                  <th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                                ))}
+                              </tr></thead>
+                              <tbody>{caseFiles60.map((d,i)=>(
+                                <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                                  <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{d.created?fmtDate(d.created):"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{d.cf_eta?fmtDate(d.cf_eta):"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.mou_zone||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.action_status||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.case_file_port||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.cf_vetting||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.paris_target_risk||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.latest_case_file_note||"—"}</td>
+                                </tr>
+                              ))}</tbody>
+                            </table>
                             </div>
-                          )):<div style={{fontSize:"13px",color:"var(--text3)"}}>No vetting activity recorded in the 60 days before detention.</div>}
+                          ):<div style={{fontSize:"13px",color:"var(--text3)"}}>No vetting activity recorded in the 60 days before detention.</div>}
                           {v.vettingNotes && (
                             <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
                               <b style={{color:"var(--text)"}}>Vetting Notes:</b> {v.vettingNotes}
-                            </div>
-                          )}
-                          {intel?.caseFile?.latest_case_file_note && (
-                            <div style={{fontSize:"13px",color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid var(--border)"}}>
-                              <b style={{color:"var(--text)"}}>Latest Case File Note:</b> {intel.caseFile.latest_case_file_note}
                             </div>
                           )}
                         </div>
