@@ -281,7 +281,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("fleet_roster").select("imo,vessel,ism_client,regional_office").eq("imo", String(imo)).limit(1),
       supabase.from("stricken_vessels").select("*").eq("imo", String(imo)).limit(1),
-      supabase.from("dpp_case_files").select("imo,created,cf_eta,mou_zone,action_status,case_file_port,cf_vetting,paris_target_risk,latest_case_file_note,inspection_date").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("created",{ascending:false}).limit(60),
+      supabase.from("dpp_vetting_history").select("imo,created_date,cf_eta,mou_zone,action_status,case_file_port,cf_vetting,latest_case_file_note,risk_level_at_time").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("created_date",{ascending:false}).limit(60),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
     const fleetRosterRow = frRes?.data?.[0]||null;
@@ -2407,7 +2407,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const priorDetentions = (dbVessels||[]).filter(c=>c.imo===v.imo&&c.id!==v.id&&c.detentionDate&&(!v.detentionDate||c.detentionDate<v.detentionDate)).sort((a,b)=>new Date(b.detentionDate)-new Date(a.detentionDate));
                   const lastDetention = priorDetentions[0];
                   const vetting60 = v.detentionDate?dppBeforeDet.filter(d=>d.created_date&&Math.abs(new Date(v.detentionDate)-new Date(d.created_date))<=60*24*60*60*1000):dppBeforeDet;
-                  const caseFiles60 = v.detentionDate?(intel?.caseFiles||[]).filter(d=>d.created&&Math.abs(new Date(v.detentionDate)-new Date(d.created))<=60*24*60*60*1000):(intel?.caseFiles||[]);
+                  const caseFiles60 = v.detentionDate?(intel?.caseFiles||[]).filter(d=>d.created_date&&Math.abs(new Date(v.detentionDate)-new Date(d.created_date))<=60*24*60*60*1000):(intel?.caseFiles||[]);
                   const postDetInspections = v.detentionDate?(intel?.inspections||[]).filter(i=>i.inspection_date&&new Date(i.inspection_date)>new Date(v.detentionDate)).sort((a,b)=>new Date(a.inspection_date)-new Date(b.inspection_date)):[];
                   const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
@@ -2489,15 +2489,15 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("CAR Status",v.carStatus||"Not Received","CAR Requested Date",v.carRequestedDate,!v.carStatus||v.carStatus==="Not Received")
                         +"</table>",SEC_COLORS.vetting)
                       +sec("Vetting Activity","<p style='color:#666;font-size:8.5pt;margin:0 0 6px;'>Covers the 60 days leading up to detention</p><table style='border-collapse:collapse;width:100%;table-layout:fixed;font-size:8pt;'>"
-                        +"<tr>"+["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"].map(h=>"<td style='padding:4px 6px;border:1px solid #999;font-weight:bold;background:#eee;'>"+h+"</td>").join("")+"</tr>"
+                        +"<tr>"+["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Risk Level","Latest Case File Note"].map(h=>"<td style='padding:4px 6px;border:1px solid #999;font-weight:bold;background:#eee;'>"+h+"</td>").join("")+"</tr>"
                         +(caseFiles60.length?caseFiles60.map(d=>"<tr>"
-                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.created?fmtDate(d.created):"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.created_date?fmtDate(d.created_date):"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.cf_eta?fmtDate(d.cf_eta):"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.mou_zone||"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.action_status||"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.case_file_port||"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.cf_vetting||"—")+"</td>"
-                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.paris_target_risk||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.risk_level_at_time||"—")+"</td>"
                           +"<td style='padding:4px 6px;border:1px solid #999;'>"+(d.latest_case_file_note||"—")+"</td>"
                           +"</tr>").join(""):"<tr><td colspan='8' style='padding:6px;border:1px solid #999;color:#888;'>None in the 60 days before detention</td></tr>")
                         +"</table>"
@@ -2712,19 +2712,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                             <div style={{overflowX:"auto"}}>
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
                               <thead><tr>
-                                {["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"].map(h=>(
+                                {["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Risk Level","Latest Case File Note"].map(h=>(
                                   <th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--text3)",fontSize:"9px",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                                 ))}
                               </tr></thead>
                               <tbody>{caseFiles60.map((d,i)=>(
                                 <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
-                                  <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{d.created?fmtDate(d.created):"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{d.created_date?fmtDate(d.created_date):"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}>{d.cf_eta?fmtDate(d.cf_eta):"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.mou_zone||"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.action_status||"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.case_file_port||"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.cf_vetting||"—"}</td>
-                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.paris_target_risk||"—"}</td>
+                                  <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.risk_level_at_time||"—"}</td>
                                   <td style={{padding:"5px 8px",color:"var(--text2)"}}>{d.latest_case_file_note||"—"}</td>
                                 </tr>
                               ))}</tbody>

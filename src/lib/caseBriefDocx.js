@@ -291,15 +291,15 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: "Covers the 60 days leading up to detention", italics: true, size: 17, color: "666666" })] }));
   if (caseFiles60.length) {
     children.push(multiColTable(
-      ["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Paris MoU Target Risk","Latest Case File Note"],
+      ["Created","CF ETA","MoU Zone","Action Status","Case File Port","CF Vetting","Risk Level","Latest Case File Note"],
       caseFiles60.map(d => [
-        d.created?fmtDate(d.created):"—",
+        d.created_date?fmtDate(d.created_date):"—",
         d.cf_eta?fmtDate(d.cf_eta):"—",
         d.mou_zone||"—",
         d.action_status||"—",
         d.case_file_port||"—",
         d.cf_vetting||"—",
-        d.paris_target_risk||"—",
+        d.risk_level_at_time||"—",
         d.latest_case_file_note||"—",
       ]),
       [1000, 1000, 1100, 1300, 1300, 1100, 1500, 1780]
