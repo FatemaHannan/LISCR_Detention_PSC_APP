@@ -15,11 +15,19 @@ const imo = (v) => {
   if (v instanceof Date) {
     const serial = Math.round(v.getTime()/86400000) + 25569;
     if (serial > 1000000 && serial < 10000000) return String(serial);
+    return ""; // date-corrupted cell that doesn't resolve to a plausible IMO — reject
   }
-  // If it's already a clean integer-like number (e.g. 9260469 stored as float 9260469.0)
-  const num = typeof v === "number" ? Math.round(v) : null;
-  if (num !== null && num > 1000000 && num < 10000000) return String(num);
-  // Otherwise stringify and strip non-digits, take last 7 digits if too long
+  if (typeof v === "number") {
+    const num = Math.round(v);
+    if (num > 1000000 && num < 10000000) return String(num);
+    // A numeric cell that doesn't round to a plausible 7-digit IMO is corrupted
+    // (e.g. 93604.39, which naive digit-stripping would turn into the wrong-but-
+    // valid-looking "9360439"). Reject instead of guessing — a fabricated IMO
+    // silently misattaches this row's data to the wrong vessel or to no vessel.
+    return "";
+  }
+  // String source (e.g. "IMO: 9260469" with formatting junk): strip non-digits,
+  // take the last 7 if longer.
   const digits = String(v).replace(/[^0-9]/g, "");
   if (digits.length > 7) return digits.slice(-7);
   return digits;
@@ -319,7 +327,7 @@ const UPLOADS = [
       ism_points:"ISM Points", psc_det_history:"PSC Det History",
       tonnage_client:"Tonnage Client", vessel_type:"Vessel Type", age:"Age", reg_date:"Reg Date",
     },
-    filter: (r) => s(r["Vessel"]||r["vessel"]) && s(r["IMO#"]||r["IMO"]||r["imo"]),
+    filter: (r) => s(r["Vessel"]||r["vessel"]) && imo(r["IMO#"]||r["IMO"]||r["imo"]),
     map: (r) => ({
       vessel: s(r["Vessel"]||r["vessel"]),
       imo: imo(r["IMO#"]||r["IMO"]||r["imo"]),
@@ -874,8 +882,9 @@ export default function WeeklyData({ currentUser }) {
 
       const allMapped = normalized.filter(r=>r&&cfg.filter(r)).map(r=>{try{return cfg.map(r);}catch(e){return null;}}).filter(Boolean);
       const totalMapped = allMapped.length;
+      const filteredOutCount = normalized.length - totalMapped;
 
-      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed. Starting upload...`}}));
+      setStatus(p => ({...p, [cfg.key]: {state:"reading", msg:`${totalMapped.toLocaleString()} rows parsed${filteredOutCount>0?`, ${filteredOutCount.toLocaleString()} row${filteredOutCount!==1?"s":""} skipped (missing vessel/IMO or unreadable IMO)`:""}. Starting upload...`}}));
       await new Promise(resolve => setTimeout(resolve, 50));
 
       if (!totalMapped) {
@@ -1035,7 +1044,8 @@ export default function WeeklyData({ currentUser }) {
       }
 
       const uploadTime = new Date().toLocaleString();
-      const skipNote = skipped > 0 ? " "+skipped+" skipped." : "";
+      const totalSkipped = skipped + filteredOutCount;
+      const skipNote = totalSkipped > 0 ? " "+totalSkipped.toLocaleString()+" skipped"+(filteredOutCount>0?" ("+filteredOutCount.toLocaleString()+" missing/unreadable vessel or IMO"+(skipped>0?`, ${skipped.toLocaleString()} upload error${skipped!==1?"s":""}`:"")+")":"")+"." : "";
       const syncNote = dppSyncedCount > 0 ? " "+dppSyncedCount.toLocaleString()+" new case(s) created in Case View." : "";
       const msg = mode === "replace"
         ? saved.toLocaleString()+" rows loaded (full replace)."+skipNote+syncNote
