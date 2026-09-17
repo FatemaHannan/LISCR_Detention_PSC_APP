@@ -281,7 +281,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
       supabase.from("inspection_due").select("*").eq("imo", String(imo)).limit(1),
       supabase.from("fleet_roster").select("imo,vessel,ism_client,regional_office").eq("imo", String(imo)).limit(1),
       supabase.from("stricken_vessels").select("*").eq("imo", String(imo)).limit(1),
-      supabase.from("dpp_case_files").select("imo,created,cf_eta,mou_zone,action_status,case_file_port,cf_vetting,paris_target_risk,latest_case_file_note,inspection_date").eq("imo", String(imo)).order("created",{ascending:false}).limit(60),
+      supabase.from("dpp_case_files").select("imo,created,cf_eta,mou_zone,action_status,case_file_port,cf_vetting,paris_target_risk,latest_case_file_note,inspection_date").eq("imo", String(imo).replace(/\.0$/,"").trim()).order("created",{ascending:false}).limit(60),
     ]);
     const vipRow = vipRes?.data?.[0]||null;
     const fleetRosterRow = frRes?.data?.[0]||null;
