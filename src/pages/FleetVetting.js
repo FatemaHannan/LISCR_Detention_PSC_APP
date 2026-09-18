@@ -629,12 +629,16 @@ export default function FleetVetting({ vessels = [] }) {
 
       ${r.floorApplied ? "<div class='rec-box' style='border-left-color:#cc0000;'><b>⛔ Risk Floor Applied:</b> "+esc(r.floorReasons.join(", "))+"</div>" : ""}
 
-      ${r.deficiencyMatch && r.deficiencyMatch.matches.length>0 ? `<div class="section-title">⚠️ Deficiency Pattern Match — Port · Country · MoU</div>
-      <p style="color:#555;">${r.deficiencyMatch.matches.length} specific deficiencies found in this vessel's or its company's history that also show up commonly at this destination.</p>
+      ${r.deficiencyMatch && (r.deficiencyMatch.matches.length>0 || r.deficiencyMatch.portTopCategories.length>0 || r.deficiencyMatch.mouTopCategories.length>0) ? `<div class="section-title">${r.deficiencyMatch.matches.length>0?"⚠️ ":""}Deficiency Pattern Match — Port · Country · MoU</div>
+      ${r.deficiencyMatch.matches.length>0 ? `<p style="color:#555;">${r.deficiencyMatch.matches.length} specific deficiencies found in this vessel's or its company's history that also show up commonly at this destination.</p>
       <table>
         <tr><th>Deficiency</th><th>Source</th><th>Matches At</th><th style="text-align:right;">Seen At Dest.</th></tr>
-        ${r.deficiencyMatch.matches.slice(0,15).map(m=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.desc)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.source)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.level)+"</td><td style='padding:6px 10px;border:1px solid #ccc;text-align:right;font-weight:bold;'>"+m.destCount+"x</td></tr>").join("")}
-      </table>` : ""}
+        ${r.deficiencyMatch.matches.map(m=>"<tr><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.desc)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.source)+"</td><td style='padding:6px 10px;border:1px solid #ccc;'>"+esc(m.level)+"</td><td style='padding:6px 10px;border:1px solid #ccc;text-align:right;font-weight:bold;'>"+m.destCount+"x</td></tr>").join("")}
+      </table>` : `<p style="color:#555;">No specific-deficiency overlap found between this vessel/company's history and this destination's common findings.</p>`}
+      ${(r.deficiencyMatch.portTopCategories.length>0 || r.deficiencyMatch.mouTopCategories.length>0) ? `<table><tr>
+        ${r.deficiencyMatch.portTopCategories.length>0 ? "<td style='vertical-align:top;padding:0 10px 0 0;border:none;width:50%;'><b>Most Common at This Port ("+esc(r.deficiencyMatch.portLabel)+")</b><table>"+r.deficiencyMatch.portTopCategories.map(c=>"<tr><td style='padding:4px 8px;border:1px solid #ccc;'>"+esc(c.cat)+"</td><td style='padding:4px 8px;border:1px solid #ccc;text-align:right;font-weight:bold;'>"+c.count+"</td></tr>").join("")+"</table></td>" : "<td style='border:none;width:50%;'></td>"}
+        ${r.deficiencyMatch.mouTopCategories.length>0 ? "<td style='vertical-align:top;padding:0 0 0 10px;border:none;width:50%;'><b>Most Common Under "+esc(r.deficiencyMatch.inferredMou)+" (inferred MoU for this destination)</b><table>"+r.deficiencyMatch.mouTopCategories.map(c=>"<tr><td style='padding:4px 8px;border:1px solid #ccc;'>"+esc(c.cat)+"</td><td style='padding:4px 8px;border:1px solid #ccc;text-align:right;font-weight:bold;'>"+c.count+"</td></tr>").join("")+"</table></td>" : "<td style='border:none;width:50%;'></td>"}
+      </tr></table>` : ""}` : ""}
 
       ${intel && intel.vip ? `<div class="section-title">Vessel Inspection Performance — Rolling Averages</div>
       <table><tr>
