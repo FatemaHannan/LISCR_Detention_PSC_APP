@@ -800,7 +800,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
 
       {/* Case file modal - rendered via portal to escape stacking context */}
       {modalVessel&&ReactDOM.createPortal((
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{setModalVessel(null);setSel(null);}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"stretch",justifyContent:"flex-start"}} onClick={()=>{if(editModal){setEditModal(null);return;}setModalVessel(null);setSel(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{width:modalFull?"100vw":"min(960px,75vw)",background:"var(--bg)",borderLeft:"1px solid var(--border)",overflowY:"auto",display:"flex",flexDirection:"column",transition:"width 0.2s",position:"relative",zIndex:10000}}>
             <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"var(--bg2)",position:"sticky",top:0,zIndex:10}}>
               <div style={{fontSize:"13px",color:"var(--text3)",fontFamily:"var(--mono)"}}>{modalVessel.name} · {modalVessel.imo}</div>
