@@ -345,9 +345,9 @@ export async function generateCaseBriefDocx(ctx) {
   // Full Flag and PSC Inspection History
   children.push(spacer(), sectionTitle("Full Flag and PSC Inspection History", SEC_COLORS.flag));
   if ((allInspsSorted||[]).length) {
-    const colW = [1500, 1200, 2800, 1200, 1780, 1600]; // Date, Type, Port, Findings, Status, Inspector
+    const colW = [1250, 950, 1600, 2000, 1050, 1500, 1330]; // Date, Type, Inspection Type, Port, Findings, Status, Inspector
     children.push(multiColTable(
-      ["Date","Type","Port","Findings","Status","Inspector"],
+      ["Date","Type","Inspection Type","Port","Findings","Status","Inspector"],
       allInspsSorted.map(f => {
         const isDetentionRow = v.detentionDate && f.inspection_date===v.detentionDate && String(f.flag_psc||"").toUpperCase().includes("PSC");
         return {
@@ -355,6 +355,7 @@ export async function generateCaseBriefDocx(ctx) {
           cells: [
             fmtDate(f.inspection_date),
             typeLabel(f.flag_psc),
+            f.inspection_type||"—",
             f.port||"—",
             [String(f.num_findings??0), (f.num_findings??0)>=5],
             [isDetentionRow?"PSC Detention":(f.car_status||"—"), isDetentionRow],
