@@ -2542,6 +2542,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+((findingNamesByDate[f.inspection_date]||[]).join("; ")||(f.num_findings+" finding(s), names not on file"))+"</td>"
                           +"</tr>").join("")
                         +"</table>",SEC_COLORS.flag):"")
+                      +(intel?.psc?.length>0?sec("PSC Detention Summary","<table style='border-collapse:collapse;width:100%;table-layout:fixed;font-size:8pt;'>"
+                        +"<tr>"+["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"].map(h=>"<td style='padding:4px 6px;border:1px solid #999;font-weight:bold;background:#eee;'>"+h+"</td>").join("")+"</tr>"
+                        +intel.psc.map(p=>"<tr>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(p.inspection_date?fmtDate(p.inspection_date):"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(p.port||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(p.mou||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(p.inspection_type||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;"+(p.num_findings>=5?"color:#a30000;font-weight:bold;":"")+"'>"+(p.num_findings||0)+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;"+(p.was_detained?"color:#a30000;font-weight:bold;":"")+"'>"+(p.was_detained?"YES":"No")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;"+(p.risk_level==="High"?"color:#a30000;font-weight:bold;":"")+"'>"+(p.risk_level||"—")+"</td>"
+                          +"<td style='padding:4px 6px;border:1px solid #999;'>"+(p.ism_client||"—")+"</td>"
+                          +"</tr>").join("")
+                        +"</table>",SEC_COLORS.flag):"")
                       +sec("Additional / FSI Inspections After Detention","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +(postDetInspections.length?postDetInspections.map(ins=>rows(fmtDate(ins.inspection_date),(ins.inspection_type||"—")+(ins.num_findings!=null?" — "+ins.num_findings+" findings":""))).join(""):rows("Inspections","None recorded after this detention"))
                         +"</table>",SEC_COLORS.flag)

@@ -390,6 +390,25 @@ export async function generateCaseBriefDocx(ctx) {
     }
   }
 
+  // PSC Detention Summary
+  if ((intel?.psc||[]).length > 0) {
+    children.push(spacer(), sectionTitle("PSC Detention Summary", SEC_COLORS.flag));
+    children.push(multiColTable(
+      ["Date","Port","MoU","Type","Findings","Detained","Risk","ISM Client"],
+      intel.psc.map(p => [
+        p.inspection_date?fmtDate(p.inspection_date):"—",
+        p.port||"—",
+        p.mou||"—",
+        p.inspection_type||"—",
+        [String(p.num_findings||0), (p.num_findings||0)>=5],
+        [p.was_detained?"YES":"No", !!p.was_detained],
+        [p.risk_level||"—", p.risk_level==="High"],
+        p.ism_client||"—",
+      ]),
+      [1100, 1780, 1100, 1100, 1000, 1100, 1000, 1900]
+    ));
+  }
+
   // Additional / FSI Inspections After Detention
   children.push(spacer(), sectionTitle("Additional / FSI Inspections After Detention", SEC_COLORS.flag));
   children.push(table(postDetInspections.length
