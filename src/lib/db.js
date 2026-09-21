@@ -172,6 +172,7 @@ export async function getTasks(imo) {
     type: t.type||"Administrative", flags: t.flags||[],
     actions: t.actions||"", source: t.source||"", success: t.success||"", remark: t.remark||"",
     department: t.department||"", category: t.category||"", createdAt: t.created_at||"",
+    createdDate: t.created_date||"",
   }));
 }
 
@@ -187,6 +188,7 @@ export async function upsertTasksBulk(tasks) {
     actions: t.actions||"", source: t.source||"PDAIP Import",
     success: t.success||"", remark: t.remark||"",
     department: t.department||"", category: t.category||"",
+    created_date: t.createdDate||null,
   }));
   let saved = [];
   const batchSize = 10;

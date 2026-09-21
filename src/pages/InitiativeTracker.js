@@ -815,7 +815,7 @@ export default function InitiativeTracker() {
         pdaip.forEach(t => {
           const who = t.assignedTo||t.taskOwner;
           if (!who) return;
-          const dt = t.createdAt ? new Date(t.createdAt) : null;
+          const dt = t.createdDate ? new Date(t.createdDate) : (t.createdAt ? new Date(t.createdAt) : null);
           if (dt && !isNaN(dt) && dt.getFullYear()===now.getFullYear()) monthlyByDept[who][months[dt.getMonth()]]++;
           monthlyByDept[who].total++;
           const isClosed = closedStatuses.includes(t.status);
