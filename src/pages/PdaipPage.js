@@ -55,6 +55,8 @@ function PdaipImport({ onImported }) {
           remark: clean(row["Remark"]),
           source: "PDAIP Import",
           caseOwner: clean(row["Assignee"]),
+          department: clean(row["Department"]),
+          category: clean(row["Category"]),
         });
       }
       if (tasks.length === 0) { setResult({error:"No tasks found"}); setImporting(false); return; }
@@ -69,7 +71,7 @@ function PdaipImport({ onImported }) {
           task_owner:t.taskOwner, assigned_to:t.assignedTo, responsible:t.responsible,
           due:t.due||null, detention_date:t.detentionDate||null,
           priority:t.priority, status:t.status, remark:t.remark,
-          source:t.source, case_owner:t.caseOwner,
+          source:t.source, case_owner:t.caseOwner, department:t.department, category:t.category,
         }))).select();
         setResult({success:true, total:tasks.length, saved:(data||[]).length, mode:"replace"});
       } else {

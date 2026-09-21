@@ -185,6 +185,7 @@ export async function upsertTasksBulk(tasks) {
     type: t.type||"Administrative", flags: t.flags||[],
     actions: t.actions||"", source: t.source||"PDAIP Import",
     success: t.success||"", remark: t.remark||"",
+    department: t.department||"", category: t.category||"",
   }));
   let saved = [];
   const batchSize = 10;
