@@ -808,17 +808,18 @@ export default function InitiativeTracker() {
       {subTab==="actionkpi"&&(() => {
         const now = new Date();
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const deptList = [...new Set(pdaip.map(t=>t.department).filter(Boolean))].sort();
+        const deptList = [...new Set(pdaip.map(t=>t.assignedTo||t.taskOwner).filter(Boolean))].sort();
         const monthlyByDept = {};
         deptList.forEach(d => { monthlyByDept[d] = {total:0, open:0, closed:0}; months.forEach(m=>monthlyByDept[d][m]=0); });
         const closedStatuses = ["Executed","Completed"];
         pdaip.forEach(t => {
-          if (!t.department) return;
+          const who = t.assignedTo||t.taskOwner;
+          if (!who) return;
           const dt = t.createdAt ? new Date(t.createdAt) : null;
-          if (dt && !isNaN(dt) && dt.getFullYear()===now.getFullYear()) monthlyByDept[t.department][months[dt.getMonth()]]++;
-          monthlyByDept[t.department].total++;
-          if (closedStatuses.includes(t.status)) monthlyByDept[t.department].closed++;
-          else monthlyByDept[t.department].open++;
+          if (dt && !isNaN(dt) && dt.getFullYear()===now.getFullYear()) monthlyByDept[who][months[dt.getMonth()]]++;
+          monthlyByDept[who].total++;
+          if (closedStatuses.includes(t.status)) monthlyByDept[who].closed++;
+          else monthlyByDept[who].open++;
         });
         const totalActions = pdaip.length;
         const totalOpen = pdaip.filter(t=>!closedStatuses.includes(t.status)).length;
@@ -840,8 +841,8 @@ export default function InitiativeTracker() {
         deptList.forEach(d=>{deptRecurring[d]=0;});
         recurringGroups.forEach(([k])=>{
           const [vessel,title]=k.split("|");
-          const t = pdaip.find(x=>x.vessel===vessel&&x.title===title&&x.department);
-          if(t&&t.department) deptRecurring[t.department]=(deptRecurring[t.department]||0)+1;
+          const t = pdaip.find(x=>x.vessel===vessel&&x.title===title&&(x.assignedTo||x.taskOwner));
+          if(t) { const who=t.assignedTo||t.taskOwner; deptRecurring[who]=(deptRecurring[who]||0)+1; }
         });
         const hasDeptData = deptList.length > 0;
         const hasCatData = topCategories.length > 0;
@@ -851,7 +852,7 @@ export default function InitiativeTracker() {
           <div style={{fontSize:"11px",color:"var(--text3)",marginBottom:"14px"}}>Department Recurrence Rate = Recurring same actions ÷ Previously closed actions reviewed × 100</div>
           {!hasDeptData && (
             <div style={{background:"var(--amber-bg)",border:"1px solid var(--amber2)",borderRadius:"6px",padding:"10px 14px",marginBottom:"16px",fontSize:"12px",color:"var(--amber2)"}}>
-              No Department data on file yet — upload a PDAIP file with a "Department" column via Import &amp; Manage to populate the breakdown below. Summary KPIs still reflect all {totalActions} tasks.
+              No Assignee data on file yet for some tasks — the breakdown below only reflects tasks with an Assignee/Assigned To set.
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"10px",marginBottom:"20px"}}>
@@ -862,11 +863,11 @@ export default function InitiativeTracker() {
               </div>
             ))}
           </div>
-          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Monthly Actions by Department ({now.getFullYear()})</div>
+          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Monthly Actions by Assignee ({now.getFullYear()})</div>
           <div style={{overflowX:"auto",marginBottom:"20px",border:"1px solid var(--border)",borderRadius:"8px"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
             <thead><tr style={{background:"var(--bg3)"}}>
-              <th style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",whiteSpace:"nowrap"}}>Department</th>
+              <th style={{textAlign:"left",padding:"6px 8px",color:"var(--text3)",whiteSpace:"nowrap"}}>Assignee</th>
               {months.map(m=><th key={m} style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>{m}</th>)}
               <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Total</th>
               <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Open</th>
@@ -874,7 +875,7 @@ export default function InitiativeTracker() {
             </tr></thead>
             <tbody>
               {!hasDeptData ? (
-                <tr><td colSpan={16} style={{padding:"14px",textAlign:"center",color:"var(--text3)"}}>No department data yet.</td></tr>
+                <tr><td colSpan={16} style={{padding:"14px",textAlign:"center",color:"var(--text3)"}}>No assignee data yet.</td></tr>
               ) : deptList.map(d=>(
                 <tr key={d} style={{borderBottom:"1px solid var(--border)"}}>
                   <td style={{padding:"6px 8px",fontWeight:600,color:"var(--text)",whiteSpace:"nowrap"}}>{d}</td>
@@ -898,8 +899,8 @@ export default function InitiativeTracker() {
               ))}
             </div>
             <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px"}}>
-              <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>Recurring Issues by Department</div>
-              {!hasDeptData?<div style={{fontSize:"12px",color:"var(--text3)"}}>No department data yet.</div>:
+              <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"10px"}}>Recurring Issues by Assignee</div>
+              {!hasDeptData?<div style={{fontSize:"12px",color:"var(--text3)"}}>No assignee data yet.</div>:
               deptList.filter(d=>deptRecurring[d]>0).sort((a,b)=>deptRecurring[b]-deptRecurring[a]).length===0?<div style={{fontSize:"12px",color:"var(--text3)"}}>No recurring issues detected — target is 0%.</div>:
               deptList.filter(d=>deptRecurring[d]>0).sort((a,b)=>deptRecurring[b]-deptRecurring[a]).map(d=>(
                 <div key={d} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:"12px"}}>
