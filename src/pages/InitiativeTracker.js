@@ -810,7 +810,7 @@ export default function InitiativeTracker() {
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         const deptList = [...new Set(pdaip.map(t=>t.assignedTo||t.taskOwner).filter(Boolean))].sort();
         const monthlyByDept = {};
-        deptList.forEach(d => { monthlyByDept[d] = {total:0, open:0, closed:0}; months.forEach(m=>monthlyByDept[d][m]=0); });
+        deptList.forEach(d => { monthlyByDept[d] = {total:0, open:0, closed:0, onTimeClosed:0, overdue:0}; months.forEach(m=>monthlyByDept[d][m]=0); });
         const closedStatuses = ["Executed","Completed"];
         pdaip.forEach(t => {
           const who = t.assignedTo||t.taskOwner;
@@ -818,8 +818,14 @@ export default function InitiativeTracker() {
           const dt = t.createdAt ? new Date(t.createdAt) : null;
           if (dt && !isNaN(dt) && dt.getFullYear()===now.getFullYear()) monthlyByDept[who][months[dt.getMonth()]]++;
           monthlyByDept[who].total++;
-          if (closedStatuses.includes(t.status)) monthlyByDept[who].closed++;
-          else monthlyByDept[who].open++;
+          const isClosed = closedStatuses.includes(t.status);
+          if (isClosed) {
+            monthlyByDept[who].closed++;
+            if (!t.due || new Date(t.due)>=now) monthlyByDept[who].onTimeClosed++;
+          } else {
+            monthlyByDept[who].open++;
+            if (t.due && new Date(t.due)<now) monthlyByDept[who].overdue++;
+          }
         });
         const totalActions = pdaip.length;
         const totalOpen = pdaip.filter(t=>!closedStatuses.includes(t.status)).length;
@@ -846,6 +852,8 @@ export default function InitiativeTracker() {
         });
         const hasDeptData = deptList.length > 0;
         const hasCatData = topCategories.length > 0;
+        const statusCounts = {};
+        pdaip.forEach(t => { const s = t.status||"To Do"; statusCounts[s] = (statusCounts[s]||0)+1; });
         return (
         <div>
           <div style={{fontSize:"15px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}>Action & Recurrence KPI — Management Conclusion</div>
@@ -863,6 +871,15 @@ export default function InitiativeTracker() {
               </div>
             ))}
           </div>
+          <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Status Breakdown</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(110px, 1fr))",gap:"8px",marginBottom:"20px"}}>
+            {Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]).map(([status,count])=>(
+              <div key={status} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"6px",padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:"9px",color:"var(--text3)",textTransform:"uppercase",marginBottom:"2px"}}>{status}</div>
+                <div style={{fontSize:"16px",fontWeight:700,color:"var(--text)"}}>{count}</div>
+              </div>
+            ))}
+          </div>
           <div style={{fontSize:"13px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>Monthly Actions by Assignee ({now.getFullYear()})</div>
           <div style={{overflowX:"auto",marginBottom:"20px",border:"1px solid var(--border)",borderRadius:"8px"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"11px"}}>
@@ -872,10 +889,12 @@ export default function InitiativeTracker() {
               <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Total</th>
               <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Open</th>
               <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Closed</th>
+              <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>On-Time Closure %</th>
+              <th style={{padding:"6px 8px",color:"var(--text3)",textAlign:"center"}}>Overdue %</th>
             </tr></thead>
             <tbody>
               {!hasDeptData ? (
-                <tr><td colSpan={16} style={{padding:"14px",textAlign:"center",color:"var(--text3)"}}>No assignee data yet.</td></tr>
+                <tr><td colSpan={18} style={{padding:"14px",textAlign:"center",color:"var(--text3)"}}>No assignee data yet.</td></tr>
               ) : deptList.map(d=>(
                 <tr key={d} style={{borderBottom:"1px solid var(--border)"}}>
                   <td style={{padding:"6px 8px",fontWeight:600,color:"var(--text)",whiteSpace:"nowrap"}}>{d}</td>
@@ -883,6 +902,8 @@ export default function InitiativeTracker() {
                   <td style={{padding:"6px 8px",textAlign:"center",fontWeight:700,color:"var(--text)"}}>{monthlyByDept[d].total}</td>
                   <td style={{padding:"6px 8px",textAlign:"center",color:"var(--blue)"}}>{monthlyByDept[d].open}</td>
                   <td style={{padding:"6px 8px",textAlign:"center",color:"var(--green2)"}}>{monthlyByDept[d].closed}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",color:"var(--green2)"}}>{monthlyByDept[d].closed>0?Math.round((monthlyByDept[d].onTimeClosed/monthlyByDept[d].closed)*100)+"%":"—"}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",color:monthlyByDept[d].overdue>0?"var(--amber2)":"var(--text3)"}}>{monthlyByDept[d].open>0?Math.round((monthlyByDept[d].overdue/monthlyByDept[d].open)*100)+"%":"—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -907,6 +928,14 @@ export default function InitiativeTracker() {
                   <span style={{color:"var(--text2)"}}>{d}</span><span style={{fontWeight:700,color:"var(--red2)"}}>{deptRecurring[d]}</span>
                 </div>
               ))}
+            </div>
+          </div>
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"8px",padding:"14px",marginTop:"14px"}}>
+            <div style={{fontSize:"12px",fontWeight:700,color:"var(--text)",marginBottom:"8px"}}>KPI Formulas</div>
+            <div style={{fontSize:"11px",color:"var(--text2)",lineHeight:1.9}}>
+              <div><b style={{color:"var(--green2)"}}>On-Time Closure %</b> = Closed on time ÷ Actions due × 100</div>
+              <div><b style={{color:"var(--amber2)"}}>Overdue %</b> = Overdue open ÷ Total open × 100</div>
+              <div><b style={{color:"var(--red2)"}}>Recurring %</b> = Recurring actions ÷ Actions closed × 100</div>
             </div>
           </div>
         </div>
