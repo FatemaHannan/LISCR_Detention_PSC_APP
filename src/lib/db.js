@@ -171,6 +171,7 @@ export async function getTasks(imo) {
     due: t.due||"", status: t.status||"To Do", priority: t.priority||"Medium",
     type: t.type||"Administrative", flags: t.flags||[],
     actions: t.actions||"", source: t.source||"", success: t.success||"", remark: t.remark||"",
+    department: t.department||"", category: t.category||"", createdAt: t.created_at||"",
   }));
 }
 
