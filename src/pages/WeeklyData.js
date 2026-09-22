@@ -229,7 +229,10 @@ const UPLOADS = [
   },
   {
     key: "tasks",
-    onConflictKey: "id",
+    // No onConflictKey — tasks have no natural unique business key (multiple tasks can
+    // share the same vessel/title), and using "id" without providing one in the payload
+    // caused all 235 rows to collapse into a single upsert. Insert-only; use Full Replace
+    // mode on re-uploads to avoid piling up duplicates.
     label: "PDAIP Tasks",
     desc: "PDAIP action items and detention tasks — assignee, department, category, due dates, status. Uses the same reliable upload path as the rest of this app.",
     icon: "ti-checklist", color: "var(--blue)", bg: "var(--blue-bg)",
