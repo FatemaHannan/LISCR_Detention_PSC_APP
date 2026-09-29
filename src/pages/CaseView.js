@@ -2417,16 +2417,24 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   // vessel age, and open CAR/RO issues, all filtered to only what existed by that date.
                   const computeIntelRisk = (cutoffDate) => {
                     const cutoff = new Date(cutoffDate);
+                    const window36mo = new Date(cutoff); window36mo.setMonth(window36mo.getMonth()-36);
                     let score = 0;
                     const age = ageMap[v.imo]!=null ? ageMap[v.imo] : v.age;
                     if (age>=20) score+=2; else if (age>=15) score+=1;
-                    const priorDets = (intel?.detentionHistory||[]).filter(dd=>dd.detentionDate && new Date(dd.detentionDate)<cutoff).length;
-                    if (priorDets>=2) score+=3; else if (priorDets===1) score+=1;
+                    const priorDetsAll = (intel?.detentionHistory||[]).filter(dd=>dd.detentionDate && new Date(dd.detentionDate)<cutoff);
+                    const priorDetsRecent = priorDetsAll.filter(dd=>new Date(dd.detentionDate)>=window36mo);
+                    if (priorDetsAll.length>=2) score+=3; else if (priorDetsAll.length===1) score+=1;
                     const priorInsps = (intel?.inspections||[]).filter(f=>f.inspection_date && new Date(f.inspection_date)<cutoff);
                     const avgFindings = priorInsps.length ? priorInsps.reduce((s,f)=>s+(f.num_findings||0),0)/priorInsps.length : 0;
                     if (avgFindings>=8) score+=3; else if (avgFindings>=4) score+=2; else if (avgFindings>=1) score+=1;
                     const openCars = (intel?.cars||[]).filter(c=>c.insp_date && new Date(c.insp_date)<cutoff && c.car_status!=="Closed").length;
                     if (openCars>0) score+=2;
+                    const riskAtCutoff = (vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time);
+                    if (riskAtCutoff==="High"||riskAtCutoff==="Highest") score+=2;
+                    // Risk floor — same reasoning as Pre-Boarding Risk Screening: certain conditions
+                    // are severe enough on their own to warrant High regardless of the point total.
+                    const floorHit = priorDetsRecent.length>=2 || (priorDetsRecent.length>=1 && age>=15);
+                    if (floorHit) return "High";
                     if (score>=7) return "High";
                     if (score>=4) return "Medium";
                     return "Low";
