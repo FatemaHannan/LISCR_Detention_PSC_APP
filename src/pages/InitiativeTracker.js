@@ -808,12 +808,22 @@ export default function InitiativeTracker() {
       {subTab==="actionkpi"&&(() => {
         const now = new Date();
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const deptList = [...new Set(pdaip.map(t=>t.assignedTo||t.taskOwner).filter(Boolean))].sort();
+        // Normalize assignee for grouping: strip trailing ;/, and whitespace, take only the
+        // first name/email if multiple people are combined in one field (e.g. "asrivastava@
+        // liscr.com, Ancy Samkutty" -> "asrivastava@liscr.com"), so the same person's variants
+        // (trailing semicolon, appended second name, stray @liscr.com duplication) all group together.
+        const normalizeAssignee = (raw) => {
+          if (!raw) return raw;
+          let s = String(raw).trim().replace(/[;,]+$/,"").trim();
+          const first = s.split(/[,;]/)[0].trim();
+          return first || s;
+        };
+        const deptList = [...new Set(pdaip.map(t=>normalizeAssignee(t.assignedTo||t.taskOwner)).filter(Boolean))].sort();
         const monthlyByDept = {};
         deptList.forEach(d => { monthlyByDept[d] = {total:0, open:0, closed:0, onTimeClosed:0, overdue:0}; months.forEach(m=>monthlyByDept[d][m]=0); });
         const closedStatuses = ["Executed","Completed"];
         pdaip.forEach(t => {
-          const who = t.assignedTo||t.taskOwner;
+          const who = normalizeAssignee(t.assignedTo||t.taskOwner);
           if (!who) return;
           const dt = t.createdDate ? new Date(t.createdDate) : (t.createdAt ? new Date(t.createdAt) : null);
           if (dt && !isNaN(dt) && dt.getFullYear()===now.getFullYear()) monthlyByDept[who][months[dt.getMonth()]]++;
@@ -848,7 +858,7 @@ export default function InitiativeTracker() {
         recurringGroups.forEach(([k])=>{
           const [vessel,title]=k.split("|");
           const t = pdaip.find(x=>x.vessel===vessel&&x.title===title&&(x.assignedTo||x.taskOwner));
-          if(t) { const who=t.assignedTo||t.taskOwner; deptRecurring[who]=(deptRecurring[who]||0)+1; }
+          if(t) { const who=normalizeAssignee(t.assignedTo||t.taskOwner); deptRecurring[who]=(deptRecurring[who]||0)+1; }
         });
         const hasDeptData = deptList.length > 0;
         const hasCatData = topCategories.length > 0;
