@@ -2433,9 +2433,19 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     if (riskAtCutoff==="High"||riskAtCutoff==="Highest") score+=2;
                     // Risk floor — same reasoning as Pre-Boarding Risk Screening: certain conditions
                     // are severe enough on their own to warrant High regardless of the point total.
-                    const floorHit = priorDetsRecent.length>=2 || (priorDetsRecent.length>=1 && age>=15) || riskAtCutoff==="High" || riskAtCutoff==="Highest" || avgFindings>=8;
-                    if (floorHit) return "High";
-                    if (score>=7) return "High";
+                    const floorConditions = [
+                      priorDetsRecent.length>=2,
+                      priorDetsRecent.length>=1 && age>=15,
+                      riskAtCutoff==="High" || riskAtCutoff==="Highest",
+                      avgFindings>=8,
+                      age>=20,
+                    ];
+                    const floorCount = floorConditions.filter(Boolean).length;
+                    // Very High — matches Pre-Boarding's own top tier, reached when multiple severe
+                    // conditions stack together (e.g. repeat detention + high age + high DPP risk),
+                    // not just one on its own.
+                    if (floorCount>=3) return "Very High";
+                    if (floorCount>=1) return "High";
                     if (score>=4) return "Medium";
                     return "Low";
                   };
@@ -2474,7 +2484,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {l:"Detainable",v:totalDetainableCount,c:totalDetainableCount>0?SEC_COLORS.detention:SEC_COLORS.rec},
                         {l:"CAR Status",v:v.carStatus||"Not Received",c:v.carStatus&&v.carStatus!=="Not Received"?SEC_COLORS.rec:SEC_COLORS.detention},
                         {l:"DPP Risk",v:dppRisk||"—",c:(dppRisk==="High"||dppRisk==="Highest")?SEC_COLORS.detention:SEC_COLORS.rec},
-                        {l:"Intel. Platform Risk (Before → Current)",v:(intelRiskBefore||"—")+" → "+(intelRiskCurrent||"—"),c:intelRiskCurrent==="High"?SEC_COLORS.detention:SEC_COLORS.rec},
+                        {l:"Intel. Platform Risk (Before → Current)",v:(intelRiskBefore||"—")+" → "+(intelRiskCurrent||"—"),c:(intelRiskCurrent==="High"||intelRiskCurrent==="Very High")?SEC_COLORS.detention:SEC_COLORS.rec},
                       ].map(s=>"<div style='display:table-cell;width:20%;border:1px solid "+s.c+";border-left:4px solid "+s.c+";border-radius:4px;padding:8px 12px;background:"+s.c+"11;'>"
                         +"<div style='font-size:8.5pt;color:"+s.c+";text-transform:uppercase;letter-spacing:.03em;'>"+s.l+"</div>"
                         +"<div style='font-size:15pt;font-weight:700;color:"+s.c+";'>"+s.v+"</div></div>").join("")
@@ -2514,7 +2524,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +(v.detentionNotes?"<p style='margin:10px 0 0;'><b>Detention Notes:</b><br/>"+v.detentionNotes+"</p>":""),SEC_COLORS.detention)
                       +sec("Vetting Details","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Vessel Risk",dppRisk,"Previous Detentions?",intel?.client?.num_dets>0?"Yes":"No",dppRisk==="High"||dppRisk==="Highest",intel?.client?.num_dets>0)
-                        +pair("Intelligence Platform Risk (Before Detention)",intelRiskBefore,"Intelligence Platform Risk (Current)",intelRiskCurrent,intelRiskBefore==="High",intelRiskCurrent==="High")
+                        +pair("Intelligence Platform Risk (Before Detention)",intelRiskBefore,"Intelligence Platform Risk (Current)",intelRiskCurrent,(intelRiskBefore==="High"||intelRiskBefore==="Very High"),(intelRiskCurrent==="High"||intelRiskCurrent==="Very High"))
                         +pair("Dispensations (365d)",intel?.vip?.tech_disp_365,"Open During Detention",v.dispensationOpenAtDetention||"Unknown",intel?.vip?.tech_disp_365>2,v.dispensationOpenAtDetention==="Yes")
                         +pair("Case File Opened?",wasVetted?"Yes":"No","Vetted?",wasVetted?"Yes":"No — not vetted before detention",!wasVetted,!wasVetted)
                         +pair("Vetting Status at Detention",vettingAtDetention?.cf_vetting,"Client Rejection",v.clientRejection,false,!!v.clientRejection)
@@ -2742,8 +2752,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Vetted" value={wasVetted?"Yes":"No — not vetted before detention"} red={!wasVetted} />
                           <Row label="Vetting Status at Detention" value={vettingAtDetention?.cf_vetting||"—"} />
                           <Row label="DPP Risk" value={dppRisk||"—"} red={dppRisk==="High"||dppRisk==="Highest"} />
-                          <Row label="Intelligence Platform Risk (Before Detention)" value={intelRiskBefore||"—"} red={intelRiskBefore==="High"} />
-                          <Row label="Intelligence Platform Risk (Current)" value={intelRiskCurrent||"—"} red={intelRiskCurrent==="High"} />
+                          <Row label="Intelligence Platform Risk (Before Detention)" value={intelRiskBefore||"—"} red={intelRiskBefore==="High"||intelRiskBefore==="Very High"} />
+                          <Row label="Intelligence Platform Risk (Current)" value={intelRiskCurrent||"—"} red={intelRiskCurrent==="High"||intelRiskCurrent==="Very High"} />
                           <Row label="Client Rejection" value={v.clientRejection||"—"} red={!!v.clientRejection} />
                           <Row label="ASI / Preemptive Insp. Before PSC" value={asiDone?"Yes — "+asiTask.title:(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not recorded")} red={!asiDone} />
                         </div>

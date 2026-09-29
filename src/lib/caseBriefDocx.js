@@ -279,7 +279,7 @@ export async function generateCaseBriefDocx(ctx) {
   children.push(spacer(), sectionTitle("Vetting Details", SEC_COLORS.vetting));
   children.push(table([
     pairRow("Vessel Risk", dppRisk, "Previous Detentions?", intel?.client?.num_dets>0?"Yes":"No", dppRisk==="High"||dppRisk==="Highest", intel?.client?.num_dets>0),
-    pairRow("Intel. Platform Risk (Before Detention)", intelRiskBefore, "Intel. Platform Risk (Current)", intelRiskCurrent, intelRiskBefore==="High", intelRiskCurrent==="High"),
+    pairRow("Intel. Platform Risk (Before Detention)", intelRiskBefore, "Intel. Platform Risk (Current)", intelRiskCurrent, intelRiskBefore==="High"||intelRiskBefore==="Very High", intelRiskCurrent==="High"||intelRiskCurrent==="Very High"),
     pairRow("Dispensations (365d)", intel?.vip?.tech_disp_365, "Open During Detention", v.dispensationOpenAtDetention||"Unknown", intel?.vip?.tech_disp_365>2, v.dispensationOpenAtDetention==="Yes"),
     pairRow("Case File Opened?", wasVetted?"Yes":"No", "Vetted?", wasVetted?"Yes":"No — not vetted before detention", !wasVetted, !wasVetted),
     pairRow("Vetting Status at Detention", vettingAtDetention?.cf_vetting, "Client Rejection", v.clientRejection, false, !!v.clientRejection),
