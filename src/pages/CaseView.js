@@ -2466,7 +2466,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         {l:"Detainable",v:totalDetainableCount,c:totalDetainableCount>0?SEC_COLORS.detention:SEC_COLORS.rec},
                         {l:"CAR Status",v:v.carStatus||"Not Received",c:v.carStatus&&v.carStatus!=="Not Received"?SEC_COLORS.rec:SEC_COLORS.detention},
                         {l:"DPP Risk",v:dppRisk||"—",c:(dppRisk==="High"||dppRisk==="Highest")?SEC_COLORS.detention:SEC_COLORS.rec},
-                        {l:"Intel. Platform Risk",v:intelRiskCurrent||"—",c:intelRiskCurrent==="High"?SEC_COLORS.detention:SEC_COLORS.rec},
+                        {l:"Intel. Platform Risk (Before → Current)",v:(intelRiskBefore||"—")+" → "+(intelRiskCurrent||"—"),c:intelRiskCurrent==="High"?SEC_COLORS.detention:SEC_COLORS.rec},
                       ].map(s=>"<div style='display:table-cell;width:20%;border:1px solid "+s.c+";border-left:4px solid "+s.c+";border-radius:4px;padding:8px 12px;background:"+s.c+"11;'>"
                         +"<div style='font-size:8.5pt;color:"+s.c+";text-transform:uppercase;letter-spacing:.03em;'>"+s.l+"</div>"
                         +"<div style='font-size:15pt;font-weight:700;color:"+s.c+";'>"+s.v+"</div></div>").join("")
