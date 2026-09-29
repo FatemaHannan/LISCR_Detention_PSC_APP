@@ -2411,6 +2411,29 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const postDetInspections = v.detentionDate?(intel?.inspections||[]).filter(i=>i.inspection_date&&new Date(i.inspection_date)>new Date(v.detentionDate)).sort((a,b)=>new Date(a.inspection_date)-new Date(b.inspection_date)):[];
                   const dppRisk = vettingAtDetention?.risk_level_at_time||latestDpp?.risk_level_at_time;
 
+                  // Intelligence Platform Risk — simplified risk score computed from data available
+                  // as of a given cutoff date, so we can show "before this detention" vs "current"
+                  // using the same underlying signals: prior detentions, average inspection findings,
+                  // vessel age, and open CAR/RO issues, all filtered to only what existed by that date.
+                  const computeIntelRisk = (cutoffDate) => {
+                    const cutoff = new Date(cutoffDate);
+                    let score = 0;
+                    const age = ageMap[v.imo]!=null ? ageMap[v.imo] : v.age;
+                    if (age>=20) score+=2; else if (age>=15) score+=1;
+                    const priorDets = (intel?.detentionHistory||[]).filter(dd=>dd.detentionDate && new Date(dd.detentionDate)<cutoff).length;
+                    if (priorDets>=2) score+=3; else if (priorDets===1) score+=1;
+                    const priorInsps = (intel?.inspections||[]).filter(f=>f.inspection_date && new Date(f.inspection_date)<cutoff);
+                    const avgFindings = priorInsps.length ? priorInsps.reduce((s,f)=>s+(f.num_findings||0),0)/priorInsps.length : 0;
+                    if (avgFindings>=8) score+=3; else if (avgFindings>=4) score+=2; else if (avgFindings>=1) score+=1;
+                    const openCars = (intel?.cars||[]).filter(c=>c.insp_date && new Date(c.insp_date)<cutoff && c.car_status!=="Closed").length;
+                    if (openCars>0) score+=2;
+                    if (score>=7) return "High";
+                    if (score>=4) return "Medium";
+                    return "Low";
+                  };
+                  const intelRiskBefore = v.detentionDate ? computeIntelRisk(v.detentionDate) : null;
+                  const intelRiskCurrent = computeIntelRisk(new Date().toISOString());
+
                   const SEC_COLORS = {admin:"#1e3a5f",detention:"#8b2020",vetting:"#8a5a00",flag:"#0e6b7a",ro:"#5b3a8a",casualty:"#8b2020",mlc:"#8a5a00",disp:"#5b3a8a",flags:"#4a4a4a",rec:"#1e6b45"};
                   const rows = (label,value,alert)=>"<tr><td style='padding:7px 12px;border:1px solid #ccc;color:#222;width:32%;background:#f4f5f7;font-weight:600;'>"+label+"</td><td style='padding:7px 12px;border:1px solid #ccc;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
                   const sec = (title,bodyHtml,color)=>{ const c=color||"#333"; return "<div style='margin:0 0 18px;'><p style='font-weight:700;font-size:12.5pt;margin:0 0 8px;padding-left:9px;border-left:4px solid "+c+";color:"+c+";'>"+title+"</p>"+bodyHtml+"</div>"; };
@@ -2482,6 +2505,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +(v.detentionNotes?"<p style='margin:10px 0 0;'><b>Detention Notes:</b><br/>"+v.detentionNotes+"</p>":""),SEC_COLORS.detention)
                       +sec("Vetting Details","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +pair("Vessel Risk",dppRisk,"Previous Detentions?",intel?.client?.num_dets>0?"Yes":"No",dppRisk==="High"||dppRisk==="Highest",intel?.client?.num_dets>0)
+                        +pair("Intelligence Platform Risk (Before Detention)",intelRiskBefore,"Intelligence Platform Risk (Current)",intelRiskCurrent,intelRiskBefore==="High",intelRiskCurrent==="High")
                         +pair("Dispensations (365d)",intel?.vip?.tech_disp_365,"Open During Detention",v.dispensationOpenAtDetention||"Unknown",intel?.vip?.tech_disp_365>2,v.dispensationOpenAtDetention==="Yes")
                         +pair("Case File Opened?",wasVetted?"Yes":"No","Vetted?",wasVetted?"Yes":"No — not vetted before detention",!wasVetted,!wasVetted)
                         +pair("Vetting Status at Detention",vettingAtDetention?.cf_vetting,"Client Rejection",v.clientRejection,false,!!v.clientRejection)
@@ -2595,7 +2619,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const downloadWordBrief = async ()=>{
                     const resolvedType = typeMap[v.imo]||(v.type&&v.type!=="—"?v.type:null)||"—";
                     const blob = await generateCaseBriefDocx({
-                      v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk,
+                      v: {...v, type: resolvedType}, intel, briefAlerts, companyHistory, totalDefsCount, totalDetainableCount, dppRisk, intelRiskBefore, intelRiskCurrent,
                       lastDetention, lastFlagInsp, vesselAge, openTasksForCase, detainableList: detainableListDisplay, detainableIsFallback: detainableList.length===0&&detainableListDisplay.length>0, vetting60, caseFiles60,
                       flagInspsSorted, allInspsSorted, postDetInspections, portHistory, casualties, mlc, matchingCodes, recurringDeficiencies,
                       daysBeforeDet, lastFlagDate, asiDone, asiTask, wasVetted, vettingAtDetention, fmtDate,
@@ -2709,6 +2733,8 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           <Row label="Vetted" value={wasVetted?"Yes":"No — not vetted before detention"} red={!wasVetted} />
                           <Row label="Vetting Status at Detention" value={vettingAtDetention?.cf_vetting||"—"} />
                           <Row label="DPP Risk" value={dppRisk||"—"} red={dppRisk==="High"||dppRisk==="Highest"} />
+                          <Row label="Intelligence Platform Risk (Before Detention)" value={intelRiskBefore||"—"} red={intelRiskBefore==="High"} />
+                          <Row label="Intelligence Platform Risk (Current)" value={intelRiskCurrent||"—"} red={intelRiskCurrent==="High"} />
                           <Row label="Client Rejection" value={v.clientRejection||"—"} red={!!v.clientRejection} />
                           <Row label="ASI / Preemptive Insp. Before PSC" value={asiDone?"Yes — "+asiTask.title:(asiTask?asiTask.title+" ["+asiTask.status+"]":"Not recorded")} red={!asiDone} />
                         </div>
