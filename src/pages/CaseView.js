@@ -2433,7 +2433,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                     if (riskAtCutoff==="High"||riskAtCutoff==="Highest") score+=2;
                     // Risk floor — same reasoning as Pre-Boarding Risk Screening: certain conditions
                     // are severe enough on their own to warrant High regardless of the point total.
-                    const floorHit = priorDetsRecent.length>=2 || (priorDetsRecent.length>=1 && age>=15);
+                    const floorHit = priorDetsRecent.length>=2 || (priorDetsRecent.length>=1 && age>=15) || riskAtCutoff==="High" || riskAtCutoff==="Highest" || avgFindings>=8;
                     if (floorHit) return "High";
                     if (score>=7) return "High";
                     if (score>=4) return "Medium";
