@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PdaipPage from './PdaipPage';
+import ClientOutreachTab from './ClientOutreachTab';
 import { getTasks, getVessels } from '../lib/db';
 
 export default function InitiativeTracker() {
@@ -92,6 +93,7 @@ export default function InitiativeTracker() {
     {id:"pdaip", label:"PDAIP Tasks"},
     {id:"detention", label:"Detention Tasks"},
     {id:"actionkpi", label:"Action & Recurrence KPI"},
+    {id:"clientoutreach", label:"Client Outreach"},
   ];
 
   // ── Impact calculations (PD-specific, not CAR) ───────────────────
@@ -951,6 +953,7 @@ export default function InitiativeTracker() {
         </div>
         );
       })()}
+      {subTab==="clientoutreach"&&<ClientOutreachTab tasks={tasks} vessels={vessels} />}
       {subTab==="import"&&(
         <PdaipPage canEdit={true} canDelete={true} canDownload={true} />
       )}
