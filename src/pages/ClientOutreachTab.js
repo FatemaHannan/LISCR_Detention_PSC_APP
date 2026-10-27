@@ -45,6 +45,7 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
   const [view, setView] = useState("detail");
   const [checkText, setCheckText] = useState("");
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState(new Set());
   useEffect(() => { setPage(0); }, [year, month, category, status, taskStatus, roFilter, repeatedOnly, sortBy, clientQ, view]);
 
   // Client and RO lookup by IMO (fallback by vessel name): vessels, then fleet_roster / stricken_vessels for the client
@@ -84,7 +85,7 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
       const key = [vessel, oneLine(t.title), t.status, mth].join("|");
       if (seen.has(key)) return; seen.add(key);
       out.push({
-        month: mth, year: mth.slice(0, 4), vessel, imo,
+        key, month: mth, year: mth.slice(0, 4), vessel, imo,
         client: companyByImo[imo] || companyByName[vessel.toUpperCase()] || "",
         ro: roByImo[imo] || roByName[vessel.toUpperCase()] || "",
         title: oneLine(t.title), taskStatus: t.status || "", outreach: statusGroup(t.status),
@@ -134,6 +135,10 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
     (!q || (r.client + " " + r.vessel + " " + r.ro + " " + r.title).toLowerCase().includes(q))
   ).sort(sorters[sortBy] || sorters.month);
 
+  const exportRows = selected.size ? rows.filter(r => selected.has(r.key)).sort(sorters[sortBy] || sorters.month) : filtered;
+  const toggleMany = (list) => setSelected(prev => { const n = new Set(prev); const all = list.length > 0 && list.every(r => n.has(r.key)); list.forEach(r => all ? n.delete(r.key) : n.add(r.key)); return n; });
+  const allSel = (list) => list.length > 0 && list.every(r => selected.has(r.key));
+
   const count = (list, s) => list.filter(r => r.outreach === s).length;
   const groupBy = (keyFn) => { const g = {}; filtered.forEach(r => { const k = keyFn(r); (g[k] = g[k] || []).push(r); }); return g; };
   const byMonth = groupBy(r => r.month || "No date");
@@ -155,20 +160,25 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
   const csv = () => {
     const head = ["Month", "Vessel", "IMO", "Client", "RO", "Type", "Task", "Task status", "Status group", "Repeated", "Assigned to", "Outcome / actions taken"];
     const c = (s) => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
-    download("Client_Outreach_Report.csv", "text/csv;charset=utf-8", "﻿" + [head.map(c).join(","), ...filtered.map(r => [r.month, r.vessel, r.imo, r.client, r.ro, r.category, r.title, r.taskStatus, r.outreach, r.repeat > 1 ? r.repeat : "", r.assignedTo, r.outcome].map(c).join(","))].join("\n"));
+    download("Client_Outreach_Report.csv", "text/csv;charset=utf-8", "﻿" + [head.map(c).join(","), ...exportRows.map(r => [r.month, r.vessel, r.imo, r.client, r.ro, r.category, r.title, r.taskStatus, r.outreach, r.repeat > 1 ? r.repeat : "", r.assignedTo, r.outcome].map(c).join(","))].join("\n"));
   };
   const reportHtml = () => {
-    const scope = [year !== "All" ? year : "All years", month !== "All" ? month : "", category !== "All" ? category : "", status !== "All" ? status : "", roFilter !== "All" ? roFilter : ""].filter(Boolean).join(" · ");
+    const list = exportRows;
+    const grp = (keyFn) => { const g = {}; list.forEach(r => { const k = keyFn(r); (g[k] = g[k] || []).push(r); }); return g; };
+    const gMonth = grp(r => r.month || "No date"), gClient = grp(r => r.client || "(client not found)"), gRo = grp(r => r.ro || "(RO not found)"), gCat = grp(r => r.category);
+    const kMonth = Object.keys(gMonth).sort().reverse(), kClient = Object.keys(gClient).sort((a, b) => a.localeCompare(b)), kRo = Object.keys(gRo).sort((a, b) => a.localeCompare(b)), kCat = Object.keys(gCat).sort((a, b) => CATEGORIES.indexOf(a) - CATEGORIES.indexOf(b));
+    const scope = selected.size ? "Selected " + selected.size + " tasks" : [year !== "All" ? year : "All years", month !== "All" ? month : "", category !== "All" ? category : "", status !== "All" ? status : "", roFilter !== "All" ? roFilter : ""].filter(Boolean).join(" · ");
     const th = (s) => `<th style="background:#1F3A5F;color:#fff;border:1px solid #999;padding:5px;font-size:10px;text-align:left">${s}</th>`;
     const td = (s) => `<td style="border:1px solid #ccc;padding:4px;font-size:10px;vertical-align:top">${esc(s)}</td>`;
     const summary = (title, keys, g) => `<h3 style="font-size:13px">${title}</h3><table style="border-collapse:collapse;width:100%"><tr>${[title.replace("By ", ""), "Vessels", "Done", "In progress", "Not started", "Total"].map(th).join("")}</tr>
       ${keys.map(k => `<tr>${[k, vcount(g[k]), count(g[k], "Done"), count(g[k], "In progress"), count(g[k], "Not started"), g[k].length].map(td).join("")}</tr>`).join("")}</table>`;
+    const vN = vcount(list), cN = new Set(list.map(r => r.client).filter(Boolean)).size;
     return `<html><head><meta charset="utf-8"><title>Client Outreach Report</title></head><body style="font-family:Arial,sans-serif;color:#111">
       <h2 style="margin:0">Client Outreach &amp; Task Report</h2><div style="font-size:11px;color:#555;margin-bottom:10px">LISCR PSC Detention Intelligence · ${esc(scope)} · generated ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}</div>
-      <p style="font-size:11px">${filtered.length} tasks · ${vesselCount} vessels · ${clientCount} clients · Done ${count(filtered, "Done")} · In progress ${count(filtered, "In progress")} · Not started ${count(filtered, "Not started")}</p>
-      ${summary("By month", monthKeys, byMonth)}${summary("By client", clientKeys, byClient)}${summary("By RO", roKeys, byRo)}${summary("By type", catKeys, byCat)}
+      <p style="font-size:11px">${list.length} tasks · ${vN} vessels · ${cN} clients · Done ${count(list, "Done")} · In progress ${count(list, "In progress")} · Not started ${count(list, "Not started")}</p>
+      ${summary("By month", kMonth, gMonth)}${summary("By client", kClient, gClient)}${summary("By RO", kRo, gRo)}${summary("By type", kCat, gCat)}
       <h3 style="font-size:13px">Detail</h3><table style="border-collapse:collapse;width:100%"><tr>${["Month", "Vessel", "IMO", "Client", "RO", "Type", "Task", "Status", "Assigned to", "Outcome"].map(th).join("")}</tr>
-      ${filtered.map(r => `<tr>${[r.month, r.vessel, r.imo, r.client || "—", r.ro || "—", r.category + (r.repeat > 1 ? " (repeated x" + r.repeat + ")" : ""), r.title, r.outreach + " (" + r.taskStatus + ")", r.assignedTo, r.outcome].map(td).join("")}</tr>`).join("")}</table></body></html>`;
+      ${list.map(r => `<tr>${[r.month, r.vessel, r.imo, r.client || "—", r.ro || "—", r.category + (r.repeat > 1 ? " (repeated x" + r.repeat + ")" : ""), r.title, r.outreach + " (" + r.taskStatus + ")", r.assignedTo, r.outcome].map(td).join("")}</tr>`).join("")}</table></body></html>`;
   };
   const printPdf = () => { const w = window.open("", "_blank"); if (!w) return; w.document.write(reportHtml()); w.document.close(); setTimeout(() => w.print(), 400); };
   const word = () => download("Client_Outreach_Report.doc", "application/msword", reportHtml());
@@ -182,8 +192,8 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
   const cell = { padding: "8px 12px", fontSize: "12px", color: "var(--text2)", verticalAlign: "top", borderBottom: "1px solid var(--border)" };
   const headCell = { padding: "8px 12px", fontSize: "10px", textAlign: "left", color: "var(--text3)", textTransform: "uppercase", fontFamily: "var(--mono)" };
   const strong = { ...cell, color: "var(--text)", fontWeight: 600 };
-  const summaryTable = (label, keys, g) => (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{[label, "Vessels", "Done", "In progress", "Not started", "Total"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
-    <tbody>{keys.slice(view === "month" || view === "type" ? 0 : page * PAGE, view === "month" || view === "type" ? undefined : page * PAGE + PAGE).map(k => (<tr key={k}><td style={strong}>{k}</td><td style={cell}>{vcount(g[k])}</td><td style={cell}>{count(g[k], "Done")}</td><td style={cell}>{count(g[k], "In progress")}</td><td style={cell}>{count(g[k], "Not started")}</td><td style={cell}>{g[k].length}</td></tr>))}</tbody></table>);
+  const summaryTable = (label, keys, g) => (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><th style={headCell}>Select</th>{[label, "Vessels", "Done", "In progress", "Not started", "Total"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
+    <tbody>{keys.slice(view === "month" || view === "type" ? 0 : page * PAGE, view === "month" || view === "type" ? undefined : page * PAGE + PAGE).map(k => (<tr key={k}><td style={cell}><input type="checkbox" checked={allSel(g[k])} onChange={() => toggleMany(g[k])} /></td><td style={strong}>{k}</td><td style={cell}>{vcount(g[k])}</td><td style={cell}>{count(g[k], "Done")}</td><td style={cell}>{count(g[k], "In progress")}</td><td style={cell}>{count(g[k], "Not started")}</td><td style={cell}>{g[k].length}</td></tr>))}</tbody></table>);
   const total = view === "detail" ? filtered.length : view === "client" ? clientKeys.length : view === "ro" ? roKeys.length : 0;
   const pages = Math.max(1, Math.ceil(total / PAGE));
 
@@ -203,7 +213,8 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
         <span style={{ fontSize: "12px", color: "var(--text3)" }}>Sort by</span>
         <select style={sel} value={sortBy} onChange={e => setSortBy(e.target.value)}><option value="month">Month</option><option value="client">Client</option><option value="ro">RO</option><option value="vessel">Vessel</option><option value="category">Task type</option><option value="repeat">Most repeated</option></select>
         <div style={{ flex: 1 }} />
-        <button style={btn} onClick={printPdf}>PDF</button><button style={btn} onClick={word}>Word</button><button style={btn} onClick={csv}>CSV</button>
+        {selected.size > 0 && <button style={btn} onClick={() => setSelected(new Set())}>Clear selection ({selected.size})</button>}
+        <button style={btn} onClick={printPdf}>{selected.size ? "PDF (selected)" : "PDF"}</button><button style={btn} onClick={word}>{selected.size ? "Word (selected)" : "Word"}</button><button style={btn} onClick={csv}>{selected.size ? "CSV (selected)" : "CSV"}</button>
       </div>
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "14px" }}>
         {card("Tasks", filtered.length)}{card("Vessels", vesselCount)}{card("Clients", clientCount)}
@@ -213,8 +224,8 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
         {[["detail", "Vessel detail"], ["month", "By month"], ["client", "By client"], ["ro", "By RO"], ["type", "By task type"], ["check", "Check vessels"]].map(([id, l]) => <button key={id} onClick={() => setView(id)} style={{ ...btn, background: view === id ? "var(--blue)" : "var(--bg3)", color: view === id ? "#fff" : "var(--text)" }}>{l}</button>)}
       </div>
       <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", overflow: "auto" }}>
-        {view === "detail" && (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Month", "Vessel", "Client", "RO", "Type", "Task", "Status", "Assigned to", "Outcome"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
-          <tbody>{filtered.slice(page * PAGE, page * PAGE + PAGE).map((r, i) => (<tr key={i}><td style={cell}>{r.month}</td><td style={strong}>{r.vessel}<div style={{ fontSize: "10px", color: "var(--text3)", fontWeight: 400 }}>{r.imo}</div></td>
+        {view === "detail" && (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><th style={headCell}><input type="checkbox" title="Select all filtered tasks" checked={allSel(filtered)} onChange={() => toggleMany(filtered)} /></th>{["Month", "Vessel", "Client", "RO", "Type", "Task", "Status", "Assigned to", "Outcome"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
+          <tbody>{filtered.slice(page * PAGE, page * PAGE + PAGE).map((r, i) => (<tr key={i}><td style={cell}><input type="checkbox" checked={selected.has(r.key)} onChange={() => toggleMany([r])} /></td><td style={cell}>{r.month}</td><td style={strong}>{r.vessel}<div style={{ fontSize: "10px", color: "var(--text3)", fontWeight: 400 }}>{r.imo}</div></td>
             <td style={cell}>{r.client || "—"}</td><td style={cell}>{r.ro || "—"}</td>
             <td style={cell}>{r.category}{r.repeat > 1 && <div style={{ fontSize: "10px", color: "var(--amber2)", fontWeight: 600 }}>Repeated ×{r.repeat}</div>}</td>
             <td style={cell}>{r.title}</td><td style={{ ...cell, color: statusColor(r.outreach), fontWeight: 600 }}>{r.outreach}<div style={{ fontSize: "10px", color: "var(--text3)", fontWeight: 400 }}>{r.taskStatus}</div></td>
@@ -241,7 +252,7 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
         <button style={btn} disabled={page >= pages - 1} onClick={() => setPage(p => Math.min(pages - 1, p + 1))}>Next →</button>
       </div>)}
       <div style={{ fontSize: "11px", color: "var(--text3)", marginTop: "10px", lineHeight: 1.6 }}>
-        Done = task Executed or Completed (see Outcome for what was actually done). Month = month the task was created. Task type comes from the task title. Repeated = the same client has 2 or more tasks of the same type. Client and RO are looked up by IMO from vessel, fleet and stricken records, then by vessel name.
+        Tick the boxes to pick specific vessels, clients or groups; the PDF, Word and CSV buttons then export only your selection. With nothing ticked they export everything that matches the filters. Done = task Executed or Completed (see Outcome for what was actually done). Month = month the task was created. Task type comes from the task title. Repeated = the same client has 2 or more tasks of the same type. Client and RO are looked up by IMO from vessel, fleet and stricken records, then by vessel name.
       </div>
     </div>
   );
