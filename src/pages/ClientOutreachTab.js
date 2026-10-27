@@ -33,6 +33,10 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
   const [showOther, setShowOther] = useState(false);
   const [view, setView] = useState("detail");
   const [checkText, setCheckText] = useState("");
+  const [taskStatus, setTaskStatus] = useState("All");
+  const [page, setPage] = useState(0);
+  const PAGE = 50;
+  useEffect(() => { setPage(0); }, [year, month, status, taskStatus, clientQ, showOther, view]);
 
   // Client lookup by IMO (fallback by vessel name): vessels -> fleet_roster -> stricken_vessels
   useEffect(() => {
@@ -95,13 +99,14 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
     });
   }, [checkText, rows, companyByImo, companyByName]);
 
+  const taskStatuses = [...new Set(rows.filter(r => showOther || r.type === "Client outreach").map(r => r.taskStatus).filter(Boolean))].sort();
   const years = [...new Set(rows.map(r => r.year).filter(Boolean))].sort().reverse();
   const months = [...new Set(rows.filter(r => year === "All" || r.year === year).map(r => r.month).filter(Boolean))].sort().reverse();
 
   const filtered = rows.filter(r =>
     (showOther || r.type === "Client outreach") &&
     (year === "All" || r.year === year) && (month === "All" || r.month === month) &&
-    (status === "All" || r.outreach === status) &&
+    (status === "All" || r.outreach === status) && (taskStatus === "All" || r.taskStatus === taskStatus) &&
     (!clientQ || (r.client + " " + r.vessel).toLowerCase().includes(clientQ.toLowerCase()))
   ).sort((a, b) => b.month.localeCompare(a.month) || (a.client || "zzz").localeCompare(b.client || "zzz") || a.vessel.localeCompare(b.vessel));
 
@@ -157,7 +162,8 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "14px" }}>
         <select style={sel} value={year} onChange={e => { setYear(e.target.value); setMonth("All"); }}><option value="All">All years</option>{years.map(y => <option key={y}>{y}</option>)}</select>
         <select style={sel} value={month} onChange={e => setMonth(e.target.value)}><option value="All">All months</option>{months.map(m => <option key={m}>{m}</option>)}</select>
-        <select style={sel} value={status} onChange={e => setStatus(e.target.value)}><option value="All">All statuses</option><option>Contacted</option><option>In progress</option><option>Not yet</option></select>
+        <select style={sel} value={status} onChange={e => setStatus(e.target.value)}><option value="All">All outreach status</option><option>Contacted</option><option>In progress</option><option>Not yet</option></select>
+        <select style={sel} value={taskStatus} onChange={e => setTaskStatus(e.target.value)}><option value="All">All task statuses</option>{taskStatuses.map(t => <option key={t}>{t}</option>)}</select>
         <input style={{ ...sel, width: "200px" }} placeholder="Search client or vessel…" value={clientQ} onChange={e => setClientQ(e.target.value)} />
         <label style={{ fontSize: "12px", color: "var(--text3)", display: "flex", gap: "4px", alignItems: "center" }}><input type="checkbox" checked={showOther} onChange={e => setShowOther(e.target.checked)} />Include inspector / RO / internal tasks</label>
         <div style={{ flex: 1 }} />
@@ -172,13 +178,13 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
       </div>
       <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "8px", overflow: "auto" }}>
         {view === "detail" && (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Month", "Vessel", "Client", "Task", "Status", "Assigned to", "Outcome"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
-          <tbody>{filtered.map((r, i) => (<tr key={i}><td style={cell}>{r.month}</td><td style={{ ...cell, color: "var(--text)", fontWeight: 600 }}>{r.vessel}<div style={{ fontSize: "10px", color: "var(--text3)" }}>{r.imo}</div></td>
+          <tbody>{filtered.slice(page * PAGE, page * PAGE + PAGE).map((r, i) => (<tr key={i}><td style={cell}>{r.month}</td><td style={{ ...cell, color: "var(--text)", fontWeight: 600 }}>{r.vessel}<div style={{ fontSize: "10px", color: "var(--text3)" }}>{r.imo}</div></td>
             <td style={cell}>{r.client || "—"}</td><td style={cell}>{r.title}</td><td style={{ ...cell, color: statusColor(r.outreach), fontWeight: 600 }}>{r.outreach}<div style={{ fontSize: "10px", color: "var(--text3)", fontWeight: 400 }}>{r.taskStatus}</div></td>
             <td style={cell}>{r.assignedTo}</td><td style={{ ...cell, maxWidth: "360px" }}>{r.outcome.length > 260 ? r.outcome.slice(0, 260) + "…" : r.outcome}</td></tr>))}</tbody></table>)}
         {view === "month" && (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Month", "Contacted", "In progress", "Not yet", "Total"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
           <tbody>{monthKeys.map(m => (<tr key={m}><td style={{ ...cell, color: "var(--text)", fontWeight: 600 }}>{m}</td><td style={cell}>{count(byMonth[m], "Contacted")}</td><td style={cell}>{count(byMonth[m], "In progress")}</td><td style={cell}>{count(byMonth[m], "Not yet")}</td><td style={cell}>{byMonth[m].length}</td></tr>))}</tbody></table>)}
         {view === "client" && (<table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Client", "Vessels", "Contacted", "In progress", "Not yet"].map(h => <th key={h} style={headCell}>{h}</th>)}</tr></thead>
-          <tbody>{clientKeys.map(c => (<tr key={c}><td style={{ ...cell, color: "var(--text)", fontWeight: 600 }}>{c}</td><td style={cell}>{new Set(byClient[c].map(r => r.imo || r.vessel)).size}</td><td style={cell}>{count(byClient[c], "Contacted")}</td><td style={cell}>{count(byClient[c], "In progress")}</td><td style={cell}>{count(byClient[c], "Not yet")}</td></tr>))}</tbody></table>)}
+          <tbody>{clientKeys.slice(page * PAGE, page * PAGE + PAGE).map(c => (<tr key={c}><td style={{ ...cell, color: "var(--text)", fontWeight: 600 }}>{c}</td><td style={cell}>{new Set(byClient[c].map(r => r.imo || r.vessel)).size}</td><td style={cell}>{count(byClient[c], "Contacted")}</td><td style={cell}>{count(byClient[c], "In progress")}</td><td style={cell}>{count(byClient[c], "Not yet")}</td></tr>))}</tbody></table>)}
         {view === "check" && (<div style={{ padding: "14px" }}>
           <div style={{ fontSize: "12px", color: "var(--text3)", marginBottom: "6px" }}>Paste vessel names or IMO numbers (one per line, or separated by commas). Searches all months, ignoring the filters above.</div>
           <textarea value={checkText} onChange={e => setCheckText(e.target.value)} rows={5} placeholder={"PANTHER\n9317523\nCARAMELLO"} style={{ ...sel, width: "100%", fontFamily: "var(--mono)" }} />
@@ -190,6 +196,17 @@ export default function ClientOutreachTab({ tasks = [], vessels = [] }) {
         </div>)}
         {view !== "check" && filtered.length === 0 && <div style={{ padding: "24px", textAlign: "center", color: "var(--text3)", fontSize: "12px" }}>No tasks match these filters.</div>}
       </div>
+      {(view === "detail" || view === "client") && (() => {
+        const total = view === "detail" ? filtered.length : clientKeys.length;
+        const pages = Math.max(1, Math.ceil(total / PAGE));
+        if (total <= PAGE) return null;
+        return (<div style={{ display: "flex", gap: "8px", alignItems: "center", justifyContent: "flex-end", marginTop: "10px", fontSize: "12px", color: "var(--text3)" }}>
+          <span>Showing {page * PAGE + 1}–{Math.min(total, page * PAGE + PAGE)} of {total}</span>
+          <button style={btn} disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>← Prev</button>
+          <span>Page {page + 1} of {pages}</span>
+          <button style={btn} disabled={page >= pages - 1} onClick={() => setPage(p => Math.min(pages - 1, p + 1))}>Next →</button>
+        </div>);
+      })()}
       <div style={{ fontSize: "11px", color: "var(--text3)", marginTop: "10px", lineHeight: 1.6 }}>
         “Contacted” = task Executed/Completed (see Outcome for what was actually done). Month = month the task was created. Client is looked up by IMO from vessel, fleet and stricken records, then by vessel name.
       </div>
