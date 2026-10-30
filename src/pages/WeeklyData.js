@@ -660,7 +660,7 @@ const UPLOADS = [
   },
   {
     key: "flag_psc_findings",
-    onConflictKey: "imo,flag_psc,insp_date,defect_code",
+    onConflictKey: "imo,flag_psc,insp_date,defect_code,full_description",
     color: "#6366F1",
     bg: "rgba(99,102,241,0.1)",
     label: "Flag & PSC Findings",
