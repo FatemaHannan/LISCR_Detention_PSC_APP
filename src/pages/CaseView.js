@@ -2455,7 +2455,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                   const SEC_COLORS = {admin:"#1e3a5f",detention:"#8b2020",vetting:"#8a5a00",flag:"#0e6b7a",ro:"#5b3a8a",casualty:"#8b2020",mlc:"#8a5a00",disp:"#5b3a8a",flags:"#4a4a4a",rec:"#1e6b45"};
                   const rows = (label,value,alert)=>"<tr><td style='padding:7px 12px;border:1px solid #ccc;color:#222;width:32%;background:#f4f5f7;font-weight:600;'>"+label+"</td><td style='padding:7px 12px;border:1px solid #ccc;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(value==null||value===""?"—":value)+"</td></tr>";
                   const sec = (title,bodyHtml,color)=>{ const c=color||"#333"; return "<div style='margin:0 0 18px;'><p style='font-weight:700;font-size:12.5pt;margin:0 0 8px;padding-left:9px;border-left:4px solid "+c+";color:"+c+";'>"+title+"</p>"+bodyHtml+"</div>"; };
-                  const typeLabel = (fp)=>{ const isFlag=String(fp||"").toUpperCase().includes("FLAG"); return "<span style='font-weight:700;color:"+(isFlag?"#0e6b7a":"#8a5a00")+";'>"+(isFlag?"Flag":"PSC")+"</span>"; };
+                  const typeLabel = (fp)=>{ const t=String(fp||"").toUpperCase(); const isFlag=t.includes("FLAG"); const isClass=!isFlag&&t.includes("CLASS"); return "<span style='font-weight:700;color:"+(isFlag?"#0e6b7a":isClass?"#4b3f9e":"#8a5a00")+";'>"+(isFlag?"Flag":isClass?"Class":"PSC")+"</span>"; };
                   const cell = (v,alert)=>"<td style='padding:7px 12px;border:1px solid #ccc;width:18%;color:"+(alert?"#a30000;font-weight:700;":"#111;")+"'>"+(v==null||v===""?"—":v)+"</td>";
                   const lbl = (l)=>"<td style='padding:7px 12px;border:1px solid #ccc;background:#f4f5f7;font-weight:600;color:#222;width:32%;'>"+l+"</td>";
                   const pair = (l1,v1,l2,v2,a1,a2)=>"<tr>"+lbl(l1)+cell(v1,a1)+(l2!=null?lbl(l2)+cell(v2,a2):"<td style='border:1px solid #ccc;'></td><td style='border:1px solid #ccc;'></td>")+"</tr>";
@@ -2561,7 +2561,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                         +pair("Last RO Survey (Previous to Detention)",v.roSurveyDate,"Findings",v.roFindings)
                         +pair("Outstanding Conditions of Class?",v.roStatus?"Yes — "+v.roStatus:"No","Other Outstanding Findings?",v.roNotes?"Yes":"No",!!v.roStatus,!!v.roNotes)
                         +"</table>",SEC_COLORS.flag)
-                      +sec("Full Flag and PSC Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                      +sec("Full Flag, PSC and Class Inspection History","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Inspection Type","Port","Findings","Status","Inspector"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +(allInspsSorted.length?allInspsSorted.map(f=>{
                           const isDetentionRow = v.detentionDate && f.inspection_date===v.detentionDate && String(f.flag_psc||"").toUpperCase().includes("PSC");
@@ -2577,7 +2577,7 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           +"</tr>";
                         }).join(""):rows("Inspections","None on record"))
                         +"</table>",SEC_COLORS.flag)
-                      +(flagInspsSorted.length>0?sec("Flag and PSC Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
+                      +(flagInspsSorted.length>0?sec("Flag, PSC and Class Inspection Finding Trend","<table style='border-collapse:collapse;width:100%;table-layout:fixed;'>"
                         +"<tr>"+["Date","Type","Deficiency Names"].map(h=>"<td style='padding:5px 8px;border:1px solid #999;font-weight:bold;background:#eee;font-size:8.5pt;'>"+h+"</td>").join("")+"</tr>"
                         +allInspsSorted.filter(f=>(f.num_findings??0)>0).slice(0,15).map(f=>"<tr>"
                           +"<td style='padding:5px 8px;border:1px solid #999;'>"+fmtDate(f.inspection_date)+"</td>"
@@ -2848,11 +2848,11 @@ export default function CaseView({canEdit, canDelete, canDownload, currentUser, 
                           )}
                         </div>
                         <div style={{borderTop:"1px solid var(--border)",paddingTop:"10px",marginBottom:"10px"}}>
-                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag and PSC Inspection History ({allInspsSorted.length})</div>
+                          <div style={{fontSize:"13px",fontWeight:600,color:"var(--text)",marginBottom:"8px",textTransform:"uppercase",letterSpacing:".04em"}}>Full Flag, PSC and Class Inspection History ({allInspsSorted.length})</div>
                           {allInspsSorted.length>0?allInspsSorted.map((f,i)=>(
                             <div key={i} style={{display:"flex",gap:"10px",padding:"6px 0",borderBottom:i<allInspsSorted.length-1?"1px solid var(--border)":"none",fontSize:"13px",flexWrap:"wrap",alignItems:"center"}}>
                               <span style={{color:"var(--text3)",fontFamily:"var(--mono)",flexShrink:0}}>{fmtDate(f.inspection_date)}</span>
-                              <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue-bg)":"var(--amber-bg)",color:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue)":"var(--amber2)",fontWeight:600,flexShrink:0}}>{String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":"PSC"}</span>
+                              <span style={{fontSize:"13px",padding:"1px 6px",borderRadius:"3px",background:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue-bg)":String(f.flag_psc||"").toUpperCase().includes("CLASS")?"rgba(124,58,237,0.12)":"var(--amber-bg)",color:String(f.flag_psc||"").toUpperCase().includes("FLAG")?"var(--blue)":String(f.flag_psc||"").toUpperCase().includes("CLASS")?"#7c3aed":"var(--amber2)",fontWeight:600,flexShrink:0}}>{String(f.flag_psc||"").toUpperCase().includes("FLAG")?"Flag":String(f.flag_psc||"").toUpperCase().includes("CLASS")?"Class":"PSC"}</span>
                               <span style={{color:"var(--text2)"}}>{f.port||"—"}</span>
                               <span style={{color:f.num_findings>=5?"var(--red2)":"var(--text3)"}}>{f.num_findings??0} findings</span>
                               <span style={{color:"var(--text3)"}}>{f.auditor||"—"}</span>

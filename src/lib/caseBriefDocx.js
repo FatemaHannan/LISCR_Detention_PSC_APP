@@ -50,7 +50,10 @@ function boxHeadRow(title, colorHex) {
 // 2-column "rows()" equivalent: label (32%) | value (68%)
 // 2-column row where the value starts with a colored "Flag"/"PSC" label, rest of the text normal color
 function typeLabel(flagPsc) {
-  return String(flagPsc||"").toUpperCase().includes("FLAG") ? "Flag" : "PSC";
+  const t = String(flagPsc||"").toUpperCase();
+  if (t.includes("FLAG")) return "Flag";
+  if (t.includes("CLASS")) return "Class";
+  return "PSC";
 }
 function typedRow(label, flagPsc, restText) {
   const labelW = Math.round(PAGE_WIDTH_DXA * 0.32), valW = PAGE_WIDTH_DXA - labelW;
@@ -344,7 +347,7 @@ export async function generateCaseBriefDocx(ctx) {
   ]));
 
   // Full Flag and PSC Inspection History
-  children.push(spacer(), sectionTitle("Full Flag and PSC Inspection History", SEC_COLORS.flag));
+  children.push(spacer(), sectionTitle("Full Flag, PSC and Class Inspection History", SEC_COLORS.flag));
   if ((allInspsSorted||[]).length) {
     const colW = [1250, 950, 1600, 2000, 1050, 1500, 1330]; // Date, Type, Inspection Type, Port, Findings, Status, Inspector
     children.push(multiColTable(
@@ -378,7 +381,7 @@ export async function generateCaseBriefDocx(ctx) {
     });
     const trendRows = (allInspsSorted||[]).filter(f => (f.num_findings??0) > 0).slice(0,15);
     if (trendRows.length > 0) {
-      children.push(spacer(), sectionTitle("Flag and PSC Inspection Finding Trend", SEC_COLORS.flag));
+      children.push(spacer(), sectionTitle("Flag, PSC and Class Inspection Finding Trend", SEC_COLORS.flag));
       children.push(multiColTable(
         ["Date","Type","Deficiency Names"],
         trendRows.map(f => [
